@@ -1,3 +1,5 @@
+
+
 // TODO: use splats in param definition "*"
 // TODO: ? check extend for query only .extend('&x&z')
 // TODO: .create(route, {useQuery, useParams})
@@ -11,6 +13,12 @@
 // TODO: .create(route, {baseUrl, useLocation})
 // TODO: ? optional path params as @
 // TODO: prependMany, extendMany, overrideMany, with types
+
+// page0
+// TODO: Сделать чисто фронтовую штуку, которая сама вызывает лоадер, сама вызывает нужные мета и title, и отдаёт в компонент нужные штуки
+
+// ssr0
+// TODO: ССР работает просто поверх любого роутера, который поддерживает асинхронную загрузку страниц
 
 export class Route0<
   TPathOriginalDefinition extends string,
