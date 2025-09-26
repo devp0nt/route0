@@ -1,5 +1,3 @@
-
-
 // TODO: use splats in param definition "*"
 // TODO: ? check extend for query only .extend('&x&z')
 // TODO: .create(route, {useQuery, useParams})
@@ -27,13 +25,13 @@ export class Route0<
   TQueryDefinition extends Route0._QueryDefinition<TPathOriginalDefinition>,
 > {
   pathOriginalDefinition: TPathOriginalDefinition
-  private pathDefinition: TPathDefinition
+  private readonly pathDefinition: TPathDefinition
   paramsDefinition: TParamsDefinition
   queryDefinition: TQueryDefinition
   baseUrl: string
 
   private constructor(definition: TPathOriginalDefinition, config: Route0.RouteConfigInput = {}) {
-    this.pathOriginalDefinition = definition as TPathOriginalDefinition
+    this.pathOriginalDefinition = definition
     this.pathDefinition = Route0._getPathDefinitionByOriginalDefinition(definition) as TPathDefinition
     this.paramsDefinition = Route0._getParamsDefinitionByRouteDefinition(definition) as TParamsDefinition
     this.queryDefinition = Route0._getQueryDefinitionByRouteDefinition(definition) as TQueryDefinition
@@ -43,6 +41,7 @@ export class Route0<
       this.baseUrl = baseUrl
     } else {
       const g = globalThis as unknown as { location?: { origin?: string } }
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (g?.location?.origin) {
         this.baseUrl = g.location.origin
       } else {
@@ -238,8 +237,10 @@ export class Route0<
     }
 
     // create url
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
     let url = String(this.pathDefinition)
     // replace params
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     url = url.replace(/:([A-Za-z0-9_]+)/g, (_m, k) => encodeURIComponent(String(paramsInput?.[k] ?? '')))
     // query params
     const queryInputStringified = Object.fromEntries(Object.entries(queryInput).map(([k, v]) => [k, String(v)]))
@@ -279,6 +280,7 @@ export namespace Route0 {
   export type _QueryTailDefinitionWithoutFirstAmp<S extends string> = S extends `${string}&${infer T}` ? T : ''
   export type _QueryTailDefinitionWithFirstAmp<S extends string> = S extends `${string}&${infer T}` ? `&${T}` : ''
   export type _AmpSplit<S extends string> = S extends `${infer A}&${infer B}` ? A | _AmpSplit<B> : S
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
   export type _NonEmpty<T> = [T] extends ['' | never] ? never : T
   export type _ExtractPathParams<S extends string> = S extends `${string}:${infer After}`
     ? After extends `${infer Name}/${infer Rest}`
@@ -286,14 +288,15 @@ export namespace Route0 {
       : After
     : never
   export type _ReplacePathParams<S extends string> = S extends `${infer Head}:${infer Tail}`
-    ? Tail extends `${infer _Param}/${infer Rest}`
+    ? // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      Tail extends `${infer _Param}/${infer Rest}`
       ? _ReplacePathParams<`${Head}${string}/${Rest}`>
       : `${Head}${string}`
     : S
   export type _DedupeSlashes<S extends string> = S extends `${infer A}//${infer B}` ? _DedupeSlashes<`${A}/${B}`> : S
   export type _EmptyRecord = Record<never, never>
   export type _JoinPath<Parent extends string, Suffix extends string> = _DedupeSlashes<
-    Route0._PathDefinition<Parent> extends infer A extends string
+    _PathDefinition<Parent> extends infer A extends string
       ? _PathDefinition<Suffix> extends infer B extends string
         ? A extends ''
           ? B extends ''
@@ -317,22 +320,20 @@ export namespace Route0 {
 
   export type _PathDefinition<TPathOriginalDefinition extends string> =
     _TrimQueryTailDefinition<TPathOriginalDefinition>
-  export type _ParamsDefinition<TPathOriginalDefinition extends string> = _ExtractPathParams<
-    _PathDefinition<TPathOriginalDefinition>
-  > extends infer U
-    ? [U] extends [never]
-      ? _EmptyRecord
-      : { [K in Extract<U, string>]: true }
-    : _EmptyRecord
-  export type _QueryDefinition<TPathOriginalDefinition extends string> = _NonEmpty<
-    _QueryTailDefinitionWithoutFirstAmp<TPathOriginalDefinition>
-  > extends infer Tail extends string
-    ? _AmpSplit<Tail> extends infer U
+  export type _ParamsDefinition<TPathOriginalDefinition extends string> =
+    _ExtractPathParams<_PathDefinition<TPathOriginalDefinition>> extends infer U
       ? [U] extends [never]
         ? _EmptyRecord
         : { [K in Extract<U, string>]: true }
       : _EmptyRecord
-    : _EmptyRecord
+  export type _QueryDefinition<TPathOriginalDefinition extends string> =
+    _NonEmpty<_QueryTailDefinitionWithoutFirstAmp<TPathOriginalDefinition>> extends infer Tail extends string
+      ? _AmpSplit<Tail> extends infer U
+        ? [U] extends [never]
+          ? _EmptyRecord
+          : { [K in Extract<U, string>]: true }
+        : _EmptyRecord
+      : _EmptyRecord
   export type _RoutePathOriginalDefinitionExtended<
     TSourcePathOriginalDefinition extends string,
     TSuffixPathOriginalDefinition extends string,
