@@ -81,7 +81,9 @@
     "prepare": "husky",
     "clean": "rimraf dist && rimraf dist-test && rimraf dist-npm && rimraf node_modules/.cache"
   },
-  "dependencies": {},
+  "dependencies": {
+    "serialize-error": "^12.0.0"
+  },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
