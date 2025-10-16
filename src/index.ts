@@ -292,16 +292,17 @@ export class Route0<
     }
   }
 
-  match(url: string): Route0.MatchResult<this> {
-    const location = Route0.getLocation(url)
-
+  static getMatch<TRoute0 extends Route0.AnyRoute>(
+    route0: TRoute0,
+    location: Route0.Location,
+  ): Route0.MatchResult<TRoute0> {
     const escapeRegex = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
 
     // Normalize both sides (no trailing slash except root)
     const def =
-      this.pathDefinition.length > 1 && this.pathDefinition.endsWith('/')
-        ? this.pathDefinition.slice(0, -1)
-        : this.pathDefinition
+      route0.pathDefinition.length > 1 && route0.pathDefinition.endsWith('/')
+        ? route0.pathDefinition.slice(0, -1)
+        : route0.pathDefinition
     const pathname =
       location.pathname.length > 1 && location.pathname.endsWith('/')
         ? location.pathname.slice(0, -1)
@@ -309,7 +310,8 @@ export class Route0<
 
     // Build a regex from the route definition: /a/:x/b/:y -> ^/a/([^/]+)/b/([^/]+)$
     const paramNames: string[] = []
-    const pattern = def.replace(/:([A-Za-z0-9_]+)/g, (_m, name) => {
+    const pattern = def.replace(/:([A-Za-z0-9_]+)/g, (_m: string, name: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
       paramNames.push(String(name))
       return '([^/]+)'
     })
@@ -340,6 +342,11 @@ export class Route0<
       children,
       location,
     } as never
+  }
+
+  match(url: string): Route0.MatchResult<this> {
+    const location = Route0.getLocation(url)
+    return Route0.getMatch(this, location)
   }
 }
 
