@@ -343,7 +343,6 @@ export class Route0<
       location,
     } as never
   }
-
   match(url: string): Route0.MatchResult<this> {
     const location = Route0.getLocation(url)
     return Route0.getMatch(this, location)
