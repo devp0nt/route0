@@ -1,3 +1,4 @@
+// TODO: query input can be boolean, or even object with qs
 // TODO: Роут0 три пусть три тоже сам генерится вероятно
 // TODO: Роут0 три мод, тогда там все ноуты кончаются на .селф
 // TODO: use splats in param definition "*"
@@ -451,9 +452,15 @@ export namespace Route0 {
   export type _AbsoluteWithQueryRouteValue<TPathOriginalDefinition extends string> =
     `${string}${_WithQueryRouteValue<TPathOriginalDefinition>}`
 
+  export type _LocationParams<TParamsDefinition extends object> = {
+    [K in keyof TParamsDefinition]: string
+  }
+  export type _LocationQuery<TQueryDefinition extends object> = {
+    [K in keyof TQueryDefinition]: string | undefined
+  } & Record<string, string | undefined>
   export type Location<TRoute0 extends AnyRoute = AnyRoute> = {
-    query: _QueryInput<TRoute0['queryDefinition']>
-    params: _ParamsInput<TRoute0['paramsDefinition']>
+    query: _LocationQuery<TRoute0['queryDefinition']>
+    params: _LocationParams<TRoute0['paramsDefinition']>
     pathname: string
     search: string
     hash: string

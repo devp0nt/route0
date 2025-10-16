@@ -251,6 +251,9 @@ describe('route0', () => {
     expect(match.exact).toBe(true)
     expect(match.parent).toBe(false)
     expect(match.children).toBe(false)
+    if (match.exact) {
+      expectTypeOf<typeof match.location.params>().toEqualTypeOf<{ x: string; y: string; z: string }>()
+    }
     expect(match.location.params).toMatchObject({ x: 'xxx', y: 'yyy', z: 'zzz' })
   })
 })
