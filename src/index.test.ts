@@ -203,4 +203,54 @@ describe('route0', () => {
     // @ts-expect-error no path params allowed for this route (shorthand)
     expect(rNo.get({ id: '1' })).toBe('/b')
   })
+
+  it('getLocation location of url', () => {
+    let location = Route0.getLocation('/prefix/some/suffix')
+    expect(location).toMatchObject({
+      hash: '',
+      href: '/prefix/some/suffix',
+      abs: false,
+      origin: undefined,
+      params: {},
+      pathname: '/prefix/some/suffix',
+      query: {},
+      search: '',
+    })
+    location = Route0.getLocation('/prefix/some/suffix?x=1&z=2')
+    expect(location).toMatchObject({
+      hash: '',
+      href: '/prefix/some/suffix?x=1&z=2',
+      abs: false,
+      origin: undefined,
+      params: {},
+      pathname: '/prefix/some/suffix',
+      query: { x: '1', z: '2' },
+      search: '?x=1&z=2',
+    })
+    location = Route0.getLocation('https://example.com/prefix/some/suffix?x=1&z=2')
+    expect(location).toMatchObject({
+      hash: '',
+      href: 'https://example.com/prefix/some/suffix?x=1&z=2',
+      abs: true,
+      origin: 'https://example.com',
+      params: {},
+      pathname: '/prefix/some/suffix',
+      query: { x: '1', z: '2' },
+      search: '?x=1&z=2',
+    })
+  })
+
+  it('match', () => {
+    const route0 = Route0.create('/prefix/:x/some/:y/:z/suffix')
+    let match = route0.match('/prefix/some/suffix')
+    expect(match.exact).toBe(false)
+    expect(match.parent).toBe(false)
+    expect(match.children).toBe(false)
+    expect(match.location.params).toMatchObject({})
+    match = route0.match('/prefix/xxx/some/yyy/zzz/suffix')
+    expect(match.exact).toBe(true)
+    expect(match.parent).toBe(false)
+    expect(match.children).toBe(false)
+    expect(match.location.params).toMatchObject({ x: 'xxx', y: 'yyy', z: 'zzz' })
+  })
 })

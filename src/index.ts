@@ -1,3 +1,5 @@
+// TODO: Роут0 три пусть три тоже сам генерится вероятно
+// TODO: Роут0 три мод, тогда там все ноуты кончаются на .селф
 // TODO: use splats in param definition "*"
 // TODO: ? check extend for query only .extend('&x&z')
 // TODO: .create(route, {useQuery, useParams})
@@ -125,10 +127,7 @@ export class Route0<
     return queryDefinition as Route0._QueryDefinition<TPathOriginalDefinition>
   }
 
-  static overrideMany<T extends Record<string, Route0<any, any, any, any>>>(
-    routes: T,
-    config: Route0.RouteConfigInput,
-  ): T {
+  static overrideMany<T extends Record<string, Route0.AnyRoute>>(routes: T, config: Route0.RouteConfigInput): T {
     const result = {} as T
     for (const [key, value] of Object.entries(routes)) {
       ;(result as any)[key] = value.clone(config)
@@ -260,17 +259,100 @@ export class Route0<
   clone(config?: Route0.RouteConfigInput) {
     return new Route0(this.pathOriginalDefinition, config)
   }
+
+  static getLocation(url: `${string}://${string}`): Route0.Location
+  static getLocation(path: `/${string}`): Route0.Location
+  static getLocation(urlOrPath: string): Route0.Location
+  static getLocation(urlOrPath: string): Route0.Location {
+    // Allow both relative and absolute inputs
+    const abs = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(urlOrPath)
+    const base = abs ? undefined : 'http://example.com' // dummy base for relative URLs
+
+    const url = new URL(urlOrPath, base)
+
+    // Extract query and params (params left empty for now — parsed separately)
+    const query = Object.fromEntries(url.searchParams.entries())
+
+    // Normalize pathname (remove trailing slash except for root)
+    let pathname = url.pathname
+    if (pathname.length > 1 && pathname.endsWith('/')) {
+      pathname = pathname.slice(0, -1)
+    }
+
+    // Build the location object similar to browser location
+    return {
+      query,
+      params: {}, // filled later by .parse()
+      pathname,
+      search: url.search,
+      hash: url.hash,
+      origin: abs ? url.origin : undefined,
+      href: abs ? url.href : pathname + url.search + url.hash,
+      abs,
+    }
+  }
+
+  match(url: string): Route0.MatchResult<this> {
+    const location = Route0.getLocation(url)
+
+    const escapeRegex = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
+
+    // Normalize both sides (no trailing slash except root)
+    const def =
+      this.pathDefinition.length > 1 && this.pathDefinition.endsWith('/')
+        ? this.pathDefinition.slice(0, -1)
+        : this.pathDefinition
+    const pathname =
+      location.pathname.length > 1 && location.pathname.endsWith('/')
+        ? location.pathname.slice(0, -1)
+        : location.pathname
+
+    // Build a regex from the route definition: /a/:x/b/:y -> ^/a/([^/]+)/b/([^/]+)$
+    const paramNames: string[] = []
+    const pattern = def.replace(/:([A-Za-z0-9_]+)/g, (_m, name) => {
+      paramNames.push(String(name))
+      return '([^/]+)'
+    })
+
+    const exactRe = new RegExp(`^${pattern}$`)
+    const parentRe = new RegExp(`^${pattern}(?:/.*)?$`) // route matches the beginning of the URL (may have more)
+    const exactMatch = pathname.match(exactRe)
+
+    // Fill params only for exact match (keeps behavior predictable)
+    if (exactMatch) {
+      const values = exactMatch.slice(1)
+      const params = Object.fromEntries(paramNames.map((n, i) => [n, decodeURIComponent(values[i] ?? '')]))
+      ;(location as any).params = params
+    } else {
+      ;(location as any).params = {}
+    }
+
+    const exact = !!exactMatch
+    const parent = !exact && parentRe.test(pathname)
+
+    // "children": the URL is a prefix of the route definition (ignoring params’ concrete values)
+    // We check if the definition starts with the URL path boundary-wise.
+    const children = !exact && new RegExp(`^${escapeRegex(pathname)}(?:/|$)`).test(def)
+
+    return {
+      exact,
+      parent,
+      children,
+      location,
+    } as never
+  }
 }
 
 export namespace Route0 {
-  export type Callable<T extends Route0<any, any, any, any>> = T & T['get']
+  export type AnyRoute = Route0<any, any, any, any>
+  export type Callable<T extends AnyRoute> = T & T['get']
   export type RouteConfigInput = {
     baseUrl?: string
   }
-  export type Params<TRoute0 extends Route0<any, any, any, any>> = {
+  export type Params<TRoute0 extends AnyRoute> = {
     [K in keyof TRoute0['paramsDefinition']]: string
   }
-  export type Query<TRoute0 extends Route0<any, any, any, any>> = Partial<
+  export type Query<TRoute0 extends AnyRoute> = Partial<
     {
       [K in keyof TRoute0['queryDefinition']]: string | undefined
     } & Record<string, string | undefined>
@@ -362,4 +444,30 @@ export namespace Route0 {
     `${string}${_PathOnlyRouteValue<TPathOriginalDefinition>}`
   export type _AbsoluteWithQueryRouteValue<TPathOriginalDefinition extends string> =
     `${string}${_WithQueryRouteValue<TPathOriginalDefinition>}`
+
+  export type Location<TRoute0 extends AnyRoute = AnyRoute> = {
+    query: _QueryInput<TRoute0['queryDefinition']>
+    params: _ParamsInput<TRoute0['paramsDefinition']>
+    pathname: string
+    search: string
+    hash: string
+    origin?: string
+    href: string
+    abs: boolean
+  }
+  export type MatchResult<TRoute0 extends AnyRoute, TExact extends boolean = boolean> = TExact extends true
+    ? {
+        exact: true
+        parent: false
+        children: false
+        location: Location<TRoute0>
+      }
+    : TExact extends false
+      ? {
+          exact: false
+          parent: boolean
+          children: boolean
+          location: Location
+        }
+      : never
 }
