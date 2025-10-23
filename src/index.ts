@@ -1,3 +1,5 @@
+// TODO: избавиться от жутких эни в роуте
+// TODO: .extension('.json') to not add additional / but just add some extension
 // TODO: query input can be boolean, or even object with qs
 // TODO: Роут0 три пусть три тоже сам генерится вероятно
 // TODO: Роут0 три мод, тогда там все ноуты кончаются на .селф
@@ -14,8 +16,9 @@
 // TODO: .create(route, {baseUrl, useLocation})
 // TODO: ? optional path params as @
 // TODO: prependMany, extendMany, overrideMany, with types
+// TODO: optional route params /x/:id?
 
-// page0
+// point0
 // TODO: Сделать чисто фронтовую штуку, которая сама вызывает лоадер, сама вызывает нужные мета и title, и отдаёт в компонент нужные штуки
 
 // ssr0
@@ -483,4 +486,10 @@ export namespace Route0 {
           location: Location
         }
       : never
+  export type HasParams<TRoute0 extends AnyRoute> =
+    _ExtractPathParams<_PathDefinition<TRoute0['pathOriginalDefinition']>> extends infer U
+      ? [U] extends [never]
+        ? false
+        : true
+      : false
 }
