@@ -1,3 +1,4 @@
+// TODO: getLocation by windows location
 // TODO: избавиться от жутких эни в роуте
 // TODO: .extension('.json') to not add additional / but just add some extension
 // TODO: query input can be boolean, or even object with qs
@@ -300,6 +301,7 @@ export class Route0<
     route0: TRoute0,
     location: Route0.Location,
   ): Route0.MatchResult<TRoute0> {
+    const locationCloned = { ...location, params: { ...location.params }, query: { ...location.query } }
     const escapeRegex = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
 
     // Normalize both sides (no trailing slash except root)
@@ -308,9 +310,9 @@ export class Route0<
         ? route0.pathDefinition.slice(0, -1)
         : route0.pathDefinition
     const pathname =
-      location.pathname.length > 1 && location.pathname.endsWith('/')
-        ? location.pathname.slice(0, -1)
-        : location.pathname
+      locationCloned.pathname.length > 1 && locationCloned.pathname.endsWith('/')
+        ? locationCloned.pathname.slice(0, -1)
+        : locationCloned.pathname
 
     // Build a regex from the route definition: /a/:x/b/:y -> ^/a/([^/]+)/b/([^/]+)$
     const paramNames: string[] = []
@@ -328,9 +330,9 @@ export class Route0<
     if (exactMatch) {
       const values = exactMatch.slice(1)
       const params = Object.fromEntries(paramNames.map((n, i) => [n, decodeURIComponent(values[i] ?? '')]))
-      ;(location as any).params = params
+      locationCloned.params = params
     } else {
-      ;(location as any).params = {}
+      locationCloned.params = {}
     }
 
     const exact = !!exactMatch
@@ -344,7 +346,7 @@ export class Route0<
       exact,
       parent,
       children,
-      location,
+      location: locationCloned,
     } as never
   }
   match(url: string): Route0.MatchResult<this> {

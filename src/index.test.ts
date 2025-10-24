@@ -8,6 +8,7 @@ describe('route0', () => {
     expect(route0).toBeInstanceOf(Route0)
     expectTypeOf<typeof path>().toEqualTypeOf<'/'>()
     expect(path).toBe('/')
+    expectTypeOf<Route0.HasParams<typeof route0>>().toEqualTypeOf<false>()
   })
 
   it('simple, callable', () => {
@@ -30,6 +31,7 @@ describe('route0', () => {
     const path = route0.get({ x: '1', y: 2, z: '3' })
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/some/${string}/${string}`>()
     expect(path).toBe('/prefix/1/some/2/3')
+    expectTypeOf<Route0.HasParams<typeof route0>>().toEqualTypeOf<true>()
   })
 
   it('params and any query', () => {
