@@ -14,8 +14,7 @@ import type {
   StrictSearchInput,
   StrictSearchOutput,
 } from './index.js'
-import { Route0 } from './index.js'
-import { Routes } from './collection.js'
+import { Route0, Routes } from './index.js'
 
 describe('route0', () => {
   it('simple', () => {
@@ -483,9 +482,9 @@ describe('RoutesCollection', () => {
     })
 
     expect(collection).toBeInstanceOf(Routes)
-    const home = collection.get('home')
-    const about = collection.get('about')
-    const contact = collection.get('contact')
+    const home = collection.home
+    const about = collection.about
+    const contact = collection.contact
 
     expect(home).toBeInstanceOf(Route0)
     expect(about).toBeInstanceOf(Route0)
@@ -505,8 +504,8 @@ describe('RoutesCollection', () => {
       about: aboutRoute,
     })
 
-    expect(collection.get('home').get()).toBe('/')
-    expect(collection.get('about').get()).toBe('/about')
+    expect(collection.home.get()).toBe('/')
+    expect(collection.about.get()).toBe('/about')
   })
 
   it('create with mixed string and Route0', () => {
@@ -518,9 +517,9 @@ describe('RoutesCollection', () => {
       contact: '/contact',
     })
 
-    expect(collection.get('home').get()).toBe('/')
-    expect(collection.get('about').get()).toBe('/about')
-    expect(collection.get('contact').get()).toBe('/contact')
+    expect(collection.home.get()).toBe('/')
+    expect(collection.about.get()).toBe('/about')
+    expect(collection.contact.get()).toBe('/contact')
   })
 
   it('create with params and search', () => {
@@ -530,13 +529,13 @@ describe('RoutesCollection', () => {
       userWithSearch: '/user/:id&tab',
     })
 
-    const user = collection.get('user')
+    const user = collection.user
     expect(user.get({ id: '123' } as any)).toBe('/user/123')
 
-    const search = collection.get('search')
+    const search = collection.search
     expect(search.get({ search: { q: 'test', filter: 'all' } })).toBe('/search?q=test&filter=all')
 
-    const userWithSearch = collection.get('userWithSearch')
+    const userWithSearch = collection.userWithSearch
     expect(userWithSearch.get({ id: '456', search: { tab: 'posts' } } as any)).toBe('/user/456?tab=posts')
   })
 
@@ -546,8 +545,8 @@ describe('RoutesCollection', () => {
       user: '/user/:id',
     })
 
-    const home = collection.get('home')
-    const user = collection.get('user')
+    const home = collection.home
+    const user = collection.user
 
     // Verify route definitions are preserved
     expect(home.pathOriginal).toBe('/')
@@ -556,7 +555,7 @@ describe('RoutesCollection', () => {
     expect(user.pathDefinition).toBe('/user/:id')
 
     // Verify params work correctly
-    expect(user.get({ id: '123' } as any)).toBe('/user/123')
+    expect(user.get({ id: '123' })).toBe('/user/123')
   })
 
   it('override with baseUrl', () => {
@@ -567,8 +566,8 @@ describe('RoutesCollection', () => {
 
     const overridden = collection.override({ baseUrl: 'https://example.com' })
 
-    const home = overridden.get('home')
-    const about = overridden.get('about')
+    const home = overridden.home
+    const about = overridden.about
 
     expect(home.get({ abs: true })).toBe('https://example.com')
     expect(about.get({ abs: true })).toBe('https://example.com/about')
@@ -579,11 +578,11 @@ describe('RoutesCollection', () => {
       home: '/',
     })
 
-    const original = collection.get('home')
+    const original = collection.home
     expect(original.get({ abs: true })).toBe('https://example.com')
 
     const overridden = collection.override({ baseUrl: 'https://newdomain.com' })
-    const newRoute = overridden.get('home')
+    const newRoute = overridden.home
 
     expect(original.get({ abs: true })).toBe('https://example.com')
     expect(newRoute.get({ abs: true })).toBe('https://newdomain.com')
@@ -598,18 +597,18 @@ describe('RoutesCollection', () => {
       users: usersRoute,
     })
 
-    expect(collection.get('api').get({ abs: true })).toBe('https://api.example.com/api')
+    expect(collection.api.get({ abs: true })).toBe('https://api.example.com/api')
     expect(collection.api({ abs: true })).toBe('https://api.example.com/api')
-    expect(collection.get('users').get({ abs: true })).toBe('https://api.example.com/api/users')
+    expect(collection.users.get({ abs: true })).toBe('https://api.example.com/api/users')
 
     const overridden = collection.override({ baseUrl: 'https://new-api.example.com' })
 
-    expect(overridden.get('api').get({ abs: true })).toBe('https://new-api.example.com/api')
-    expect(overridden.get('users').get({ abs: true })).toBe('https://new-api.example.com/api/users')
+    expect(overridden.api.get({ abs: true })).toBe('https://new-api.example.com/api')
+    expect(overridden.users.get({ abs: true })).toBe('https://new-api.example.com/api/users')
   })
 
   it('hydrate static method', () => {
-    const hydrated = Routes.hydrate({
+    const hydrated = Routes._hydrate({
       home: '/',
       user: '/user/:id',
       about: Route0.create('/about'),
@@ -620,7 +619,7 @@ describe('RoutesCollection', () => {
     expect(hydrated.about).toBeInstanceOf(Route0)
 
     expect(hydrated.home.get()).toBe('/')
-    expect(hydrated.user.get({ id: '123' } as any)).toBe('/user/123')
+    expect(hydrated.user.get({ id: '123' })).toBe('/user/123')
     expect(hydrated.about.get()).toBe('/about')
   })
 
@@ -630,8 +629,8 @@ describe('RoutesCollection', () => {
       user: '/user/:id',
     })
 
-    const home = collection.get('home') as any
-    const user = collection.get('user') as any
+    const home = collection.home
+    const user = collection.user
 
     // Routes should be callable
     expect(typeof home).toBe('function')
@@ -651,18 +650,18 @@ describe('RoutesCollection', () => {
       userPosts: api.extend('/users/:id/posts&sort&filter'),
     })
 
-    expect(collection.get('root').get()).toBe('/')
-    expect(collection.get('api').get({ abs: true })).toBe('https://api.example.com/api/v1')
-    expect(collection.get('users').get({ abs: true })).toBe('https://api.example.com/api/v1/users')
+    expect(collection.root.get()).toBe('/')
+    expect(collection.api({ abs: true })).toBe('https://api.example.com/api/v1')
+    expect(collection.users.get({ abs: true })).toBe('https://api.example.com/api/v1/users')
 
-    const userDetailPath: any = collection.get('userDetail').get({ id: '42', abs: true } as any)
+    const userDetailPath: any = collection.userDetail.get({ id: '42', abs: true })
     expect(userDetailPath).toBe('https://api.example.com/api/v1/users/42')
 
-    const userPostsPath: any = collection.get('userPosts').get({
+    const userPostsPath: any = collection.userPosts.get({
       id: '42',
       search: { sort: 'date', filter: 'published' },
       abs: true,
-    } as any)
+    })
     expect(userPostsPath).toBe('https://api.example.com/api/v1/users/42/posts?sort=date&filter=published')
   })
 })

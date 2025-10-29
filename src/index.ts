@@ -57,7 +57,7 @@ export class Route0<TPath extends string> {
     }
   }
 
-  static create<TPath extends string>(definition: TPath, config?: RouteConfigInput): Callable<Route0<TPath>> {
+  static create<TPath extends string>(definition: TPath, config?: RouteConfigInput): CallabelRoute0<TPath> {
     const original = new Route0<TPath>(definition, config)
     const callable = original.get.bind(original)
     Object.setPrototypeOf(callable, original)
@@ -104,7 +104,7 @@ export class Route0<TPath extends string> {
 
   extend<TSuffixDefinition extends string>(
     suffixDefinition: TSuffixDefinition,
-  ): Callable<Route0<PathExtended<TPath, TSuffixDefinition>>> {
+  ): CallabelRoute0<PathExtended<TPath, TSuffixDefinition>> {
     const { pathDefinition: parentPathDefinition } = Route0._splitPathDefinitionAndSearchTailDefinition(
       this.pathOriginal,
     )
@@ -388,38 +388,107 @@ export class Route0<TPath extends string> {
   }
 }
 
+export class Routes<const T extends RoutesRecord = RoutesRecord> {
+  readonly routes: RoutesRecordHydrated<T>
+
+  private constructor(routes: T, isHydrated?: boolean) {
+    if (isHydrated) {
+      this.routes = routes as unknown as RoutesRecordHydrated<T>
+    } else {
+      this.routes = Routes._hydrate(routes)
+    }
+  }
+
+  static create<const T extends RoutesRecord>(routes: T): RoutesPretty<T> {
+    return Routes._prettify(routes, false)
+  }
+
+  static _prettify<const T extends RoutesRecord>(routes: T, isHydrated?: boolean): RoutesPretty<T> {
+    const result = new Routes(routes, isHydrated)
+    Object.setPrototypeOf(result, Routes.prototype)
+    Object.defineProperty(result, Symbol.toStringTag, {
+      value: 'Routes',
+    })
+    Object.assign(result, {
+      override: result.override.bind(result),
+    })
+    Object.assign(result, result.routes)
+    return result as unknown as RoutesPretty<T>
+  }
+
+  static _hydrate<const T extends RoutesRecord>(routes: T): RoutesRecordHydrated<T> {
+    const result = {} as RoutesRecordHydrated<T>
+    for (const key in routes) {
+      if (Object.prototype.hasOwnProperty.call(routes, key)) {
+        const value = routes[key]
+        result[key] = (typeof value === 'string' ? Route0.create(value) : value) as AnyRoute<T[typeof key]>
+      }
+    }
+    return result
+  }
+
+  override(config: RouteConfigInput): RoutesPretty<T> {
+    const newRoutes = {} as RoutesRecordHydrated<T>
+    for (const key in this.routes) {
+      if (Object.prototype.hasOwnProperty.call(this.routes, key)) {
+        newRoutes[key] = this.routes[key].clone(config) as AnyRoute<T[typeof key]>
+      }
+    }
+    return Routes._prettify(newRoutes as unknown as T, true)
+  }
+}
+
 // main
 
-export type AnyRoute<T extends string | Route0<string> = string> = T extends string ? Route0<T> : T
-export type Callable<T extends AnyRoute> = T & T['get']
+export type AnyRoute0<T extends Route0<string> | string = string> = T extends string ? Route0<T> : T
+export type CallabelRoute0<T extends Route0<string> | string = string> = AnyRoute0<T> & AnyRoute0<T>['get']
+export type AnyRoute<T extends CallabelRoute0 | string = string> = CallabelRoute0<T>
 export type RouteConfigInput = {
   baseUrl?: string
 }
 
+// collection
+
+export type RoutesRecord = Record<string, AnyRoute | string>
+export type RoutesRecordHydrated<TRoutesRecord extends RoutesRecord = RoutesRecord> = {
+  [K in keyof TRoutesRecord]: AnyRoute<TRoutesRecord[K]>
+}
+export type RoutesPretty<TRoutesRecord extends RoutesRecord = RoutesRecord> = RoutesRecordHydrated<TRoutesRecord> &
+  Routes<TRoutesRecord>
+export type ExtractRoutesKeys<TRoutes extends RoutesPretty | RoutesRecord> = TRoutes extends RoutesPretty
+  ? keyof TRoutes['routes']
+  : TRoutes extends RoutesRecord
+    ? keyof TRoutes
+    : never
+export type ExtractRoute<
+  TRoutes extends RoutesPretty | RoutesRecord,
+  TKey extends keyof ExtractRoutesKeys<TRoutes>,
+> = TKey extends keyof TRoutes ? TRoutes[TKey] : never
+
 // public utils
 
-export type PathOriginal<T extends AnyRoute | string> = T extends AnyRoute
+export type PathOriginal<T extends AnyRoute | string> = T extends AnyRoute0
   ? T['pathOriginal']
   : T extends string
     ? T
     : never
-export type PathDefinition<T extends AnyRoute | string> = T extends AnyRoute
+export type PathDefinition<T extends AnyRoute | string> = T extends AnyRoute0
   ? T['pathDefinition']
   : T extends string
     ? _PathDefinition<T>
     : never
-export type ParamsDefinition<T extends AnyRoute | string> = T extends AnyRoute
+export type ParamsDefinition<T extends AnyRoute | string> = T extends AnyRoute0
   ? T['paramsDefinition']
   : T extends string
     ? _ParamsDefinition<T>
     : undefined
-export type SearchDefinition<T extends AnyRoute | string> = T extends AnyRoute
+export type SearchDefinition<T extends AnyRoute | string> = T extends AnyRoute0
   ? T['searchDefinition']
   : T extends string
     ? _SearchDefinition<T>
     : undefined
 
-export type Extended<T extends AnyRoute | string | undefined, TSuffixDefinition extends string> = T extends AnyRoute
+export type Extended<T extends AnyRoute | string | undefined, TSuffixDefinition extends string> = T extends AnyRoute0
   ? Route0<PathExtended<T['pathOriginal'], TSuffixDefinition>>
   : T extends string
     ? Route0<PathExtended<T, TSuffixDefinition>>
@@ -466,8 +535,8 @@ export type SearchOutput<T extends AnyRoute | string = string> = Partial<
 export type StrictSearchOutput<T extends AnyRoute | string> = Partial<{
   [K in keyof SearchDefinition<T>]?: string | undefined
 }>
-export type ParamsInput<T extends AnyRoute | string> = _ParamsInput<PathDefinition<T>>
-export type SearchInput<T extends AnyRoute | string> = _SearchInput<PathOriginal<T>>
+export type ParamsInput<T extends AnyRoute | string = string> = _ParamsInput<PathDefinition<T>>
+export type SearchInput<T extends AnyRoute | string = string> = _SearchInput<PathOriginal<T>>
 export type StrictSearchInput<T extends AnyRoute | string> = _StrictSearchInput<PathOriginal<T>>
 
 // location
@@ -499,44 +568,44 @@ export type LocationUnknown = _LocationGeneral & {
   parent: false
   children: false
 }
-export type LocationUnmatched<TRoute0 extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+export type LocationUnmatched<TRoute extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
   params: Record<never, never>
-  searchParams: SearchOutput<TRoute0>
-  route: PathOriginal<TRoute0>
+  searchParams: SearchOutput<TRoute>
+  route: PathOriginal<TRoute>
   exact: false
   parent: false
   children: false
 }
-export type LocationExact<TRoute0 extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
-  params: ParamsOutput<TRoute0>
-  searchParams: SearchOutput<TRoute0>
-  route: PathOriginal<TRoute0>
+export type LocationExact<TRoute extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+  params: ParamsOutput<TRoute>
+  searchParams: SearchOutput<TRoute>
+  route: PathOriginal<TRoute>
   exact: true
   parent: false
   children: false
 }
-export type LocationParent<TRoute0 extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
-  params: Partial<ParamsOutput<TRoute0>> // in fact maybe there will be whole params object, but does not matter now
-  searchParams: SearchOutput<TRoute0>
-  route: PathOriginal<TRoute0>
+export type LocationParent<TRoute extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+  params: Partial<ParamsOutput<TRoute>> // in fact maybe there will be whole params object, but does not matter now
+  searchParams: SearchOutput<TRoute>
+  route: PathOriginal<TRoute>
   exact: false
   parent: true
   children: false
 }
-export type LocationChildren<TRoute0 extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
-  params: ParamsOutput<TRoute0>
-  searchParams: SearchOutput<TRoute0>
-  route: PathOriginal<TRoute0>
+export type LocationChildren<TRoute extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+  params: ParamsOutput<TRoute>
+  searchParams: SearchOutput<TRoute>
+  route: PathOriginal<TRoute>
   exact: false
   parent: false
   children: true
 }
-export type LocationKnown<TRoute0 extends AnyRoute | string = AnyRoute | string> =
-  | LocationUnmatched<TRoute0>
-  | LocationExact<TRoute0>
-  | LocationParent<TRoute0>
-  | LocationChildren<TRoute0>
-export type LocationAny<TRoute0 extends AnyRoute = AnyRoute> = LocationUnknown | LocationKnown<TRoute0>
+export type LocationKnown<TRoute extends AnyRoute | string = AnyRoute | string> =
+  | LocationUnmatched<TRoute>
+  | LocationExact<TRoute>
+  | LocationParent<TRoute>
+  | LocationChildren<TRoute>
+export type LocationAny<TRoute extends AnyRoute = AnyRoute> = LocationUnknown | LocationKnown<TRoute>
 
 // internal utils
 
@@ -617,7 +686,8 @@ export type OnlyIfHasParams<TParams extends object | undefined, Yes, No = never>
 
 export type PathOnlyRouteValue<TPath extends string> = `${ReplacePathParams<PathDefinition<TPath>>}`
 export type WithSearchRouteValue<TPath extends string> = `${ReplacePathParams<PathDefinition<TPath>>}?${string}`
-export type AbsolutePathOnlyRouteValue<TPath extends string> = `${string}${PathOnlyRouteValue<TPath>}`
+export type AbsolutePathOnlyRouteValue<TPath extends string> =
+  PathOnlyRouteValue<TPath> extends '/' ? string : `${string}${PathOnlyRouteValue<TPath>}`
 export type AbsoluteWithSearchRouteValue<TPath extends string> = `${string}${WithSearchRouteValue<TPath>}`
 
 export type PathExtended<

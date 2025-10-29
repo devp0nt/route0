@@ -1,4 +1,5 @@
 {
   "repoName": "route0",
-  "packageName": "@devp0nt/route0"
+  "packageName": "@devp0nt/route0",
+  "bundle": true
 }
