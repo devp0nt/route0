@@ -1,3 +1,5 @@
+// TODO: в локейшен хранить и сам роут route and also isRouteDetected
+// TODO: normal name of route proxy so it can be printable and readable
 // TODO: getLocation by windows location
 // TODO: избавиться от жутких эни в роуте
 // TODO: .extension('.json') to not add additional / but just add some extension
