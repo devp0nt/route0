@@ -101,6 +101,7 @@ describe('route0', () => {
   it('extend with search params', () => {
     const route0 = Route0.create('/prefix&y&z')
     const route1 = route0.extend('/suffix&z&c')
+    console.log(route1.toString())
     const path = route1.get({ query: { y: '2', c: '3', a: '4' } })
     expectTypeOf<(typeof route1)['queryDefinition']>().toEqualTypeOf<{
       z: true
