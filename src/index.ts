@@ -1,10 +1,11 @@
-// TODO: type utils
+// TODO: FlatGetArgs, GetArgs
 // TODO: fix location fn
 // TODO: location suitable and non suitable
+// TODO: collection
+
 // TODO: asterisk
 // TODO: optional params
 // TODO: required search
-// TODO: collection
 
 // TODO: в локейшен хранить и сам роут route and also isRouteDetected
 // TODO: normal name of route proxy so it can be printable and readable
@@ -29,15 +30,9 @@
 // TODO: prependMany, extendMany, overrideMany, with types
 // TODO: optional route params /x/:id?
 
-// point0
-// TODO: Сделать чисто фронтовую штуку, которая сама вызывает лоадер, сама вызывает нужные мета и title, и отдаёт в компонент нужные штуки
-
-// ssr0
-// TODO: ССР работает просто поверх любого роутера, который поддерживает асинхронную загрузку страниц
-
 export class Route0<TPath extends string> {
   readonly pathOriginal: TPath
-  readonly pathDefinition: PathDefinition<TPath>
+  readonly pathDefinition: _PathDefinition<TPath>
   readonly paramsDefinition: _ParamsDefinition<TPath>
   readonly searchDefinition: _SearchDefinition<TPath>
   baseUrl: string
@@ -87,7 +82,7 @@ export class Route0<TPath extends string> {
 
   private static _getPathDefinitionByPathOriginal<TPath extends string>(pathOriginal: TPath) {
     const { pathDefinition } = Route0._splitPathDefinitionAndSearchTailDefinition(pathOriginal)
-    return pathDefinition as PathDefinition<TPath>
+    return pathDefinition as _PathDefinition<TPath>
   }
 
   private static _getParamsDefinitionByPathOriginal<TPath extends string>(pathOriginal: TPath) {
@@ -387,7 +382,7 @@ export type RouteConfigInput = {
 export type PathDefinition<T extends AnyRoute | string> = T extends AnyRoute
   ? T['pathDefinition']
   : T extends string
-    ? TrimSearchTailDefinition<T>
+    ? _PathDefinition<T>
     : never
 export type ParamsDefinition<T extends AnyRoute | string> = T extends AnyRoute
   ? T['paramsDefinition']
@@ -439,8 +434,6 @@ export type ParamsInput<T extends AnyRoute | string> = _ParamsInput<PathDefiniti
 export type SearchInput<T extends AnyRoute | string> = _SearchInput<PathDefinition<T>>
 export type StrictSearchInput<T extends AnyRoute | string> = _StrictSearchInput<PathDefinition<T>>
 
-// TODO: flatGet, FlatGetArgs, GetArgs
-
 // location
 
 export type LocationParams<TPath extends string> = {
@@ -478,6 +471,7 @@ export type MatchResult<TRoute0 extends AnyRoute, TExact extends boolean = boole
 
 // internal utils
 
+export type _PathDefinition<T extends string> = T extends string ? TrimSearchTailDefinition<T> : never
 export type _ParamsDefinition<TPath extends string> =
   ExtractPathParams<PathDefinition<TPath>> extends infer U
     ? [U] extends [never]
