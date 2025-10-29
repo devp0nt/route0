@@ -282,17 +282,23 @@ export class Route0<TPath extends string> {
     return new Route0(this.pathOriginal, config)
   }
 
-  static getLocation(url: `${string}://${string}`): Location
-  static getLocation(path: `/${string}`): Location
-  static getLocation(urlOrPath: string): Location
-  static getLocation(urlOrPath: string): Location {
-    // Allow both relative and absolute inputs
-    const abs = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(urlOrPath)
-    const base = abs ? undefined : 'http://example.com' // dummy base for relative URLs
+  static getLocation(href: `${string}://${string}`): LocationUnknown
+  static getLocation(hrefRel: `/${string}`): LocationUnknown
+  static getLocation(hrefOrHrefRel: string): LocationUnknown
+  static getLocation(location: LocationAny): LocationUnknown
+  static getLocation(hrefOrHrefRelOrLocation: string | LocationAny): LocationUnknown
+  static getLocation(hrefOrHrefRelOrLocation: string | LocationAny): LocationUnknown {
+    if (typeof hrefOrHrefRelOrLocation !== 'string') {
+      hrefOrHrefRelOrLocation = hrefOrHrefRelOrLocation.href || hrefOrHrefRelOrLocation.hrefRel
+    }
+    // Check if it's an absolute URL (starts with scheme://)
+    const abs = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(hrefOrHrefRelOrLocation)
 
-    const url = new URL(urlOrPath, base)
+    // Use dummy base only if relative
+    const base = abs ? undefined : 'http://example.com'
+    const url = new URL(hrefOrHrefRelOrLocation, base)
 
-    // Extract search and params (params left empty for now — parsed separately)
+    // Extract search params
     const searchParams = Object.fromEntries(url.searchParams.entries())
 
     // Normalize pathname (remove trailing slash except for root)
@@ -301,32 +307,57 @@ export class Route0<TPath extends string> {
       pathname = pathname.slice(0, -1)
     }
 
-    // Build the location object similar to browser location
-    return {
-      searchParams,
-      params: {}, // filled later by .parse()
+    // Common derived values
+    const hrefRel = pathname + url.search + url.hash
+
+    // Build the location object consistent with _LocationGeneral
+    const location: LocationUnknown = {
       pathname,
       search: url.search,
       hash: url.hash,
       origin: abs ? url.origin : undefined,
-      href: abs ? url.href : pathname + url.search + url.hash,
+      href: abs ? url.href : undefined,
+      hrefRel,
       abs,
+
+      // extra host-related fields (available even for relative with dummy base)
+      host: abs ? url.host : undefined,
+      hostname: abs ? url.hostname : undefined,
+      port: abs ? url.port || undefined : undefined,
+
+      // specific to LocationUnknown
+      searchParams,
+      params: undefined,
+      route: undefined,
+      exact: false,
+      parent: false,
+      children: false,
     }
+
+    return location
   }
 
-  static getMatch<TRoute0 extends AnyRoute>(route0: TRoute0, location: Location): MatchResult<TRoute0> {
-    const locationCloned = { ...location, params: { ...location.params }, searchParams: { ...location.searchParams } }
+  getLocation(href: `${string}://${string}`): LocationKnown<TPath>
+  getLocation(hrefRel: `/${string}`): LocationKnown<TPath>
+  getLocation(hrefOrHrefRel: string): LocationKnown<TPath>
+  getLocation(location: LocationAny): LocationKnown<TPath>
+  getLocation(hrefOrHrefRelOrLocation: string | LocationAny): LocationKnown<TPath>
+  getLocation(hrefOrHrefRelOrLocation: string | LocationAny): LocationKnown<TPath> {
+    const location = Route0.getLocation(hrefOrHrefRelOrLocation) as never as LocationKnown<TPath>
+    location.route = this.pathOriginal as PathOriginal<TPath>
+    location.params = {}
+
     const escapeRegex = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
 
     // Normalize both sides (no trailing slash except root)
     const def =
-      route0.pathDefinition.length > 1 && route0.pathDefinition.endsWith('/')
-        ? route0.pathDefinition.slice(0, -1)
-        : route0.pathDefinition
+      this.pathDefinition.length > 1 && this.pathDefinition.endsWith('/')
+        ? this.pathDefinition.slice(0, -1)
+        : this.pathDefinition
     const pathname =
-      locationCloned.pathname.length > 1 && locationCloned.pathname.endsWith('/')
-        ? locationCloned.pathname.slice(0, -1)
-        : locationCloned.pathname
+      location.pathname.length > 1 && location.pathname.endsWith('/')
+        ? location.pathname.slice(0, -1)
+        : location.pathname
 
     // Build a regex from the route definition: /a/:x/b/:y -> ^/a/([^/]+)/b/([^/]+)$
     const paramNames: string[] = []
@@ -344,9 +375,9 @@ export class Route0<TPath extends string> {
     if (exactMatch) {
       const values = exactMatch.slice(1)
       const params = Object.fromEntries(paramNames.map((n, i) => [n, decodeURIComponent(values[i] ?? '')]))
-      locationCloned.params = params
+      location.params = params
     } else {
-      locationCloned.params = {}
+      location.params = {}
     }
 
     const exact = !!exactMatch
@@ -357,21 +388,17 @@ export class Route0<TPath extends string> {
     const children = !exact && new RegExp(`^${escapeRegex(pathname)}(?:/|$)`).test(def)
 
     return {
+      ...location,
       exact,
       parent,
       children,
-      location: locationCloned,
-    } as never
-  }
-  match(url: string): MatchResult<this> {
-    const location = Route0.getLocation(url)
-    return Route0.getMatch(this, location)
+    } as LocationKnown<TPath>
   }
 }
 
 // main
 
-export type AnyRoute = Route0<string>
+export type AnyRoute<T extends string | Route0<string> = string> = T extends string ? Route0<T> : T
 export type Callable<T extends AnyRoute> = T & T['get']
 export type RouteConfigInput = {
   baseUrl?: string
@@ -379,6 +406,11 @@ export type RouteConfigInput = {
 
 // public utils
 
+export type PathOriginal<T extends AnyRoute | string> = T extends AnyRoute
+  ? T['pathOriginal']
+  : T extends string
+    ? T
+    : never
 export type PathDefinition<T extends AnyRoute | string> = T extends AnyRoute
   ? T['pathDefinition']
   : T extends string
@@ -403,15 +435,27 @@ export type Extended<T extends AnyRoute | string | undefined, TSuffixDefinition 
       ? Route0<TSuffixDefinition>
       : never
 
-export type IsUnder<T extends AnyRoute | string, TParent extends AnyRoute | string> = _IsUnder<
+export type IsParent<T extends AnyRoute | string, TParent extends AnyRoute | string> = _IsParent<
   PathDefinition<T>,
   PathDefinition<TParent>
+>
+export type IsChildren<T extends AnyRoute | string, TChildren extends AnyRoute | string> = _IsChildren<
+  PathDefinition<T>,
+  PathDefinition<TChildren>
+>
+export type IsSame<T extends AnyRoute | string, TExact extends AnyRoute | string> = _IsSame<
+  PathDefinition<T>,
+  PathDefinition<TExact>
+>
+export type IsSameParams<T1 extends AnyRoute | string, T2 extends AnyRoute | string> = _IsSameParams<
+  ParamsDefinition<T1>,
+  ParamsDefinition<T2>
 >
 
 export type HasParams<T extends AnyRoute | string> =
   ExtractPathParams<PathDefinition<T>> extends infer U ? ([U] extends [never] ? false : true) : false
 export type HasSearch<T extends AnyRoute | string> =
-  NonEmpty<SearchTailDefinitionWithoutFirstAmp<PathDefinition<T>>> extends infer Tail extends string
+  NonEmpty<SearchTailDefinitionWithoutFirstAmp<PathOriginal<T>>> extends infer Tail extends string
     ? AmpSplit<Tail> extends infer U
       ? [U] extends [never]
         ? false
@@ -422,52 +466,85 @@ export type HasSearch<T extends AnyRoute | string> =
 export type ParamsOutput<T extends AnyRoute | string> = {
   [K in keyof ParamsDefinition<T>]: string
 }
-export type SearchOutput<T extends AnyRoute | string> = Partial<
+export type SearchOutput<T extends AnyRoute | string = string> = Partial<
   {
-    [K in keyof SearchDefinition<T>]: string | undefined
+    [K in keyof SearchDefinition<T>]?: string
   } & Record<string, string | undefined>
 >
 export type StrictSearchOutput<T extends AnyRoute | string> = Partial<{
-  [K in keyof SearchDefinition<T>]: string | undefined
+  [K in keyof SearchDefinition<T>]?: string | undefined
 }>
 export type ParamsInput<T extends AnyRoute | string> = _ParamsInput<PathDefinition<T>>
-export type SearchInput<T extends AnyRoute | string> = _SearchInput<PathDefinition<T>>
-export type StrictSearchInput<T extends AnyRoute | string> = _StrictSearchInput<PathDefinition<T>>
+export type SearchInput<T extends AnyRoute | string> = _SearchInput<PathOriginal<T>>
+export type StrictSearchInput<T extends AnyRoute | string> = _StrictSearchInput<PathOriginal<T>>
 
 // location
 
 export type LocationParams<TPath extends string> = {
   [K in keyof _ParamsDefinition<TPath>]: string
 }
-export type LocationSearch<TPath extends string> = {
+export type LocationSearch<TPath extends string = string> = {
   [K in keyof _SearchDefinition<TPath>]: string | undefined
 } & Record<string, string | undefined>
 
-export type Location<TRoute0 extends AnyRoute = AnyRoute> = {
-  searchParams: LocationSearch<TRoute0['pathOriginal']>
-  params: LocationParams<TRoute0['pathOriginal']>
+export type _LocationGeneral = {
   pathname: string
   search: string
   hash: string
   origin?: string
-  href: string
+  href?: string
+  hrefRel: string
   abs: boolean
+  port?: string
+  host?: string
+  hostname?: string
 }
-export type MatchResult<TRoute0 extends AnyRoute, TExact extends boolean = boolean> = TExact extends true
-  ? {
-      exact: true
-      parent: false
-      children: false
-      location: Location<TRoute0>
-    }
-  : TExact extends false
-    ? {
-        exact: false
-        parent: boolean
-        children: boolean
-        location: Location
-      }
-    : never
+export type LocationUnknown = _LocationGeneral & {
+  params: undefined
+  searchParams: SearchOutput
+  route: undefined
+  exact: false
+  parent: false
+  children: false
+}
+export type LocationUnmatched<TRoute0 extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+  params: Record<never, never>
+  searchParams: SearchOutput<TRoute0>
+  route: PathOriginal<TRoute0>
+  exact: false
+  parent: false
+  children: false
+}
+export type LocationExact<TRoute0 extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+  params: ParamsOutput<TRoute0>
+  searchParams: SearchOutput<TRoute0>
+  route: PathOriginal<TRoute0>
+  exact: true
+  parent: false
+  children: false
+}
+export type LocationParent<TRoute0 extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+  params: Partial<ParamsOutput<TRoute0>> // in fact maybe there will be whole params object, but does not matter now
+  searchParams: SearchOutput<TRoute0>
+  route: PathOriginal<TRoute0>
+  exact: false
+  parent: true
+  children: false
+}
+export type LocationChildren<TRoute0 extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+  params: ParamsOutput<TRoute0>
+  searchParams: SearchOutput<TRoute0>
+  route: PathOriginal<TRoute0>
+  exact: false
+  parent: false
+  children: true
+}
+export type LocationKnown<TRoute0 extends AnyRoute | string = AnyRoute | string> =
+  | LocationUnmatched<TRoute0>
+  | LocationExact<TRoute0>
+  | LocationParent<TRoute0>
+  | LocationChildren<TRoute0>
+export type LocationAny<TRoute0 extends AnyRoute = AnyRoute> = LocationUnknown | LocationKnown<TRoute0>
 
 // internal utils
 
@@ -566,4 +643,30 @@ export type WithParamsInput<
     | undefined = undefined,
 > = _ParamsInput<TPath> & (T extends undefined ? Record<never, never> : T)
 
-export type _IsUnder<T extends string, TParent extends string> = T extends `${TParent}${string}` ? true : false
+export type _IsSameParams<T1 extends object | undefined, T2 extends object | undefined> = T1 extends undefined
+  ? T2 extends undefined
+    ? true
+    : false
+  : T2 extends undefined
+    ? false
+    : T1 extends T2
+      ? T2 extends T1
+        ? true
+        : false
+      : false
+
+export type _IsParent<T extends string, TParent extends string> = T extends TParent
+  ? false
+  : T extends `${TParent}${string}`
+    ? true
+    : false
+export type _IsChildren<T extends string, TChildren extends string> = TChildren extends T
+  ? false
+  : TChildren extends `${T}${string}`
+    ? true
+    : false
+export type _IsSame<T extends string, TExact extends string> = T extends TExact
+  ? TExact extends T
+    ? true
+    : false
+  : false

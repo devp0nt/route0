@@ -1,5 +1,20 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, expect, expectTypeOf, it } from 'bun:test'
-import type { HasParams } from './index.js'
+import type {
+  Extended,
+  HasParams,
+  HasSearch,
+  IsChildren,
+  IsParent,
+  IsSame,
+  IsSameParams,
+  ParamsInput,
+  ParamsOutput,
+  SearchInput,
+  SearchOutput,
+  StrictSearchInput,
+  StrictSearchOutput,
+} from './index.js'
 import { Route0 } from './index.js'
 
 describe('route0', () => {
@@ -237,56 +252,221 @@ describe('route0', () => {
     expect(rNo.flat({ id: '1' })).toBe('/b?id=1')
   })
 
-  it('getLocation location of url', () => {
-    let location = Route0.getLocation('/prefix/some/suffix')
-    expect(location).toMatchObject({
+  it('.getLocation location of url', () => {
+    let loc = Route0.getLocation('/prefix/some/suffix')
+    expect(loc).toMatchObject({
       hash: '',
-      href: '/prefix/some/suffix',
+      href: undefined,
+      hrefRel: '/prefix/some/suffix',
       abs: false,
       origin: undefined,
-      params: {},
+      params: undefined,
       pathname: '/prefix/some/suffix',
       searchParams: {},
       search: '',
     })
-    location = Route0.getLocation('/prefix/some/suffix?x=1&z=2')
-    expect(location).toMatchObject({
+    loc = Route0.getLocation('/prefix/some/suffix?x=1&z=2')
+    expect(loc).toMatchObject({
       hash: '',
-      href: '/prefix/some/suffix?x=1&z=2',
+      href: undefined,
+      hrefRel: '/prefix/some/suffix?x=1&z=2',
       abs: false,
       origin: undefined,
-      params: {},
+      params: undefined,
       pathname: '/prefix/some/suffix',
       searchParams: { x: '1', z: '2' },
       search: '?x=1&z=2',
     })
-    location = Route0.getLocation('https://example.com/prefix/some/suffix?x=1&z=2')
-    expect(location).toMatchObject({
+    loc = Route0.getLocation('https://example.com/prefix/some/suffix?x=1&z=2')
+    expect(loc).toMatchObject({
       hash: '',
       href: 'https://example.com/prefix/some/suffix?x=1&z=2',
+      hrefRel: '/prefix/some/suffix?x=1&z=2',
       abs: true,
       origin: 'https://example.com',
-      params: {},
+      params: undefined,
       pathname: '/prefix/some/suffix',
       searchParams: { x: '1', z: '2' },
       search: '?x=1&z=2',
     })
   })
 
-  it('match', () => {
+  it('#getLocation() exact match', () => {
     const route0 = Route0.create('/prefix/:x/some/:y/:z/suffix')
-    let match = route0.match('/prefix/some/suffix')
-    expect(match.exact).toBe(false)
-    expect(match.parent).toBe(false)
-    expect(match.children).toBe(false)
-    expect(match.location.params).toMatchObject({})
-    match = route0.match('/prefix/xxx/some/yyy/zzz/suffix')
-    expect(match.exact).toBe(true)
-    expect(match.parent).toBe(false)
-    expect(match.children).toBe(false)
-    if (match.exact) {
-      expectTypeOf<typeof match.location.params>().toEqualTypeOf<{ x: string; y: string; z: string }>()
+    let loc = route0.getLocation('/prefix/some/suffix')
+    expect(loc.exact).toBe(false)
+    expect(loc.parent).toBe(false)
+    expect(loc.children).toBe(false)
+    expect(loc.params).toMatchObject({})
+    loc = route0.getLocation('/prefix/xxx/some/yyy/zzz/suffix')
+    expect(loc.exact).toBe(true)
+    expect(loc.parent).toBe(false)
+    expect(loc.children).toBe(false)
+    if (loc.exact) {
+      expectTypeOf<typeof loc.params>().toEqualTypeOf<{ x: string; y: string; z: string }>()
     }
-    expect(match.location.params).toMatchObject({ x: 'xxx', y: 'yyy', z: 'zzz' })
+    expect(loc.params).toMatchObject({ x: 'xxx', y: 'yyy', z: 'zzz' })
+  })
+
+  it('#getLocation() parent match', () => {
+    const route0 = Route0.create('/prefix/:x/some')
+    const loc = route0.getLocation('/prefix/xxx/some/extra/path')
+    expect(loc.exact).toBe(false)
+    expect(loc.parent).toBe(true)
+    expect(loc.children).toBe(false)
+  })
+
+  it('#getLocation() children match', () => {
+    const route0 = Route0.create('/prefix/some/extra/path')
+    const loc = route0.getLocation('/prefix/some')
+    expect(loc.exact).toBe(false)
+    expect(loc.parent).toBe(false)
+    expect(loc.children).toBe(true)
+  })
+
+  it('#getLocation() with host info', () => {
+    const route0 = Route0.create('/path')
+    const loc = route0.getLocation('https://example.com:8080/path')
+    expect(loc.exact).toBe(true)
+    expect(loc.origin).toBe('https://example.com:8080')
+    expect(loc.host).toBe('example.com:8080')
+    expect(loc.hostname).toBe('example.com')
+    expect(loc.port).toBe('8080')
+  })
+
+  it('#getLocation() with hash', () => {
+    const route0 = Route0.create('/path/:id')
+    const loc = route0.getLocation('/path/123#section')
+    expect(loc.exact).toBe(true)
+    expect(loc.hash).toBe('#section')
+    expect(loc.params).toMatchObject({ id: '123' })
+  })
+})
+
+describe('route0 type utilities', () => {
+  it('HasParams', () => {
+    expectTypeOf<HasParams<'/path'>>().toEqualTypeOf<false>()
+    expectTypeOf<HasParams<'/path/:id'>>().toEqualTypeOf<true>()
+    expectTypeOf<HasParams<'/path/:id/:name'>>().toEqualTypeOf<true>()
+
+    expectTypeOf<HasParams<Route0<'/path'>>>().toEqualTypeOf<false>()
+    expectTypeOf<HasParams<Route0<'/path/:id'>>>().toEqualTypeOf<true>()
+  })
+
+  it('HasSearch', () => {
+    expectTypeOf<HasSearch<'/path'>>().toEqualTypeOf<false>()
+    expectTypeOf<HasSearch<'/path&x'>>().toEqualTypeOf<true>()
+    expectTypeOf<HasSearch<'/path&x&y'>>().toEqualTypeOf<true>()
+
+    expectTypeOf<HasSearch<Route0<'/path'>>>().toEqualTypeOf<false>()
+    expectTypeOf<HasSearch<Route0<'/path&x&y'>>>().toEqualTypeOf<true>()
+  })
+
+  it('ParamsInput', () => {
+    expectTypeOf<ParamsInput<'/path'>>().toEqualTypeOf<Record<never, never>>()
+    expectTypeOf<ParamsInput<'/path/:id'>>().toEqualTypeOf<{ id: string | number }>()
+    expectTypeOf<ParamsInput<'/path/:id/:name'>>().toEqualTypeOf<{ id: string | number; name: string | number }>()
+
+    const route = Route0.create('/path/:id/:name')
+    expectTypeOf<ParamsInput<typeof route>>().toEqualTypeOf<{ id: string | number; name: string | number }>()
+  })
+
+  it('ParamsOutput', () => {
+    expectTypeOf<ParamsOutput<'/path/:id'>>().toEqualTypeOf<{ id: string }>()
+    expectTypeOf<ParamsOutput<'/path/:id/:name'>>().toEqualTypeOf<{ id: string; name: string }>()
+
+    const route = Route0.create('/path/:id/:name')
+    expectTypeOf<ParamsOutput<typeof route>>().toEqualTypeOf<{ id: string; name: string }>()
+  })
+
+  it('SearchInput', () => {
+    type T1 = SearchInput<'/path'>
+    expectTypeOf<T1>().toEqualTypeOf<Record<string, string | number>>()
+
+    type T2 = SearchInput<'/path&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      Partial<{
+        x: string | number
+        y: string | number
+      }> &
+        Record<string, string | number>
+    >()
+  })
+
+  it('SearchOutput', () => {
+    type T1 = SearchOutput<'/path'>
+    expectTypeOf<T1>().toEqualTypeOf<{
+      [key: string]: string | undefined
+    }>()
+
+    type T2 = SearchOutput<'/path&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<{
+      [key: string]: string | undefined
+      x?: string | undefined
+      y?: string | undefined
+    }>()
+  })
+
+  it('StrictSearchInput', () => {
+    type T1 = StrictSearchInput<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<{ x?: string | number; y?: string | number }>()
+  })
+
+  it('StrictSearchOutput', () => {
+    type T1 = StrictSearchOutput<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<{ x?: string | undefined; y?: string | undefined }>()
+  })
+
+  it('IsParent', () => {
+    type T1 = IsParent<'/path/child', '/path'>
+    type T2 = IsParent<'/path', '/path/child'>
+    type T3 = IsParent<'/other', '/path'>
+    type T4 = IsParent<'/path', '/path'>
+    expectTypeOf<T1>().toEqualTypeOf<true>()
+    expectTypeOf<T2>().toEqualTypeOf<false>()
+    expectTypeOf<T3>().toEqualTypeOf<false>()
+    expectTypeOf<T4>().toEqualTypeOf<false>()
+  })
+
+  it('IsChildren', () => {
+    type T1 = IsChildren<'/path', '/path/child'>
+    type T2 = IsChildren<'/path/child', '/path'>
+    type T3 = IsChildren<'/path', '/other'>
+    type T4 = IsChildren<'/path', '/path'>
+    expectTypeOf<T1>().toEqualTypeOf<true>()
+    expectTypeOf<T2>().toEqualTypeOf<false>()
+    expectTypeOf<T3>().toEqualTypeOf<false>()
+    expectTypeOf<T4>().toEqualTypeOf<false>()
+  })
+
+  it('IsSame', () => {
+    type T1 = IsSame<'/path', '/path'>
+    type T2 = IsSame<'/path', '/path/child'>
+    type T3 = IsSame<'/path/child', '/path'>
+    expectTypeOf<T1>().toEqualTypeOf<true>()
+    expectTypeOf<T2>().toEqualTypeOf<false>()
+    expectTypeOf<T3>().toEqualTypeOf<false>()
+  })
+
+  it('IsSameParams', () => {
+    type T1 = IsSameParams<'/path', '/other'>
+    type T2 = IsSameParams<'/path/:id', '/other/:id'>
+    type T3 = IsSameParams<'/path/:id', '/other'>
+    type T4 = IsSameParams<'/path/:id', '/other/:name'>
+    expectTypeOf<T1>().toEqualTypeOf<true>()
+    expectTypeOf<T2>().toEqualTypeOf<true>()
+    expectTypeOf<T3>().toEqualTypeOf<false>()
+    expectTypeOf<T4>().toEqualTypeOf<false>()
+  })
+
+  it('Extended', () => {
+    expectTypeOf<Extended<'/path', '/child'>>().toEqualTypeOf<Route0<'/path/child'>>()
+    expectTypeOf<Extended<'/path', '/:id'>>().toEqualTypeOf<Route0<'/path/:id'>>()
+    expectTypeOf<Extended<'/path', '&x&y'>>().toEqualTypeOf<Route0<'/path&x&y'>>()
+    expectTypeOf<Extended<'/path/:id', '/child&x'>>().toEqualTypeOf<Route0<'/path/:id/child&x'>>()
+    expectTypeOf<Extended<undefined, '/path'>>().toEqualTypeOf<Route0<'/path'>>()
+
+    const parent = Route0.create('/path')
+    expectTypeOf<Extended<typeof parent, '/child'>>().toEqualTypeOf<Route0<'/path/child'>>()
   })
 })
