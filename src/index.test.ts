@@ -20,9 +20,9 @@ describe('route0', () => {
     expect(path).toBe('/')
   })
 
-  it('simple any query', () => {
+  it('simple any search', () => {
     const route0 = Route0.create('/')
-    const path = route0.get({ query: { q: '1' } })
+    const path = route0.get({ search: { q: '1' } })
     expectTypeOf<typeof path>().toEqualTypeOf<`/?${string}`>()
     expect(path).toBe('/?q=1')
   })
@@ -35,31 +35,31 @@ describe('route0', () => {
     expectTypeOf<HasParams<typeof route0>>().toEqualTypeOf<true>()
   })
 
-  it('params and any query', () => {
+  it('params and any search', () => {
     const route0 = Route0.create('/prefix/:x/some/:y/:z')
-    const path = route0.get({ x: '1', y: 2, z: '3', query: { q: '1' } })
+    const path = route0.get({ x: '1', y: 2, z: '3', search: { q: '1' } })
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/some/${string}/${string}?${string}`>()
     expect(path).toBe('/prefix/1/some/2/3?q=1')
   })
 
-  it('query', () => {
+  it('search', () => {
     const route0 = Route0.create('/prefix&y&z')
-    expectTypeOf<(typeof route0)['queryDefinition']>().toEqualTypeOf<{ y: true; z: true }>()
-    const path = route0.get({ query: { y: '1', z: '2' } })
+    expectTypeOf<(typeof route0)['searchDefinition']>().toEqualTypeOf<{ y: true; z: true }>()
+    const path = route0.get({ search: { y: '1', z: '2' } })
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix?${string}`>()
     expect(path).toBe('/prefix?y=1&z=2')
   })
 
-  it('params and query', () => {
+  it('params and search', () => {
     const route0 = Route0.create('/prefix/:x/some/:y/:z&z&c')
-    const path = route0.get({ x: '1', y: '2', z: '3', query: { z: '4', c: '5' } })
+    const path = route0.get({ x: '1', y: '2', z: '3', search: { z: '4', c: '5' } })
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/some/${string}/${string}?${string}`>()
     expect(path).toBe('/prefix/1/some/2/3?z=4&c=5')
   })
 
-  it('params and query and any query', () => {
+  it('params and search and any search', () => {
     const route0 = Route0.create('/prefix/:x/some/:y/:z&z&c')
-    const path = route0.get({ x: '1', y: '2', z: '3', query: { z: '4', c: '5', o: '6' } })
+    const path = route0.get({ x: '1', y: '2', z: '3', search: { z: '4', c: '5', o: '6' } })
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/some/${string}/${string}?${string}`>()
     expect(path).toBe('/prefix/1/some/2/3?z=4&c=5&o=6')
   })
@@ -101,8 +101,8 @@ describe('route0', () => {
   it('extend with search params', () => {
     const route0 = Route0.create('/prefix&y&z')
     const route1 = route0.extend('/suffix&z&c')
-    const path = route1.get({ query: { y: '2', c: '3', a: '4' } })
-    expectTypeOf<(typeof route1)['queryDefinition']>().toEqualTypeOf<{
+    const path = route1.get({ search: { y: '2', c: '3', a: '4' } })
+    expectTypeOf<(typeof route1)['searchDefinition']>().toEqualTypeOf<{
       z: true
       c: true
     }>()
@@ -113,11 +113,11 @@ describe('route0', () => {
     expect(path1).toBe('/prefix/suffix')
   })
 
-  it('extend with params and query', () => {
+  it('extend with params and search', () => {
     const route0 = Route0.create('/prefix/:id&y&z')
     const route1 = route0.extend('/:sn/suffix&z&c')
-    const path = route1.get({ id: 'myid', sn: 'mysn', query: { y: '2', c: '3', a: '4' } })
-    expectTypeOf<(typeof route1)['queryDefinition']>().toEqualTypeOf<{
+    const path = route1.get({ id: 'myid', sn: 'mysn', search: { y: '2', c: '3', a: '4' } })
+    expectTypeOf<(typeof route1)['searchDefinition']>().toEqualTypeOf<{
       z: true
       c: true
     }>()
@@ -128,11 +128,11 @@ describe('route0', () => {
     expect(path1).toBe('/prefix/myid/mysn/suffix')
   })
 
-  it('extend with params and query, callable', () => {
+  it('extend with params and search, callable', () => {
     const route0 = Route0.create('/prefix/:id&y&z')
     const route1 = route0.extend('/:sn/suffix&z&c')
-    const path = route1({ id: 'myid', sn: 'mysn', query: { y: '2', c: '3', a: '4' } })
-    expectTypeOf<(typeof route1)['queryDefinition']>().toEqualTypeOf<{
+    const path = route1({ id: 'myid', sn: 'mysn', search: { y: '2', c: '3', a: '4' } })
+    expectTypeOf<(typeof route1)['searchDefinition']>().toEqualTypeOf<{
       z: true
       c: true
     }>()
@@ -196,8 +196,8 @@ describe('route0', () => {
     expect(rWith.get({})).toBe('/a/undefined')
     // @ts-expect-error missing required path params (object form abs)
     expect(rWith.get({ abs: true })).toBe('https://example.com/a/undefined')
-    // @ts-expect-error missing required path params (object form query)
-    expect(rWith.get({ query: { q: '1' } })).toBe('/a/undefined?q=1')
+    // @ts-expect-error missing required path params (object form search)
+    expect(rWith.get({ search: { q: '1' } })).toBe('/a/undefined?q=1')
 
     // @ts-expect-error params can not be sent as object value it should be argument
     rWith.get({ params: { id: '1' } }) // not throw becouse this will not used
@@ -216,7 +216,7 @@ describe('route0', () => {
       origin: undefined,
       params: {},
       pathname: '/prefix/some/suffix',
-      query: {},
+      searchParams: {},
       search: '',
     })
     location = Route0.getLocation('/prefix/some/suffix?x=1&z=2')
@@ -227,7 +227,7 @@ describe('route0', () => {
       origin: undefined,
       params: {},
       pathname: '/prefix/some/suffix',
-      query: { x: '1', z: '2' },
+      searchParams: { x: '1', z: '2' },
       search: '?x=1&z=2',
     })
     location = Route0.getLocation('https://example.com/prefix/some/suffix?x=1&z=2')
@@ -238,7 +238,7 @@ describe('route0', () => {
       origin: 'https://example.com',
       params: {},
       pathname: '/prefix/some/suffix',
-      query: { x: '1', z: '2' },
+      searchParams: { x: '1', z: '2' },
       search: '?x=1&z=2',
     })
   })
