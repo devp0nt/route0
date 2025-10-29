@@ -10,6 +10,7 @@ describe('route0', () => {
     expectTypeOf<typeof path>().toEqualTypeOf<'/'>()
     expect(path).toBe('/')
     expectTypeOf<HasParams<typeof route0>>().toEqualTypeOf<false>()
+    expect(path).toBe(route0.flat())
   })
 
   it('simple, callable', () => {
@@ -18,6 +19,7 @@ describe('route0', () => {
     expect(route0).toBeInstanceOf(Route0)
     expectTypeOf<typeof path>().toEqualTypeOf<'/'>()
     expect(path).toBe('/')
+    expect(path).toBe(route0.flat())
   })
 
   it('simple any search', () => {
@@ -25,6 +27,7 @@ describe('route0', () => {
     const path = route0.get({ search: { q: '1' } })
     expectTypeOf<typeof path>().toEqualTypeOf<`/?${string}`>()
     expect(path).toBe('/?q=1')
+    expect(path).toBe(route0.flat({ q: '1' }))
   })
 
   it('params', () => {
@@ -33,6 +36,7 @@ describe('route0', () => {
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/some/${string}/${string}`>()
     expect(path).toBe('/prefix/1/some/2/3')
     expectTypeOf<HasParams<typeof route0>>().toEqualTypeOf<true>()
+    expect(path).toBe(route0.flat({ x: '1', y: 2, z: '3' }))
   })
 
   it('params and any search', () => {
@@ -40,6 +44,7 @@ describe('route0', () => {
     const path = route0.get({ x: '1', y: 2, z: '3', search: { q: '1' } })
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/some/${string}/${string}?${string}`>()
     expect(path).toBe('/prefix/1/some/2/3?q=1')
+    expect(path).toBe(route0.flat({ x: '1', y: 2, z: '3', q: '1' }))
   })
 
   it('search', () => {
@@ -48,6 +53,7 @@ describe('route0', () => {
     const path = route0.get({ search: { y: '1', z: '2' } })
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix?${string}`>()
     expect(path).toBe('/prefix?y=1&z=2')
+    expect(path).toBe(route0.flat({ y: '1', z: '2' }))
   })
 
   it('params and search', () => {
@@ -55,6 +61,7 @@ describe('route0', () => {
     const path = route0.get({ x: '1', y: '2', z: '3', search: { z: '4', c: '5' } })
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/some/${string}/${string}?${string}`>()
     expect(path).toBe('/prefix/1/some/2/3?z=4&c=5')
+    expect(route0.flat({ x: '1', y: '2', z: '4', c: '5' })).toBe('/prefix/1/some/2/4?c=5')
   })
 
   it('params and search and any search', () => {
@@ -62,6 +69,8 @@ describe('route0', () => {
     const path = route0.get({ x: '1', y: '2', z: '3', search: { z: '4', c: '5', o: '6' } })
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/some/${string}/${string}?${string}`>()
     expect(path).toBe('/prefix/1/some/2/3?z=4&c=5&o=6')
+    // very strange case
+    expect(route0.flat({ x: '1', y: '2', z: '4', c: '5', o: '6' })).toBe('/prefix/1/some/2/4?c=5&o=6')
   })
 
   it('simple extend', () => {
@@ -70,6 +79,7 @@ describe('route0', () => {
     const path = route1.get()
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/suffix`>()
     expect(path).toBe('/prefix/suffix')
+    expect(path).toBe(route1.flat())
   })
 
   it('simple extend double slash', () => {
@@ -79,6 +89,7 @@ describe('route0', () => {
     const path = route2.get()
     expectTypeOf<typeof path>().toEqualTypeOf<`/suffix1/suffix2`>()
     expect(path).toBe('/suffix1/suffix2')
+    expect(path).toBe(route2.flat())
   })
 
   it('simple extend no slash', () => {
@@ -88,6 +99,7 @@ describe('route0', () => {
     const path = route2.get()
     expectTypeOf<typeof path>().toEqualTypeOf<`/suffix1/suffix2`>()
     expect(path).toBe('/suffix1/suffix2')
+    expect(path).toBe(route2.flat())
   })
 
   it('extend with params', () => {
@@ -96,6 +108,7 @@ describe('route0', () => {
     const path = route1.get({ x: '1', y: '2' })
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/suffix/${string}`>()
     expect(path).toBe('/prefix/1/suffix/2')
+    expect(path).toBe(route1.flat({ x: '1', y: '2' }))
   })
 
   it('extend with search params', () => {
@@ -111,6 +124,7 @@ describe('route0', () => {
     const path1 = route1.get()
     expectTypeOf<typeof path1>().toEqualTypeOf<`/prefix/suffix`>()
     expect(path1).toBe('/prefix/suffix')
+    expect(path1).toBe(route1.flat())
   })
 
   it('extend with params and search', () => {
@@ -126,6 +140,7 @@ describe('route0', () => {
     const path1 = route1.get({ id: 'myid', sn: 'mysn' })
     expectTypeOf<typeof path1>().toEqualTypeOf<`/prefix/${string}/${string}/suffix`>()
     expect(path1).toBe('/prefix/myid/mysn/suffix')
+    expect(path1).toBe(route1.flat({ id: 'myid', sn: 'mysn' }))
   })
 
   it('extend with params and search, callable', () => {
@@ -141,6 +156,7 @@ describe('route0', () => {
     const path1 = route1({ id: 'myid', sn: 'mysn' })
     expectTypeOf<typeof path1>().toEqualTypeOf<`/prefix/${string}/${string}/suffix`>()
     expect(path1).toBe('/prefix/myid/mysn/suffix')
+    expect(path1).toBe(route1.flat({ id: 'myid', sn: 'mysn' }))
   })
 
   it('abs default', () => {
@@ -148,6 +164,7 @@ describe('route0', () => {
     const path = route0.get({ abs: true })
     expectTypeOf<typeof path>().toEqualTypeOf<`${string}/path`>()
     expect(path).toBe('https://example.com/path')
+    expect(path).toBe(route0.flat({}, true))
   })
 
   it('abs set', () => {
@@ -155,6 +172,7 @@ describe('route0', () => {
     const path = route0.get({ abs: true })
     expectTypeOf<typeof path>().toEqualTypeOf<`${string}/path`>()
     expect(path).toBe('https://x.com/path')
+    expect(path).toBe(route0.flat({}, true))
   })
 
   it('abs override', () => {
@@ -163,6 +181,7 @@ describe('route0', () => {
     const path = route0.get({ abs: true })
     expectTypeOf<typeof path>().toEqualTypeOf<`${string}/path`>()
     expect(path).toBe('https://y.com/path')
+    expect(path).toBe(route0.flat({}, true))
   })
 
   it('abs override extend', () => {
@@ -172,6 +191,7 @@ describe('route0', () => {
     const path = route1.get({ abs: true })
     expectTypeOf<typeof path>().toEqualTypeOf<`${string}/path/suffix`>()
     expect(path).toBe('https://y.com/path/suffix')
+    expect(path).toBe(route1.flat({}, true))
   })
 
   it('abs override many', () => {
@@ -191,20 +211,30 @@ describe('route0', () => {
     const rWith = Route0.create('/a/:id')
     // @ts-expect-error missing required path params
     expect(rWith.get()).toBe('/a/undefined')
+    // @ts-expect-error missing required path params
+    expect(rWith.flat()).toBe('/a/undefined')
 
     // @ts-expect-error missing required path params
     expect(rWith.get({})).toBe('/a/undefined')
+    // @ts-expect-error missing required path params
+    expect(rWith.flat({})).toBe('/a/undefined')
     // @ts-expect-error missing required path params (object form abs)
     expect(rWith.get({ abs: true })).toBe('https://example.com/a/undefined')
+    // @ts-expect-error missing required path params (object form abs)
+    expect(rWith.flat({}, true)).toBe('https://example.com/a/undefined')
     // @ts-expect-error missing required path params (object form search)
     expect(rWith.get({ search: { q: '1' } })).toBe('/a/undefined?q=1')
+    // @ts-expect-error missing required path params (object form search)
+    expect(rWith.flat({ q: '1' })).toBe('/a/undefined?q=1')
 
     // @ts-expect-error params can not be sent as object value it should be argument
     rWith.get({ params: { id: '1' } }) // not throw becouse this will not used
+    expect(rWith.flat({ id: '1' })).toBe('/a/1')
 
     const rNo = Route0.create('/b')
     // @ts-expect-error no path params allowed for this route (shorthand)
     expect(rNo.get({ id: '1' })).toBe('/b')
+    expect(rNo.flat({ id: '1' })).toBe('/b?id=1')
   })
 
   it('getLocation location of url', () => {

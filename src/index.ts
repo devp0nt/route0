@@ -208,6 +208,77 @@ export class Route0<TPath extends string> {
     return url
   }
 
+  // has params
+  flat(
+    input: OnlyIfHasParams<_ParamsDefinition<TPath>, WithParamsInput<TPath>>,
+    abs?: false,
+  ): OnlyIfHasParams<_ParamsDefinition<TPath>, PathOnlyRouteValue<TPath>>
+  flat(
+    input: OnlyIfHasParams<_ParamsDefinition<TPath>, WithParamsInput<TPath, _SearchInput<TPath>>>,
+    abs?: false,
+  ): OnlyIfHasParams<_ParamsDefinition<TPath>, WithSearchRouteValue<TPath>>
+  flat(
+    input: OnlyIfHasParams<_ParamsDefinition<TPath>, WithParamsInput<TPath>>,
+    abs: true,
+  ): OnlyIfHasParams<_ParamsDefinition<TPath>, AbsolutePathOnlyRouteValue<TPath>>
+  flat(
+    input: OnlyIfHasParams<_ParamsDefinition<TPath>, WithParamsInput<TPath, _SearchInput<TPath>>>,
+    abs: true,
+  ): OnlyIfHasParams<_ParamsDefinition<TPath>, AbsoluteWithSearchRouteValue<TPath>>
+
+  // no params
+  flat(...args: OnlyIfNoParams<_ParamsDefinition<TPath>, [], [never]>): PathOnlyRouteValue<TPath>
+  flat(
+    input: OnlyIfNoParams<_ParamsDefinition<TPath>, Record<never, never>>,
+    abs?: false,
+  ): OnlyIfNoParams<_ParamsDefinition<TPath>, PathOnlyRouteValue<TPath>>
+  flat(
+    input: OnlyIfNoParams<_ParamsDefinition<TPath>, _SearchInput<TPath>>,
+    abs?: false,
+  ): OnlyIfNoParams<_ParamsDefinition<TPath>, WithSearchRouteValue<TPath>>
+  flat(
+    input: OnlyIfNoParams<_ParamsDefinition<TPath>, Record<never, never>>,
+    abs: true,
+  ): OnlyIfNoParams<_ParamsDefinition<TPath>, AbsolutePathOnlyRouteValue<TPath>>
+  flat(
+    input: OnlyIfNoParams<_ParamsDefinition<TPath>, _SearchInput<TPath>>,
+    abs: true,
+  ): OnlyIfNoParams<_ParamsDefinition<TPath>, AbsoluteWithSearchRouteValue<TPath>>
+
+  // implementation
+  flat(...args: any[]): string {
+    const { searchInput, paramsInput, absInput } = ((): {
+      searchInput: Record<string, string | number>
+      paramsInput: Record<string, string | number>
+      absInput: boolean
+    } => {
+      if (args.length === 0) {
+        return { searchInput: {}, paramsInput: {}, absInput: false }
+      }
+      const input = args[0]
+      if (typeof input !== 'object' || input === null) {
+        // throw new Error("Invalid get route input: expected object")
+        return { searchInput: {}, paramsInput: {}, absInput: args[1] ?? false }
+      }
+      const paramsKeys = this.paramsDefinition ? Object.keys(this.paramsDefinition) : []
+      const paramsInput = paramsKeys.reduce<Record<string, string | number>>((acc, key) => {
+        if (input[key] !== undefined) {
+          acc[key] = input[key]
+        }
+        return acc
+      }, {})
+      const searchInput = Object.keys(input)
+        .filter((k) => !paramsKeys.includes(k))
+        .reduce<Record<string, string | number>>((acc, key) => {
+          acc[key] = input[key]
+          return acc
+        }, {})
+      return { searchInput, paramsInput, absInput: args[1] ?? false }
+    })()
+
+    return this.get({ ...paramsInput, search: searchInput, abs: absInput } as never)
+  }
+
   getDefinition(): string {
     return this.pathDefinition
   }
@@ -493,10 +564,12 @@ export type PathExtended<
 
 export type WithParamsInput<
   TPath extends string,
-  T extends {
-    search?: _SearchInput<any>
-    abs?: boolean
-  },
-> = _ParamsInput<TPath> & T
+  T extends
+    | {
+        search?: _SearchInput<any>
+        abs?: boolean
+      }
+    | undefined = undefined,
+> = _ParamsInput<TPath> & (T extends undefined ? Record<never, never> : T)
 
 export type _IsUnder<T extends string, TParent extends string> = T extends `${TParent}${string}` ? true : false
