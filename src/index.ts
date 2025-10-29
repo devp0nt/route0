@@ -57,7 +57,7 @@ export class Route0<TPath extends string> {
     }
   }
 
-  static create<TPath extends string>(definition: TPath, config?: RouteConfigInput): CallabelRoute0<TPath> {
+  static create<TPath extends string>(definition: TPath, config?: RouteConfigInput): CallabelRoute<TPath> {
     const original = new Route0<TPath>(definition, config)
     const callable = original.get.bind(original)
     Object.setPrototypeOf(callable, original)
@@ -104,7 +104,7 @@ export class Route0<TPath extends string> {
 
   extend<TSuffixDefinition extends string>(
     suffixDefinition: TSuffixDefinition,
-  ): CallabelRoute0<PathExtended<TPath, TSuffixDefinition>> {
+  ): CallabelRoute<PathExtended<TPath, TSuffixDefinition>> {
     const { pathDefinition: parentPathDefinition } = Route0._splitPathDefinitionAndSearchTailDefinition(
       this.pathOriginal,
     )
@@ -421,7 +421,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     for (const key in routes) {
       if (Object.prototype.hasOwnProperty.call(routes, key)) {
         const value = routes[key]
-        result[key] = (typeof value === 'string' ? Route0.create(value) : value) as AnyRoute<T[typeof key]>
+        result[key] = (typeof value === 'string' ? Route0.create(value) : value) as CallabelRoute<T[typeof key]>
       }
     }
     return result
@@ -431,7 +431,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     const newRoutes = {} as RoutesRecordHydrated<T>
     for (const key in this.routes) {
       if (Object.prototype.hasOwnProperty.call(this.routes, key)) {
-        newRoutes[key] = this.routes[key].clone(config) as AnyRoute<T[typeof key]>
+        newRoutes[key] = this.routes[key].clone(config) as CallabelRoute<T[typeof key]>
       }
     }
     return Routes._prettify(newRoutes as unknown as T, true)
@@ -440,9 +440,8 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
 
 // main
 
-export type AnyRoute0<T extends Route0<string> | string = string> = T extends string ? Route0<T> : T
-export type CallabelRoute0<T extends Route0<string> | string = string> = AnyRoute0<T> & AnyRoute0<T>['get']
-export type AnyRoute<T extends CallabelRoute0 | string = string> = CallabelRoute0<T>
+export type AnyRoute<T extends Route0<string> | string = string> = T extends string ? Route0<T> : T
+export type CallabelRoute<T extends Route0<string> | string = string> = AnyRoute<T> & AnyRoute<T>['get']
 export type RouteConfigInput = {
   baseUrl?: string
 }
@@ -451,7 +450,7 @@ export type RouteConfigInput = {
 
 export type RoutesRecord = Record<string, AnyRoute | string>
 export type RoutesRecordHydrated<TRoutesRecord extends RoutesRecord = RoutesRecord> = {
-  [K in keyof TRoutesRecord]: AnyRoute<TRoutesRecord[K]>
+  [K in keyof TRoutesRecord]: CallabelRoute<TRoutesRecord[K]>
 }
 export type RoutesPretty<TRoutesRecord extends RoutesRecord = RoutesRecord> = RoutesRecordHydrated<TRoutesRecord> &
   Routes<TRoutesRecord>
@@ -467,28 +466,28 @@ export type ExtractRoute<
 
 // public utils
 
-export type PathOriginal<T extends AnyRoute | string> = T extends AnyRoute0
+export type PathOriginal<T extends AnyRoute | string> = T extends AnyRoute
   ? T['pathOriginal']
   : T extends string
     ? T
     : never
-export type PathDefinition<T extends AnyRoute | string> = T extends AnyRoute0
+export type PathDefinition<T extends AnyRoute | string> = T extends AnyRoute
   ? T['pathDefinition']
   : T extends string
     ? _PathDefinition<T>
     : never
-export type ParamsDefinition<T extends AnyRoute | string> = T extends AnyRoute0
+export type ParamsDefinition<T extends AnyRoute | string> = T extends AnyRoute
   ? T['paramsDefinition']
   : T extends string
     ? _ParamsDefinition<T>
     : undefined
-export type SearchDefinition<T extends AnyRoute | string> = T extends AnyRoute0
+export type SearchDefinition<T extends AnyRoute | string> = T extends AnyRoute
   ? T['searchDefinition']
   : T extends string
     ? _SearchDefinition<T>
     : undefined
 
-export type Extended<T extends AnyRoute | string | undefined, TSuffixDefinition extends string> = T extends AnyRoute0
+export type Extended<T extends AnyRoute | string | undefined, TSuffixDefinition extends string> = T extends AnyRoute
   ? Route0<PathExtended<T['pathOriginal'], TSuffixDefinition>>
   : T extends string
     ? Route0<PathExtended<T, TSuffixDefinition>>
