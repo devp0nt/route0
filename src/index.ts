@@ -27,23 +27,18 @@
 // ssr0
 // TODO: ССР работает просто поверх любого роутера, который поддерживает асинхронную загрузку страниц
 
-export class Route0<
-  TPath extends string,
-  TPathDefinition extends PathDefinition<TPath>,
-  TParamsDefinition extends ParamsDefinition<TPath>,
-  TQueryDefinition extends QueryDefinition<TPath>,
-> {
-  readonly pathOriginalDefinition: TPath
-  readonly pathDefinition: TPathDefinition
-  readonly paramsDefinition: TParamsDefinition
-  readonly queryDefinition: TQueryDefinition
+export class Route0<TPath extends string> {
+  readonly pathOriginal: TPath
+  readonly pathDefinition: PathDefinition<TPath>
+  readonly paramsDefinition: ParamsDefinition<TPath>
+  readonly queryDefinition: QueryDefinition<TPath>
   baseUrl: string
 
   private constructor(definition: TPath, config: RouteConfigInput = {}) {
-    this.pathOriginalDefinition = definition
-    this.pathDefinition = Route0._getPathDefinitionByOriginalDefinition(definition) as TPathDefinition
-    this.paramsDefinition = Route0._getParamsDefinitionByRouteDefinition(definition) as TParamsDefinition
-    this.queryDefinition = Route0._getQueryDefinitionByRouteDefinition(definition) as TQueryDefinition
+    this.pathOriginal = definition
+    this.pathDefinition = Route0._getPathDefinitionByOriginalDefinition(definition)
+    this.paramsDefinition = Route0._getParamsDefinitionByRouteDefinition(definition)
+    this.queryDefinition = Route0._getQueryDefinitionByRouteDefinition(definition)
 
     const { baseUrl } = config
     if (baseUrl && typeof baseUrl === 'string' && baseUrl.length) {
@@ -59,33 +54,22 @@ export class Route0<
     }
   }
 
-  static create<
-    TPathOriginalDefinition extends string,
-    TPathDefinition extends PathDefinition<TPathOriginalDefinition>,
-    TParamsDefinition extends ParamsDefinition<TPathOriginalDefinition>,
-    TQueryDefinition extends QueryDefinition<TPathOriginalDefinition>,
-  >(
-    definition: TPathOriginalDefinition,
-    config?: RouteConfigInput,
-  ): Callable<Route0<TPathOriginalDefinition, TPathDefinition, TParamsDefinition, TQueryDefinition>> {
-    const original = new Route0<TPathOriginalDefinition, TPathDefinition, TParamsDefinition, TQueryDefinition>(
-      definition,
-      config,
-    )
+  static create<TPath extends string>(definition: TPath, config?: RouteConfigInput): Callable<Route0<TPath>> {
+    const original = new Route0<TPath>(definition, config)
     const callable = original.get.bind(original)
     Object.setPrototypeOf(callable, original)
     Object.defineProperty(callable, Symbol.toStringTag, {
-      value: original.pathOriginalDefinition,
+      value: original.pathOriginal,
     })
     return callable as never
   }
 
-  private static _splitPathDefinitionAndQueryTailDefinition(pathOriginalDefinition: string) {
-    const i = pathOriginalDefinition.indexOf('&')
-    if (i === -1) return { pathDefinition: pathOriginalDefinition, queryTailDefinition: '' }
+  private static _splitPathDefinitionAndQueryTailDefinition(pathOriginal: string) {
+    const i = pathOriginal.indexOf('&')
+    if (i === -1) return { pathDefinition: pathOriginal, queryTailDefinition: '' }
     return {
-      pathDefinition: pathOriginalDefinition.slice(0, i),
-      queryTailDefinition: pathOriginalDefinition.slice(i),
+      pathDefinition: pathOriginal.slice(0, i),
+      queryTailDefinition: pathOriginal.slice(i),
     }
   }
 
@@ -93,32 +77,26 @@ export class Route0<
     return new URL(pathWithQuery, baseUrl).toString().replace(/\/$/, '')
   }
 
-  private static _getPathDefinitionByOriginalDefinition<TPathOriginalDefinition extends string>(
-    pathOriginalDefinition: TPathOriginalDefinition,
-  ) {
-    const { pathDefinition } = Route0._splitPathDefinitionAndQueryTailDefinition(pathOriginalDefinition)
-    return pathDefinition as PathDefinition<TPathOriginalDefinition>
+  private static _getPathDefinitionByOriginalDefinition<TPath extends string>(pathOriginal: TPath) {
+    const { pathDefinition } = Route0._splitPathDefinitionAndQueryTailDefinition(pathOriginal)
+    return pathDefinition as PathDefinition<TPath>
   }
 
-  private static _getParamsDefinitionByRouteDefinition<TPathOriginalDefinition extends string>(
-    pathOriginalDefinition: TPathOriginalDefinition,
-  ) {
-    const { pathDefinition } = Route0._splitPathDefinitionAndQueryTailDefinition(pathOriginalDefinition)
+  private static _getParamsDefinitionByRouteDefinition<TPath extends string>(pathOriginal: TPath) {
+    const { pathDefinition } = Route0._splitPathDefinitionAndQueryTailDefinition(pathOriginal)
     const matches = Array.from(pathDefinition.matchAll(/:([A-Za-z0-9_]+)/g))
     const paramsDefinition = Object.fromEntries(matches.map((m) => [m[1], true]))
-    return paramsDefinition as ParamsDefinition<TPathOriginalDefinition>
+    return paramsDefinition as ParamsDefinition<TPath>
   }
 
-  private static _getQueryDefinitionByRouteDefinition<TPathOriginalDefinition extends string>(
-    pathOriginalDefinition: TPathOriginalDefinition,
-  ) {
-    const { queryTailDefinition } = Route0._splitPathDefinitionAndQueryTailDefinition(pathOriginalDefinition)
+  private static _getQueryDefinitionByRouteDefinition<TPath extends string>(pathOriginal: TPath) {
+    const { queryTailDefinition } = Route0._splitPathDefinitionAndQueryTailDefinition(pathOriginal)
     if (!queryTailDefinition) {
-      return {} as QueryDefinition<TPathOriginalDefinition>
+      return {} as QueryDefinition<TPath>
     }
     const keys = queryTailDefinition.split('&').map(Boolean)
     const queryDefinition = Object.fromEntries(keys.map((k) => [k, true]))
-    return queryDefinition as QueryDefinition<TPathOriginalDefinition>
+    return queryDefinition as QueryDefinition<TPath>
   }
 
   static overrideMany<T extends Record<string, AnyRoute>>(routes: T, config: RouteConfigInput): T {
@@ -131,64 +109,45 @@ export class Route0<
 
   extend<TSuffixDefinition extends string>(
     suffixDefinition: TSuffixDefinition,
-  ): Callable<
-    Route0<
-      RoutePathOriginalDefinitionExtended<TPath, TSuffixDefinition>,
-      PathDefinition<RoutePathOriginalDefinitionExtended<TPath, TSuffixDefinition>>,
-      ParamsDefinition<RoutePathOriginalDefinitionExtended<TPath, TSuffixDefinition>>,
-      QueryDefinition<RoutePathOriginalDefinitionExtended<TPath, TSuffixDefinition>>
-    >
-  > {
+  ): Callable<Route0<PathExtended<TPath, TSuffixDefinition>>> {
     const { pathDefinition: parentPathDefinition } = Route0._splitPathDefinitionAndQueryTailDefinition(
-      this.pathOriginalDefinition,
+      this.pathOriginal,
     )
     const { pathDefinition: suffixPathDefinition, queryTailDefinition: suffixQueryTailDefinition } =
       Route0._splitPathDefinitionAndQueryTailDefinition(suffixDefinition)
     const pathDefinition = `${parentPathDefinition}/${suffixPathDefinition}`.replace(/\/{2,}/g, '/')
-    const pathOriginalDefinition =
-      `${pathDefinition}${suffixQueryTailDefinition}` as RoutePathOriginalDefinitionExtended<TPath, TSuffixDefinition>
-    return Route0.create<
-      RoutePathOriginalDefinitionExtended<TPath, TSuffixDefinition>,
-      PathDefinition<RoutePathOriginalDefinitionExtended<TPath, TSuffixDefinition>>,
-      ParamsDefinition<RoutePathOriginalDefinitionExtended<TPath, TSuffixDefinition>>,
-      QueryDefinition<RoutePathOriginalDefinitionExtended<TPath, TSuffixDefinition>>
-    >(pathOriginalDefinition, { baseUrl: this.baseUrl })
+    const pathOriginal = `${pathDefinition}${suffixQueryTailDefinition}` as PathExtended<TPath, TSuffixDefinition>
+    return Route0.create<PathExtended<TPath, TSuffixDefinition>>(pathOriginal, { baseUrl: this.baseUrl })
   }
 
   // has params
   get(
-    input: OnlyIfHasParams<TParamsDefinition, WithParamsInput<TParamsDefinition, { query?: undefined; abs?: false }>>,
-  ): OnlyIfHasParams<TParamsDefinition, PathOnlyRouteValue<TPath>>
+    input: OnlyIfHasParams<ParamsDefinition<TPath>, WithParamsInput<TPath, { query?: undefined; abs?: false }>>,
+  ): OnlyIfHasParams<ParamsDefinition<TPath>, PathOnlyRouteValue<TPath>>
   get(
-    input: OnlyIfHasParams<
-      TParamsDefinition,
-      WithParamsInput<TParamsDefinition, { query: QueryInput<TQueryDefinition>; abs?: false }>
-    >,
-  ): OnlyIfHasParams<TParamsDefinition, WithQueryRouteValue<TPath>>
+    input: OnlyIfHasParams<ParamsDefinition<TPath>, WithParamsInput<TPath, { query: QueryInput<TPath>; abs?: false }>>,
+  ): OnlyIfHasParams<ParamsDefinition<TPath>, WithQueryRouteValue<TPath>>
   get(
-    input: OnlyIfHasParams<TParamsDefinition, WithParamsInput<TParamsDefinition, { query?: undefined; abs: true }>>,
-  ): OnlyIfHasParams<TParamsDefinition, AbsolutePathOnlyRouteValue<TPath>>
+    input: OnlyIfHasParams<ParamsDefinition<TPath>, WithParamsInput<TPath, { query?: undefined; abs: true }>>,
+  ): OnlyIfHasParams<ParamsDefinition<TPath>, AbsolutePathOnlyRouteValue<TPath>>
   get(
-    input: OnlyIfHasParams<
-      TParamsDefinition,
-      WithParamsInput<TParamsDefinition, { query: QueryInput<TQueryDefinition>; abs: true }>
-    >,
-  ): OnlyIfHasParams<TParamsDefinition, AbsoluteWithQueryRouteValue<TPath>>
+    input: OnlyIfHasParams<ParamsDefinition<TPath>, WithParamsInput<TPath, { query: QueryInput<TPath>; abs: true }>>,
+  ): OnlyIfHasParams<ParamsDefinition<TPath>, AbsoluteWithQueryRouteValue<TPath>>
 
   // no params
-  get(...args: OnlyIfNoParams<TParamsDefinition, [], [never]>): PathOnlyRouteValue<TPath>
+  get(...args: OnlyIfNoParams<ParamsDefinition<TPath>, [], [never]>): PathOnlyRouteValue<TPath>
   get(
-    input: OnlyIfNoParams<TParamsDefinition, { query?: undefined; abs?: false }>,
-  ): OnlyIfNoParams<TParamsDefinition, PathOnlyRouteValue<TPath>>
+    input: OnlyIfNoParams<ParamsDefinition<TPath>, { query?: undefined; abs?: false }>,
+  ): OnlyIfNoParams<ParamsDefinition<TPath>, PathOnlyRouteValue<TPath>>
   get(
-    input: OnlyIfNoParams<TParamsDefinition, { query: QueryInput<TQueryDefinition>; abs?: false }>,
-  ): OnlyIfNoParams<TParamsDefinition, WithQueryRouteValue<TPath>>
+    input: OnlyIfNoParams<ParamsDefinition<TPath>, { query: QueryInput<TPath>; abs?: false }>,
+  ): OnlyIfNoParams<ParamsDefinition<TPath>, WithQueryRouteValue<TPath>>
   get(
-    input: OnlyIfNoParams<TParamsDefinition, { query?: undefined; abs: true }>,
-  ): OnlyIfNoParams<TParamsDefinition, AbsolutePathOnlyRouteValue<TPath>>
+    input: OnlyIfNoParams<ParamsDefinition<TPath>, { query?: undefined; abs: true }>,
+  ): OnlyIfNoParams<ParamsDefinition<TPath>, AbsolutePathOnlyRouteValue<TPath>>
   get(
-    input: OnlyIfNoParams<TParamsDefinition, { query: QueryInput<TQueryDefinition>; abs: true }>,
-  ): OnlyIfNoParams<TParamsDefinition, AbsoluteWithQueryRouteValue<TPath>>
+    input: OnlyIfNoParams<ParamsDefinition<TPath>, { query: QueryInput<TPath>; abs: true }>,
+  ): OnlyIfNoParams<ParamsDefinition<TPath>, AbsoluteWithQueryRouteValue<TPath>>
 
   // implementation
   get(...args: any[]): string {
@@ -239,8 +198,8 @@ export class Route0<
     return this.pathDefinition
   }
 
-  clone(config?: RouteConfigInput): Route0<TPath, TPathDefinition, TParamsDefinition, TQueryDefinition> {
-    return new Route0(this.pathOriginalDefinition, config)
+  clone(config?: RouteConfigInput): Route0<TPath> {
+    return new Route0(this.pathOriginal, config)
   }
 
   static getLocation(url: `${string}://${string}`): Location
@@ -332,7 +291,7 @@ export class Route0<
 
 // main
 
-export type AnyRoute = Route0<string, any, any, any>
+export type AnyRoute = Route0<string>
 export type Callable<T extends AnyRoute> = T & T['get']
 export type RouteConfigInput = {
   baseUrl?: string
@@ -345,15 +304,15 @@ export type Query<TRoute0 extends AnyRoute> = Partial<
     [K in keyof TRoute0['queryDefinition']]: string | undefined
   } & Record<string, string | undefined>
 >
-export type LocationParams<TParamsDefinition extends object> = {
-  [K in keyof TParamsDefinition]: string
+export type LocationParams<TPath extends string> = {
+  [K in keyof ParamsDefinition<TPath>]: string
 }
-export type LocationQuery<TQueryDefinition extends object> = {
-  [K in keyof TQueryDefinition]: string | undefined
+export type LocationQuery<TPath extends string> = {
+  [K in keyof QueryDefinition<TPath>]: string | undefined
 } & Record<string, string | undefined>
 export type Location<TRoute0 extends AnyRoute = AnyRoute> = {
-  query: LocationQuery<TRoute0['queryDefinition']>
-  params: LocationParams<TRoute0['paramsDefinition']>
+  query: LocationQuery<TRoute0['pathOriginal']>
+  params: LocationParams<TRoute0['pathOriginal']>
   pathname: string
   search: string
   hash: string
@@ -377,7 +336,7 @@ export type MatchResult<TRoute0 extends AnyRoute, TExact extends boolean = boole
       }
     : never
 export type HasParams<TRoute0 extends AnyRoute> =
-  ExtractPathParams<PathDefinition<TRoute0['pathOriginalDefinition']>> extends infer U
+  ExtractPathParams<PathDefinition<TRoute0['pathOriginal']>> extends infer U
     ? [U] extends [never]
       ? false
       : true
@@ -427,50 +386,48 @@ export type JoinPath<Parent extends string, Suffix extends string> = DedupeSlash
 export type OnlyIfNoParams<TParams extends object | undefined, Yes, No = never> = TParams extends undefined ? Yes : No
 export type OnlyIfHasParams<TParams extends object | undefined, Yes, No = never> = TParams extends undefined ? No : Yes
 
-export type PathDefinition<TPathOriginalDefinition extends string> = TrimQueryTailDefinition<TPathOriginalDefinition>
-export type ParamsDefinition<TPathOriginalDefinition extends string> =
-  ExtractPathParams<PathDefinition<TPathOriginalDefinition>> extends infer U
+export type PathDefinition<TPath extends string> = TrimQueryTailDefinition<TPath>
+export type ParamsDefinition<TPath extends string> =
+  ExtractPathParams<PathDefinition<TPath>> extends infer U
     ? [U] extends [never]
       ? undefined
       : { [K in Extract<U, string>]: true }
     : undefined
-export type QueryDefinition<TPathOriginalDefinition extends string> =
-  NonEmpty<QueryTailDefinitionWithoutFirstAmp<TPathOriginalDefinition>> extends infer Tail extends string
+export type QueryDefinition<TPath extends string> =
+  NonEmpty<QueryTailDefinitionWithoutFirstAmp<TPath>> extends infer Tail extends string
     ? AmpSplit<Tail> extends infer U
       ? [U] extends [never]
         ? undefined
         : { [K in Extract<U, string>]: true }
       : undefined
     : undefined
-export type RoutePathOriginalDefinitionExtended<
+export type PathExtended<
   TSourcePathOriginalDefinition extends string,
   TSuffixPathOriginalDefinition extends string,
 > = `${JoinPath<TSourcePathOriginalDefinition, TSuffixPathOriginalDefinition>}${QueryTailDefinitionWithFirstAmp<TSuffixPathOriginalDefinition>}`
 
-export type ParamsInput<TParamsDefinition extends object | undefined> = TParamsDefinition extends undefined
-  ? Record<never, never>
-  : {
-      [K in keyof TParamsDefinition]: string | number
-    }
-export type QueryInput<TQueryDefinition extends object | undefined> = TQueryDefinition extends undefined
-  ? Record<string, string | number>
-  : Partial<{
-      [K in keyof TQueryDefinition]: string | number
-    }> &
-      Record<string, string | number>
+export type ParamsInput<TPath extends string> =
+  ParamsDefinition<TPath> extends undefined
+    ? Record<never, never>
+    : {
+        [K in keyof ParamsDefinition<TPath>]: string | number
+      }
+export type QueryInput<TPath extends string> =
+  QueryDefinition<TPath> extends undefined
+    ? Record<string, string | number>
+    : Partial<{
+        [K in keyof QueryDefinition<TPath>]: string | number
+      }> &
+        Record<string, string | number>
 export type WithParamsInput<
-  TParamsDefinition extends object | undefined,
+  TPath extends string,
   T extends {
     query?: QueryInput<any>
     abs?: boolean
   },
-> = ParamsInput<TParamsDefinition> & T
+> = ParamsInput<TPath> & T
 
-export type PathOnlyRouteValue<TPathOriginalDefinition extends string> =
-  `${ReplacePathParams<PathDefinition<TPathOriginalDefinition>>}`
-export type WithQueryRouteValue<TPathOriginalDefinition extends string> =
-  `${ReplacePathParams<PathDefinition<TPathOriginalDefinition>>}?${string}`
-export type AbsolutePathOnlyRouteValue<TPathOriginalDefinition extends string> =
-  `${string}${PathOnlyRouteValue<TPathOriginalDefinition>}`
-export type AbsoluteWithQueryRouteValue<TPathOriginalDefinition extends string> =
-  `${string}${WithQueryRouteValue<TPathOriginalDefinition>}`
+export type PathOnlyRouteValue<TPath extends string> = `${ReplacePathParams<PathDefinition<TPath>>}`
+export type WithQueryRouteValue<TPath extends string> = `${ReplacePathParams<PathDefinition<TPath>>}?${string}`
+export type AbsolutePathOnlyRouteValue<TPath extends string> = `${string}${PathOnlyRouteValue<TPath>}`
+export type AbsoluteWithQueryRouteValue<TPath extends string> = `${string}${WithQueryRouteValue<TPath>}`
