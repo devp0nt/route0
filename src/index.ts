@@ -102,14 +102,6 @@ export class Route0<TPath extends string> {
     return searchDefinition as _SearchDefinition<TPath>
   }
 
-  static overrideMany<T extends Record<string, AnyRoute>>(routes: T, config: RouteConfigInput): T {
-    const result = {} as T
-    for (const [key, value] of Object.entries(routes)) {
-      ;(result as any)[key] = value.clone(config)
-    }
-    return result
-  }
-
   extend<TSuffixDefinition extends string>(
     suffixDefinition: TSuffixDefinition,
   ): Callable<Route0<PathExtended<TPath, TSuffixDefinition>>> {
