@@ -5,6 +5,7 @@ import type {
   CanInputBeEmpty,
   Extended,
   FlatInput,
+  FlatOutput,
   HasParams,
   HasSearch,
   IsChildren,
@@ -16,6 +17,7 @@ import type {
   SearchInput,
   SearchOutput,
   StrictFlatInput,
+  StrictFlatOutput,
   StrictSearchInput,
   StrictSearchOutput,
 } from './index.js'
@@ -376,6 +378,37 @@ describe('type utilities', () => {
       }> & {
         id: string | number
       }
+    >()
+  })
+
+  it('FlatOutput', () => {
+    type T1 = FlatOutput<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<{
+      [x: string]: string | undefined
+      x?: string | undefined
+      y?: string | undefined
+    }>()
+
+    type T2 = FlatOutput<'/path/:id&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      {
+        id: string
+      } & {
+        [x: string]: string | undefined
+        x?: string | undefined
+        y?: string | undefined
+      }
+    >()
+  })
+  it('StrictFlatOutput', () => {
+    type T1 = StrictFlatOutput<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<{ x?: string | undefined; y?: string | undefined }>()
+    type T2 = StrictFlatOutput<'/path/:id&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      { id: string } & Partial<{
+        x?: string | undefined
+        y?: string | undefined
+      }>
     >()
   })
 

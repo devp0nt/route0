@@ -768,6 +768,10 @@ export type SearchOutput<T extends AnyRoute | string = string> = Partial<
 export type StrictSearchOutput<T extends AnyRoute | string> = Partial<{
   [K in keyof SearchDefinition<T>]?: string | undefined
 }>
+export type FlatOutput<T extends AnyRoute | string = string> =
+  HasParams<Definition<T>> extends true ? ParamsOutput<T> & SearchOutput<T> : SearchOutput<T>
+export type StrictFlatOutput<T extends AnyRoute | string> =
+  HasParams<Definition<T>> extends true ? ParamsOutput<T> & StrictSearchOutput<T> : StrictSearchOutput<T>
 export type ParamsInput<T extends AnyRoute | string = string> = _ParamsInput<PathDefinition<T>>
 export type SearchInput<T extends AnyRoute | string = string> = _SearchInput<Definition<T>>
 export type StrictSearchInput<T extends AnyRoute | string> = _StrictSearchInput<Definition<T>>
