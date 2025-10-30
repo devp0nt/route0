@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'bun:test'
 import type {
   AnyRoute,
+  AnyRouteOrDefinition,
   CallabelRoute,
   CanInputBeEmpty,
   Extended,
@@ -267,6 +268,21 @@ describe('Route0', () => {
     expectTypeOf<CallabelRoute<'/path/:id'>>().toExtend<AnyRoute>()
     expectTypeOf<CallabelRoute<'/path/:id&x'>>().toExtend<AnyRoute>()
     expectTypeOf<CallabelRoute>().toExtend<AnyRoute>()
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const route = Route0.create('/path')
+    expectTypeOf<typeof route>().toExtend<AnyRoute>()
+    expectTypeOf<typeof route>().toExtend<AnyRouteOrDefinition>()
+
+    // Test that specific CallabelRoute with literal path IS assignable to AnyRouteOrDefinition
+    expectTypeOf<CallabelRoute<'/ideas/best'>>().toExtend<AnyRouteOrDefinition>()
+
+    // Test actual function parameter assignment scenario
+    const testFn = (_route: AnyRouteOrDefinition) => {
+      // intentionally empty
+    }
+    const callableRoute = Route0.create('/ideas/best')
+    testFn(callableRoute) // This should work
   })
 })
 

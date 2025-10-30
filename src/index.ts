@@ -1,4 +1,5 @@
 // TODO: asterisk
+// TODO: when asterisk then query params will be extended also after extend
 // TODO: optional params
 // TODO: required search
 
@@ -675,7 +676,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
 
 export type AnyRoute<T extends Route0<string> | string = string> = T extends string ? Route0<T> : T
 export type CallabelRoute<T extends Route0<string> | string = string> = AnyRoute<T> & AnyRoute<T>['get']
-export type AnyRouteOrDefinition<T extends string> = AnyRoute<T> | T
+export type AnyRouteOrDefinition<T extends string = string> = AnyRoute<T> | CallabelRoute<T> | T
 export type RouteConfigInput = {
   baseUrl?: string
 }
