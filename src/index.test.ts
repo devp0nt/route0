@@ -261,18 +261,30 @@ describe('Route0', () => {
 
   it('really any route assignable to AnyRoute', () => {
     expectTypeOf<Route0<string>>().toExtend<AnyRoute>()
+    expectTypeOf<Route0<string>>().toExtend<AnyRouteOrDefinition>()
     expectTypeOf<Route0<'/path'>>().toExtend<AnyRoute>()
+    expectTypeOf<Route0<'/path'>>().toExtend<AnyRouteOrDefinition>()
     expectTypeOf<Route0<'/path/:id'>>().toExtend<AnyRoute>()
+    expectTypeOf<Route0<'/path/:id'>>().toExtend<AnyRouteOrDefinition>()
     expectTypeOf<Route0<'/path/:id&x'>>().toExtend<AnyRoute>()
+    expectTypeOf<CallabelRoute<'/path'>>().toExtend<AnyRouteOrDefinition>()
     expectTypeOf<CallabelRoute<'/path'>>().toExtend<AnyRoute>()
+    expectTypeOf<CallabelRoute<'/path'>>().toExtend<AnyRouteOrDefinition>()
     expectTypeOf<CallabelRoute<'/path/:id'>>().toExtend<AnyRoute>()
+    expectTypeOf<CallabelRoute<'/path/:id'>>().toExtend<AnyRouteOrDefinition>()
     expectTypeOf<CallabelRoute<'/path/:id&x'>>().toExtend<AnyRoute>()
+    expectTypeOf<CallabelRoute<'/path/:id&x'>>().toExtend<AnyRouteOrDefinition>()
     expectTypeOf<CallabelRoute>().toExtend<AnyRoute>()
+    expectTypeOf<CallabelRoute>().toExtend<AnyRouteOrDefinition>()
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const route = Route0.create('/path')
     expectTypeOf<typeof route>().toExtend<AnyRoute>()
     expectTypeOf<typeof route>().toExtend<AnyRouteOrDefinition>()
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const route2 = route.extend('/path2')
+    expectTypeOf<typeof route2>().toExtend<AnyRoute>()
+    expectTypeOf<typeof route2>().toExtend<AnyRouteOrDefinition>()
 
     // Test that specific CallabelRoute with literal path IS assignable to AnyRouteOrDefinition
     expectTypeOf<CallabelRoute<'/ideas/best'>>().toExtend<AnyRouteOrDefinition>()
@@ -283,6 +295,10 @@ describe('Route0', () => {
     }
     const callableRoute = Route0.create('/ideas/best')
     testFn(callableRoute) // This should work
+
+    // Test with params
+    const routeWithParams = Route0.create('/ideas/:id')
+    testFn(routeWithParams) // This should also work
   })
 })
 
