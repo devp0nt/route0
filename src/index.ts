@@ -48,8 +48,14 @@ export class Route0<TPath extends string> {
     }
   }
 
-  static create<TPath extends string>(definition: TPath, config?: RouteConfigInput): CallabelRoute<TPath> {
-    const original = new Route0<TPath>(definition, config)
+  static create<TPath extends string>(
+    definition: TPath | AnyRoute<TPath>,
+    config?: RouteConfigInput,
+  ): CallabelRoute<TPath> {
+    if (typeof definition === 'function') {
+      return definition
+    }
+    const original = typeof definition === 'object' ? definition : new Route0<TPath>(definition, config)
     const callable = original.get.bind(original)
     Object.setPrototypeOf(callable, original)
     Object.defineProperty(callable, Symbol.toStringTag, {
@@ -76,20 +82,32 @@ export class Route0<TPath extends string> {
     return pathDefinition as _PathDefinition<TPath>
   }
 
-  private static _getParamsDefinitionByPathOriginal<TPath extends string>(pathOriginal: TPath) {
+  private static _getParamsDefinitionByPathOriginal<TPath extends string>(
+    pathOriginal: TPath,
+  ): _ParamsDefinition<TPath> {
     const { pathDefinition } = Route0._splitPathDefinitionAndSearchTailDefinition(pathOriginal)
     const matches = Array.from(pathDefinition.matchAll(/:([A-Za-z0-9_]+)/g))
     const paramsDefinition = Object.fromEntries(matches.map((m) => [m[1], true]))
+    const keysCount = Object.keys(paramsDefinition).length
+    if (keysCount === 0) {
+      return undefined as _ParamsDefinition<TPath>
+    }
     return paramsDefinition as _ParamsDefinition<TPath>
   }
 
-  private static _getSearchDefinitionByPathOriginal<TPath extends string>(pathOriginal: TPath) {
+  private static _getSearchDefinitionByPathOriginal<TPath extends string>(
+    pathOriginal: TPath,
+  ): _SearchDefinition<TPath> {
     const { searchTailDefinition } = Route0._splitPathDefinitionAndSearchTailDefinition(pathOriginal)
     if (!searchTailDefinition) {
-      return {} as _SearchDefinition<TPath>
+      return undefined as _SearchDefinition<TPath>
     }
-    const keys = searchTailDefinition.split('&').map(Boolean)
+    const keys = searchTailDefinition.split('&').filter(Boolean)
     const searchDefinition = Object.fromEntries(keys.map((k) => [k, true]))
+    const keysCount = Object.keys(searchDefinition).length
+    if (keysCount === 0) {
+      return undefined as _SearchDefinition<TPath>
+    }
     return searchDefinition as _SearchDefinition<TPath>
   }
 
@@ -238,15 +256,24 @@ export class Route0<TPath extends string> {
         // throw new Error("Invalid get route input: expected object")
         return { searchInput: {}, paramsInput: {}, absInput: args[1] ?? false }
       }
-      const paramsKeys = this.paramsDefinition ? Object.keys(this.paramsDefinition) : []
+      const paramsKeys = this.getParamsKeys()
       const paramsInput = paramsKeys.reduce<Record<string, string | number>>((acc, key) => {
         if (input[key] !== undefined) {
           acc[key] = input[key]
         }
         return acc
       }, {})
+      const searchKeys = this.getSearchKeys()
       const searchInput = Object.keys(input)
-        .filter((k) => !paramsKeys.includes(k))
+        .filter((k) => {
+          if (searchKeys.includes(k)) {
+            return true
+          }
+          if (paramsKeys.includes(k)) {
+            return false
+          }
+          return true
+        })
         .reduce<Record<string, string | number>>((acc, key) => {
           acc[key] = input[key]
           return acc
@@ -257,6 +284,16 @@ export class Route0<TPath extends string> {
     return this.get({ ...paramsInput, search: searchInput, abs: absInput } as never)
   }
 
+  getParamsKeys(): string[] {
+    return Object.keys(this.paramsDefinition || {})
+  }
+  getSearchKeys(): string[] {
+    return Object.keys(this.searchDefinition || {})
+  }
+  getFlatKeys(): string[] {
+    return [...this.getSearchKeys(), ...this.getParamsKeys()]
+  }
+
   getDefinition(): string {
     return this.pathDefinition
   }
@@ -265,12 +302,40 @@ export class Route0<TPath extends string> {
     return new Route0(this.pathOriginal, config)
   }
 
-  static getLocation(href: `${string}://${string}`): LocationUnknown
-  static getLocation(hrefRel: `/${string}`): LocationUnknown
-  static getLocation(hrefOrHrefRel: string): LocationUnknown
-  static getLocation(location: LocationAny): LocationUnknown
-  static getLocation(hrefOrHrefRelOrLocation: string | LocationAny): LocationUnknown
-  static getLocation(hrefOrHrefRelOrLocation: string | LocationAny): LocationUnknown {
+  getRegexString(): string {
+    // Normalize the path definition (remove trailing slash except for root)
+    const def =
+      this.pathDefinition.length > 1 && this.pathDefinition.endsWith('/')
+        ? this.pathDefinition.slice(0, -1)
+        : this.pathDefinition
+
+    // Replace :param with placeholders, escape regex special chars, then restore capture groups
+    const pattern = def
+      .replace(/:([A-Za-z0-9_]+)/g, '___PARAM___') // temporarily replace params with placeholder
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // escape regex special chars
+      .replace(/___PARAM___/g, '([^/]+)') // replace placeholder with capture group
+
+    return pattern
+  }
+
+  getRegex(): RegExp {
+    return new RegExp(`^${this.getRegexString()}$`)
+  }
+
+  static getRegexString(routes: AnyRoute[] | AnyRoute): string {
+    const routesArray = Array.isArray(routes) ? routes : [routes]
+    return routesArray.map((route) => route.getRegexString()).join('|')
+  }
+  static getRegex(routes: AnyRoute[] | AnyRoute): RegExp {
+    return new RegExp(`^(${Route0.getRegexString(routes)})$`)
+  }
+
+  static getLocation(href: `${string}://${string}`): UnknownLocation
+  static getLocation(hrefRel: `/${string}`): UnknownLocation
+  static getLocation(hrefOrHrefRel: string): UnknownLocation
+  static getLocation(location: LocationAny): UnknownLocation
+  static getLocation(hrefOrHrefRelOrLocation: string | LocationAny): UnknownLocation
+  static getLocation(hrefOrHrefRelOrLocation: string | LocationAny): UnknownLocation {
     if (typeof hrefOrHrefRelOrLocation !== 'string') {
       hrefOrHrefRelOrLocation = hrefOrHrefRelOrLocation.href || hrefOrHrefRelOrLocation.hrefRel
     }
@@ -293,8 +358,8 @@ export class Route0<TPath extends string> {
     // Common derived values
     const hrefRel = pathname + url.search + url.hash
 
-    // Build the location object consistent with _LocationGeneral
-    const location: LocationUnknown = {
+    // Build the location object consistent with _GeneralLocation
+    const location: UnknownLocation = {
       pathname,
       search: url.search,
       hash: url.hash,
@@ -308,7 +373,7 @@ export class Route0<TPath extends string> {
       hostname: abs ? url.hostname : undefined,
       port: abs ? url.port || undefined : undefined,
 
-      // specific to LocationUnknown
+      // specific to UnknownLocation
       searchParams,
       params: undefined,
       route: undefined,
@@ -320,34 +385,37 @@ export class Route0<TPath extends string> {
     return location
   }
 
-  getLocation(href: `${string}://${string}`): LocationKnown<TPath>
-  getLocation(hrefRel: `/${string}`): LocationKnown<TPath>
-  getLocation(hrefOrHrefRel: string): LocationKnown<TPath>
-  getLocation(location: LocationAny): LocationKnown<TPath>
-  getLocation(hrefOrHrefRelOrLocation: string | LocationAny): LocationKnown<TPath>
-  getLocation(hrefOrHrefRelOrLocation: string | LocationAny): LocationKnown<TPath> {
-    const location = Route0.getLocation(hrefOrHrefRelOrLocation) as never as LocationKnown<TPath>
+  getLocation(href: `${string}://${string}`): KnownLocation<TPath>
+  getLocation(hrefRel: `/${string}`): KnownLocation<TPath>
+  getLocation(hrefOrHrefRel: string): KnownLocation<TPath>
+  getLocation(location: LocationAny): KnownLocation<TPath>
+  getLocation(hrefOrHrefRelOrLocation: string | LocationAny): KnownLocation<TPath>
+  getLocation(hrefOrHrefRelOrLocation: string | LocationAny): KnownLocation<TPath> {
+    const location = Route0.getLocation(hrefOrHrefRelOrLocation) as never as KnownLocation<TPath>
     location.route = this.pathOriginal as PathOriginal<TPath>
     location.params = {}
 
     const escapeRegex = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
 
-    // Normalize both sides (no trailing slash except root)
-    const def =
-      this.pathDefinition.length > 1 && this.pathDefinition.endsWith('/')
-        ? this.pathDefinition.slice(0, -1)
-        : this.pathDefinition
+    // Normalize pathname (no trailing slash except root)
     const pathname =
       location.pathname.length > 1 && location.pathname.endsWith('/')
         ? location.pathname.slice(0, -1)
         : location.pathname
 
-    // Build a regex from the route definition: /a/:x/b/:y -> ^/a/([^/]+)/b/([^/]+)$
+    // Use getRegexString() to get the pattern
+    const pattern = this.getRegexString()
+
+    // Extract param names from the definition
     const paramNames: string[] = []
-    const pattern = def.replace(/:([A-Za-z0-9_]+)/g, (_m: string, name: string) => {
+    const def =
+      this.pathDefinition.length > 1 && this.pathDefinition.endsWith('/')
+        ? this.pathDefinition.slice(0, -1)
+        : this.pathDefinition
+    def.replace(/:([A-Za-z0-9_]+)/g, (_m: string, name: string) => {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
       paramNames.push(String(name))
-      return '([^/]+)'
+      return ''
     })
 
     const exactRe = new RegExp(`^${pattern}$`)
@@ -366,7 +434,7 @@ export class Route0<TPath extends string> {
     const exact = !!exactMatch
     const parent = !exact && parentRe.test(pathname)
 
-    // "children": the URL is a prefix of the route definition (ignoring params’ concrete values)
+    // "children": the URL is a prefix of the route definition (ignoring params' concrete values)
     // We check if the definition starts with the URL path boundary-wise.
     const children = !exact && new RegExp(`^${escapeRegex(pathname)}(?:/|$)`).test(def)
 
@@ -375,24 +443,32 @@ export class Route0<TPath extends string> {
       exact,
       parent,
       children,
-    } as LocationKnown<TPath>
+    } as KnownLocation<TPath>
   }
 
   isSame(other: Route0<TPath>): boolean {
     return (
-      this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '') === other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '')
+      this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__') ===
+      other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__')
     )
+  }
+  static isSame(a: AnyRoute | string | undefined, b: AnyRoute | string | undefined): boolean {
+    if ((!a && b) || (a && !b)) return false
+    if (!a || !b) return true
+    return Route0.create(a).isSame(Route0.create(b))
   }
 
   isChildren(other: Route0<TPath>): boolean {
     return (
-      this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '') === other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '')
+      this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__') ===
+      other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__')
     )
   }
 
   isParent(other: Route0<TPath>): boolean {
     return (
-      other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '') === this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '')
+      other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__') ===
+      this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__')
     )
   }
 
@@ -461,20 +537,40 @@ export class Route0<TPath extends string> {
 
 export class Routes<const T extends RoutesRecord = RoutesRecord> {
   readonly routes: RoutesRecordHydrated<T>
-  readonly ordering: string[]
+  readonly pathsOrdering: string[]
+  readonly keysOrdering: string[]
+  readonly ordered: CallabelRoute[]
 
-  private constructor(routes: T, ordering?: string[], isHydrated?: boolean) {
-    if (isHydrated) {
-      this.routes = routes as unknown as RoutesRecordHydrated<T>
-      this.ordering = ordering ?? Routes._makeOrdering(routes)
+  private constructor({
+    routes,
+    isHydrated = false,
+    pathsOrdering,
+    keysOrdering,
+    ordered,
+  }: {
+    routes: RoutesRecordHydrated<T> | T
+    isHydrated?: boolean
+    pathsOrdering?: string[]
+    keysOrdering?: string[]
+    ordered?: CallabelRoute[]
+  }) {
+    this.routes = (
+      isHydrated ? (routes as RoutesRecordHydrated<T>) : Routes._hydrate(routes)
+    ) as RoutesRecordHydrated<T>
+    if (!pathsOrdering || !keysOrdering || !ordered) {
+      const ordering = Routes._makeOrdering(this.routes)
+      this.pathsOrdering = ordering.pathsOrdering
+      this.keysOrdering = ordering.keysOrdering
+      this.ordered = this.keysOrdering.map((key) => this.routes[key])
     } else {
-      this.ordering = ordering ?? Routes._makeOrdering(routes)
-      this.routes = Routes._hydrate(routes)
+      this.pathsOrdering = pathsOrdering
+      this.keysOrdering = keysOrdering
+      this.ordered = ordered
     }
   }
 
   static create<const T extends RoutesRecord>(routes: T): RoutesPretty<T> {
-    const instance = new Routes(routes)
+    const instance = new Routes({ routes })
     return Routes._prettify(instance)
   }
 
@@ -501,7 +597,24 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     return result
   }
 
-  static _makeOrdering(routes: RoutesRecord): string[] {
+  getLocation(href: `${string}://${string}`): UnknownLocation | ExactLocation
+  getLocation(hrefRel: `/${string}`): UnknownLocation | ExactLocation
+  getLocation(hrefOrHrefRel: string): UnknownLocation | ExactLocation
+  getLocation(location: LocationAny): UnknownLocation | ExactLocation
+  getLocation(hrefOrHrefRelOrLocation: string | LocationAny): UnknownLocation | ExactLocation
+  getLocation(hrefOrHrefRelOrLocation: string | LocationAny): UnknownLocation | ExactLocation {
+    // Find the route that exactly matches the given location
+    for (const route of this.ordered) {
+      const loc = route.getLocation(hrefOrHrefRelOrLocation)
+      if (loc.exact) {
+        return loc
+      }
+    }
+    // No exact match found, return UnknownLocation
+    return Route0.getLocation(hrefOrHrefRelOrLocation)
+  }
+
+  static _makeOrdering(routes: RoutesRecord): { pathsOrdering: string[]; keysOrdering: string[] } {
     const hydrated = Routes._hydrate(routes)
     const entries = Object.entries(hydrated)
 
@@ -531,7 +644,9 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
       return routeA.pathDefinition.localeCompare(routeB.pathDefinition)
     })
 
-    return entries.map(([_key, route]) => route.pathOriginal)
+    const pathsOrdering = entries.map(([_key, route]) => route.pathOriginal)
+    const keysOrdering = entries.map(([_key, route]) => _key)
+    return { pathsOrdering, keysOrdering }
   }
 
   override(config: RouteConfigInput): RoutesPretty<T> {
@@ -541,8 +656,14 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
         newRoutes[key] = this.routes[key].clone(config) as CallabelRoute<T[typeof key]>
       }
     }
-    const instance = new Routes(newRoutes, this.ordering, true)
-    return Routes._prettify(instance) as RoutesPretty<T>
+    const instance = new Routes({
+      routes: newRoutes,
+      isHydrated: true,
+      pathsOrdering: this.pathsOrdering,
+      keysOrdering: this.keysOrdering,
+      ordered: this.keysOrdering.map((key) => newRoutes[key]),
+    })
+    return Routes._prettify(instance)
   }
 }
 
@@ -550,6 +671,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
 
 export type AnyRoute<T extends Route0<string> | string = string> = T extends string ? Route0<T> : T
 export type CallabelRoute<T extends Route0<string> | string = string> = AnyRoute<T> & AnyRoute<T>['get']
+export type AnyRouteOrDefinition<T extends string> = AnyRoute<T> | T
 export type RouteConfigInput = {
   baseUrl?: string
 }
@@ -655,7 +777,7 @@ export type LocationSearch<TPath extends string = string> = {
   [K in keyof _SearchDefinition<TPath>]: string | undefined
 } & Record<string, string | undefined>
 
-export type _LocationGeneral = {
+export type _GeneralLocation = {
   pathname: string
   search: string
   hash: string
@@ -667,7 +789,7 @@ export type _LocationGeneral = {
   host?: string
   hostname?: string
 }
-export type LocationUnknown = _LocationGeneral & {
+export type UnknownLocation = _GeneralLocation & {
   params: undefined
   searchParams: SearchOutput
   route: undefined
@@ -675,7 +797,7 @@ export type LocationUnknown = _LocationGeneral & {
   parent: false
   children: false
 }
-export type LocationUnmatched<TRoute extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+export type UnmatchedLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
   params: Record<never, never>
   searchParams: SearchOutput<TRoute>
   route: PathOriginal<TRoute>
@@ -683,7 +805,7 @@ export type LocationUnmatched<TRoute extends AnyRoute | string = AnyRoute | stri
   parent: false
   children: false
 }
-export type LocationExact<TRoute extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
   params: ParamsOutput<TRoute>
   searchParams: SearchOutput<TRoute>
   route: PathOriginal<TRoute>
@@ -691,7 +813,7 @@ export type LocationExact<TRoute extends AnyRoute | string = AnyRoute | string> 
   parent: false
   children: false
 }
-export type LocationParent<TRoute extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+export type ParentLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
   params: Partial<ParamsOutput<TRoute>> // in fact maybe there will be whole params object, but does not matter now
   searchParams: SearchOutput<TRoute>
   route: PathOriginal<TRoute>
@@ -699,7 +821,7 @@ export type LocationParent<TRoute extends AnyRoute | string = AnyRoute | string>
   parent: true
   children: false
 }
-export type LocationChildren<TRoute extends AnyRoute | string = AnyRoute | string> = _LocationGeneral & {
+export type ChildrenLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
   params: ParamsOutput<TRoute>
   searchParams: SearchOutput<TRoute>
   route: PathOriginal<TRoute>
@@ -707,12 +829,12 @@ export type LocationChildren<TRoute extends AnyRoute | string = AnyRoute | strin
   parent: false
   children: true
 }
-export type LocationKnown<TRoute extends AnyRoute | string = AnyRoute | string> =
-  | LocationUnmatched<TRoute>
-  | LocationExact<TRoute>
-  | LocationParent<TRoute>
-  | LocationChildren<TRoute>
-export type LocationAny<TRoute extends AnyRoute = AnyRoute> = LocationUnknown | LocationKnown<TRoute>
+export type KnownLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  | UnmatchedLocation<TRoute>
+  | ExactLocation<TRoute>
+  | ParentLocation<TRoute>
+  | ChildrenLocation<TRoute>
+export type LocationAny<TRoute extends AnyRoute = AnyRoute> = UnknownLocation | KnownLocation<TRoute>
 
 // internal utils
 

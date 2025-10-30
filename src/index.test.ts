@@ -77,7 +77,7 @@ describe('Route0', () => {
     const path = route0.get({ x: '1', y: '2', z: '3', search: { z: '4', c: '5' } })
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/some/${string}/${string}?${string}`>()
     expect(path).toBe('/prefix/1/some/2/3?z=4&c=5')
-    expect(route0.flat({ x: '1', y: '2', z: '4', c: '5' })).toBe('/prefix/1/some/2/4?c=5')
+    expect(route0.flat({ x: '1', y: '2', z: '4', c: '5' })).toBe('/prefix/1/some/2/4?z=4&c=5')
   })
 
   it('params and search and any search', () => {
@@ -86,7 +86,7 @@ describe('Route0', () => {
     expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/some/${string}/${string}?${string}`>()
     expect(path).toBe('/prefix/1/some/2/3?z=4&c=5&o=6')
     // very strange case
-    expect(route0.flat({ x: '1', y: '2', z: '4', c: '5', o: '6' })).toBe('/prefix/1/some/2/4?c=5&o=6')
+    expect(route0.flat({ x: '1', y: '2', z: '4', c: '5', o: '6' })).toBe('/prefix/1/some/2/4?z=4&c=5&o=6')
   })
 
   it('simple extend', () => {
@@ -263,96 +263,6 @@ describe('Route0', () => {
     expectTypeOf<CallabelRoute<'/path/:id&x'>>().toExtend<AnyRoute>()
     expectTypeOf<CallabelRoute>().toExtend<AnyRoute>()
   })
-
-  it('.getLocation location of url', () => {
-    let loc = Route0.getLocation('/prefix/some/suffix')
-    expect(loc).toMatchObject({
-      hash: '',
-      href: undefined,
-      hrefRel: '/prefix/some/suffix',
-      abs: false,
-      origin: undefined,
-      params: undefined,
-      pathname: '/prefix/some/suffix',
-      searchParams: {},
-      search: '',
-    })
-    loc = Route0.getLocation('/prefix/some/suffix?x=1&z=2')
-    expect(loc).toMatchObject({
-      hash: '',
-      href: undefined,
-      hrefRel: '/prefix/some/suffix?x=1&z=2',
-      abs: false,
-      origin: undefined,
-      params: undefined,
-      pathname: '/prefix/some/suffix',
-      searchParams: { x: '1', z: '2' },
-      search: '?x=1&z=2',
-    })
-    loc = Route0.getLocation('https://example.com/prefix/some/suffix?x=1&z=2')
-    expect(loc).toMatchObject({
-      hash: '',
-      href: 'https://example.com/prefix/some/suffix?x=1&z=2',
-      hrefRel: '/prefix/some/suffix?x=1&z=2',
-      abs: true,
-      origin: 'https://example.com',
-      params: undefined,
-      pathname: '/prefix/some/suffix',
-      searchParams: { x: '1', z: '2' },
-      search: '?x=1&z=2',
-    })
-  })
-
-  it('#getLocation() exact match', () => {
-    const route0 = Route0.create('/prefix/:x/some/:y/:z/suffix')
-    let loc = route0.getLocation('/prefix/some/suffix')
-    expect(loc.exact).toBe(false)
-    expect(loc.parent).toBe(false)
-    expect(loc.children).toBe(false)
-    expect(loc.params).toMatchObject({})
-    loc = route0.getLocation('/prefix/xxx/some/yyy/zzz/suffix')
-    expect(loc.exact).toBe(true)
-    expect(loc.parent).toBe(false)
-    expect(loc.children).toBe(false)
-    if (loc.exact) {
-      expectTypeOf<typeof loc.params>().toEqualTypeOf<{ x: string; y: string; z: string }>()
-    }
-    expect(loc.params).toMatchObject({ x: 'xxx', y: 'yyy', z: 'zzz' })
-  })
-
-  it('#getLocation() parent match', () => {
-    const route0 = Route0.create('/prefix/:x/some')
-    const loc = route0.getLocation('/prefix/xxx/some/extra/path')
-    expect(loc.exact).toBe(false)
-    expect(loc.parent).toBe(true)
-    expect(loc.children).toBe(false)
-  })
-
-  it('#getLocation() children match', () => {
-    const route0 = Route0.create('/prefix/some/extra/path')
-    const loc = route0.getLocation('/prefix/some')
-    expect(loc.exact).toBe(false)
-    expect(loc.parent).toBe(false)
-    expect(loc.children).toBe(true)
-  })
-
-  it('#getLocation() with host info', () => {
-    const route0 = Route0.create('/path')
-    const loc = route0.getLocation('https://example.com:8080/path')
-    expect(loc.exact).toBe(true)
-    expect(loc.origin).toBe('https://example.com:8080')
-    expect(loc.host).toBe('example.com:8080')
-    expect(loc.hostname).toBe('example.com')
-    expect(loc.port).toBe('8080')
-  })
-
-  it('#getLocation() with hash', () => {
-    const route0 = Route0.create('/path/:id')
-    const loc = route0.getLocation('/path/123#section')
-    expect(loc.exact).toBe(true)
-    expect(loc.hash).toBe('#section')
-    expect(loc.params).toMatchObject({ id: '123' })
-  })
 })
 
 describe('type utilities', () => {
@@ -483,6 +393,293 @@ describe('type utilities', () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const parent = Route0.create('/path')
     expectTypeOf<Extended<typeof parent, '/child'>>().toEqualTypeOf<Route0<'/path/child'>>()
+  })
+})
+
+describe('getLocation', () => {
+  describe('Route0', () => {
+    it('.getLocation location of url', () => {
+      let loc = Route0.getLocation('/prefix/some/suffix')
+      expect(loc).toMatchObject({
+        hash: '',
+        href: undefined,
+        hrefRel: '/prefix/some/suffix',
+        abs: false,
+        origin: undefined,
+        params: undefined,
+        pathname: '/prefix/some/suffix',
+        searchParams: {},
+        search: '',
+      })
+      loc = Route0.getLocation('/prefix/some/suffix?x=1&z=2')
+      expect(loc).toMatchObject({
+        hash: '',
+        href: undefined,
+        hrefRel: '/prefix/some/suffix?x=1&z=2',
+        abs: false,
+        origin: undefined,
+        params: undefined,
+        pathname: '/prefix/some/suffix',
+        searchParams: { x: '1', z: '2' },
+        search: '?x=1&z=2',
+      })
+      loc = Route0.getLocation('https://example.com/prefix/some/suffix?x=1&z=2')
+      expect(loc).toMatchObject({
+        hash: '',
+        href: 'https://example.com/prefix/some/suffix?x=1&z=2',
+        hrefRel: '/prefix/some/suffix?x=1&z=2',
+        abs: true,
+        origin: 'https://example.com',
+        params: undefined,
+        pathname: '/prefix/some/suffix',
+        searchParams: { x: '1', z: '2' },
+        search: '?x=1&z=2',
+      })
+    })
+
+    it('#getLocation() exact match', () => {
+      const route0 = Route0.create('/prefix/:x/some/:y/:z/suffix')
+      let loc = route0.getLocation('/prefix/some/suffix')
+      expect(loc.exact).toBe(false)
+      expect(loc.parent).toBe(false)
+      expect(loc.children).toBe(false)
+      expect(loc.params).toMatchObject({})
+      loc = route0.getLocation('/prefix/xxx/some/yyy/zzz/suffix')
+      expect(loc.exact).toBe(true)
+      expect(loc.parent).toBe(false)
+      expect(loc.children).toBe(false)
+      if (loc.exact) {
+        expectTypeOf<typeof loc.params>().toEqualTypeOf<{ x: string; y: string; z: string }>()
+      }
+      expect(loc.params).toMatchObject({ x: 'xxx', y: 'yyy', z: 'zzz' })
+    })
+
+    it('#getLocation() parent match', () => {
+      const route0 = Route0.create('/prefix/:x/some')
+      const loc = route0.getLocation('/prefix/xxx/some/extra/path')
+      expect(loc.exact).toBe(false)
+      expect(loc.parent).toBe(true)
+      expect(loc.children).toBe(false)
+    })
+
+    it('#getLocation() children match', () => {
+      const route0 = Route0.create('/prefix/some/extra/path')
+      const loc = route0.getLocation('/prefix/some')
+      expect(loc.exact).toBe(false)
+      expect(loc.parent).toBe(false)
+      expect(loc.children).toBe(true)
+    })
+
+    it('#getLocation() with host info', () => {
+      const route0 = Route0.create('/path')
+      const loc = route0.getLocation('https://example.com:8080/path')
+      expect(loc.exact).toBe(true)
+      expect(loc.origin).toBe('https://example.com:8080')
+      expect(loc.host).toBe('example.com:8080')
+      expect(loc.hostname).toBe('example.com')
+      expect(loc.port).toBe('8080')
+    })
+
+    it('#getLocation() with hash', () => {
+      const route0 = Route0.create('/path/:id')
+      const loc = route0.getLocation('/path/123#section')
+      expect(loc.exact).toBe(true)
+      expect(loc.hash).toBe('#section')
+      expect(loc.params).toMatchObject({ id: '123' })
+    })
+  })
+
+  describe('Routes', () => {
+    it('exact match returns ExactLocation', () => {
+      const routes = Routes.create({
+        home: '/',
+        users: '/users',
+        userDetail: '/users/:id',
+      })
+
+      const loc = routes.getLocation('/users/123')
+      expect(loc.exact).toBe(true)
+      expect(loc.parent).toBe(false)
+      expect(loc.children).toBe(false)
+      expect(loc.pathname).toBe('/users/123')
+      expect(Route0.isSame(loc.route, routes.userDetail)).toBe(true)
+      if (loc.exact) {
+        expect(loc.params).toMatchObject({ id: '123' })
+      }
+    })
+
+    it('no exact match returns UnknownLocation (parent case)', () => {
+      const routes = Routes.create({
+        home: '/',
+        users: '/users',
+        userDetail: '/users/:id',
+      })
+
+      // '/users/123/posts' is not an exact match for any route
+      const loc = routes.getLocation('/users/123/posts')
+      expect(loc.exact).toBe(false)
+      expect(loc.parent).toBe(false)
+      expect(loc.children).toBe(false)
+      expect(loc.pathname).toBe('/users/123/posts')
+    })
+
+    it('no exact match returns UnknownLocation (children case)', () => {
+      const routes = Routes.create({
+        home: '/',
+        users: '/users',
+        userDetail: '/users/:id/posts',
+      })
+
+      // '/users/123' is not an exact match for any route
+      const loc = routes.getLocation('/users/123')
+      expect(loc.exact).toBe(false)
+      expect(loc.parent).toBe(false)
+      expect(loc.children).toBe(false)
+      expect(loc.pathname).toBe('/users/123')
+    })
+
+    it('no match returns UnknownLocation', () => {
+      const routes = Routes.create({
+        home: '/',
+        users: '/users',
+      })
+
+      const loc = routes.getLocation('/posts/123')
+      expect(loc.exact).toBe(false)
+      expect(loc.parent).toBe(false)
+      expect(loc.children).toBe(false)
+      expect(loc.pathname).toBe('/posts/123')
+      expect(loc.params).toBeUndefined()
+    })
+
+    it('matches most specific route', () => {
+      const routes = Routes.create({
+        userDetail: '/users/:id',
+        userPosts: '/users/:id/posts',
+        users: '/users',
+      })
+
+      // Should match /users exactly
+      const loc1 = routes.getLocation('/users')
+      expect(loc1.exact).toBe(true)
+      expect(loc1.pathname).toBe('/users')
+
+      // Should match /users/:id exactly
+      const loc2 = routes.getLocation('/users/123')
+      expect(loc2.exact).toBe(true)
+      if (loc2.exact) {
+        expect(loc2.params).toMatchObject({ id: '123' })
+      }
+
+      // Should match /users/:id/posts exactly
+      const loc3 = routes.getLocation('/users/123/posts')
+      expect(loc3.exact).toBe(true)
+      if (loc3.exact) {
+        expect(loc3.params).toMatchObject({ id: '123' })
+      }
+    })
+
+    it('with search params', () => {
+      const routes = Routes.create({
+        search: '/search&q&filter',
+        users: '/users',
+      })
+
+      const loc = routes.getLocation('/search?q=test&filter=all')
+      expect(loc.exact).toBe(true)
+      expect(loc.pathname).toBe('/search')
+      expect(loc.search).toBe('?q=test&filter=all')
+      expect(loc.searchParams).toMatchObject({ q: 'test', filter: 'all' })
+    })
+
+    it('with absolute URL', () => {
+      const routes = Routes.create({
+        api: '/api/v1',
+        users: '/api/v1/users',
+      })
+
+      const loc = routes.getLocation('https://example.com/api/v1/users')
+      expect(loc.exact).toBe(true)
+      expect(loc.abs).toBe(true)
+      expect(loc.origin).toBe('https://example.com')
+      expect(loc.pathname).toBe('/api/v1/users')
+      expect(loc.href).toBe('https://example.com/api/v1/users')
+    })
+
+    it('with hash', () => {
+      const routes = Routes.create({
+        userDetail: '/users/:id',
+      })
+
+      const loc = routes.getLocation('/users/123#profile')
+      expect(loc.exact).toBe(true)
+      expect(loc.hash).toBe('#profile')
+      expect(loc.pathname).toBe('/users/123')
+      if (loc.exact) {
+        expect(loc.params).toMatchObject({ id: '123' })
+      }
+    })
+
+    it('with extended routes', () => {
+      const api = Route0.create('/api/v1')
+      const routes = Routes.create({
+        api,
+        users: api.extend('/users'),
+        userDetail: api.extend('/users/:id'),
+      })
+
+      const loc = routes.getLocation('/api/v1/users/456')
+      expect(loc.exact).toBe(true)
+      if (loc.exact) {
+        expect(loc.params).toMatchObject({ id: '456' })
+      }
+    })
+
+    it('root route', () => {
+      const routes = Routes.create({
+        home: '/',
+        about: '/about',
+      })
+
+      const loc = routes.getLocation('/')
+      expect(loc.exact).toBe(true)
+      expect(loc.pathname).toBe('/')
+    })
+
+    it('with LocationAny object as input', () => {
+      const routes = Routes.create({
+        userDetail: '/users/:id',
+      })
+
+      const inputLoc = Route0.getLocation('/users/789')
+      const loc = routes.getLocation(inputLoc)
+      expect(loc.exact).toBe(true)
+      if (loc.exact) {
+        expect(loc.params).toMatchObject({ id: '789' })
+      }
+    })
+
+    it('complex routing with params and search', () => {
+      const api = Route0.create('/api/v1')
+      const routes = Routes.create({
+        api,
+        users: api.extend('/users'),
+        userDetail: api.extend('/users/:id'),
+        userPosts: api.extend('/users/:id/posts&sort&filter'),
+      })
+
+      const loc = routes.getLocation('/api/v1/users/42/posts?sort=date&filter=published&extra=value')
+      expect(loc.exact).toBe(true)
+      expect(loc.pathname).toBe('/api/v1/users/42/posts')
+      expect(loc.searchParams).toMatchObject({
+        sort: 'date',
+        filter: 'published',
+        extra: 'value',
+      })
+      if (loc.exact) {
+        expect(loc.params).toMatchObject({ id: '42' })
+      }
+    })
   })
 })
 
@@ -786,6 +983,161 @@ describe('specificity', () => {
   })
 })
 
+describe('regex', () => {
+  it('getRegexString: simple route', () => {
+    const route = Route0.create('/')
+    const regex = route.getRegexString()
+    expect(regex).toBe('/')
+    expect(new RegExp(`^${regex}$`).test('/')).toBe(true)
+    expect(new RegExp(`^${regex}$`).test('/other')).toBe(false)
+  })
+
+  it('getRegexString: static route', () => {
+    const route = Route0.create('/users')
+    const regex = route.getRegexString()
+    expect(regex).toBe('/users')
+    expect(new RegExp(`^${regex}$`).test('/users')).toBe(true)
+    expect(new RegExp(`^${regex}$`).test('/users/123')).toBe(false)
+  })
+
+  it('getRegexString: route with single param', () => {
+    const route = Route0.create('/users/:id')
+    const regex = route.getRegexString()
+    expect(regex).toBe('/users/([^/]+)')
+    expect(new RegExp(`^${regex}$`).test('/users/123')).toBe(true)
+    expect(new RegExp(`^${regex}$`).test('/users/abc')).toBe(true)
+    expect(new RegExp(`^${regex}$`).test('/users/123/posts')).toBe(false)
+    expect(new RegExp(`^${regex}$`).test('/users')).toBe(false)
+  })
+
+  it('getRegexString: route with multiple params', () => {
+    const route = Route0.create('/users/:userId/posts/:postId')
+    const regex = route.getRegexString()
+    expect(regex).toBe('/users/([^/]+)/posts/([^/]+)')
+    expect(new RegExp(`^${regex}$`).test('/users/123/posts/456')).toBe(true)
+    expect(new RegExp(`^${regex}$`).test('/users/123/posts')).toBe(false)
+  })
+
+  it('getRegexString: route with special regex chars', () => {
+    const route = Route0.create('/api/v1.0')
+    const regex = route.getRegexString()
+    // The dot should be escaped
+    expect(regex).toBe('/api/v1\\.0')
+    expect(new RegExp(`^${regex}$`).test('/api/v1.0')).toBe(true)
+    expect(new RegExp(`^${regex}$`).test('/api/v100')).toBe(false)
+  })
+
+  it('getRegexString: handles trailing slash', () => {
+    const route = Route0.create('/users/')
+    const regex = route.getRegexString()
+    // Trailing slash should be removed
+    expect(regex).toBe('/users')
+  })
+
+  it('getRegexString: root with trailing slash', () => {
+    const route = Route0.create('/')
+    const regex = route.getRegexString()
+    // Root should keep its slash
+    expect(regex).toBe('/')
+  })
+
+  it('getRegex: simple route', () => {
+    const route = Route0.create('/users')
+    const regex = route.getRegex()
+    expect(regex.test('/users')).toBe(true)
+    expect(regex.test('/users/123')).toBe(false)
+    expect(regex.test('/other')).toBe(false)
+  })
+
+  it('getRegex: route with params', () => {
+    const route = Route0.create('/users/:id')
+    const regex = route.getRegex()
+    expect(regex.test('/users/123')).toBe(true)
+    expect(regex.test('/users/abc')).toBe(true)
+    expect(regex.test('/users/123/posts')).toBe(false)
+  })
+
+  it('static getRegexString: single route', () => {
+    const route = Route0.create('/users/:id')
+    const regex = Route0.getRegexString(route)
+    expect(regex).toBe('/users/([^/]+)')
+  })
+
+  it('static getRegexString: multiple routes', () => {
+    const routes = [Route0.create('/users'), Route0.create('/posts/:id'), Route0.create('/')]
+    const regex = Route0.getRegexString(routes)
+    expect(regex).toBe('/users|/posts/([^/]+)|/')
+  })
+
+  it('static getRegex: single route', () => {
+    const route = Route0.create('/users/:id')
+    const regex = Route0.getRegex(route)
+    expect(regex.test('/users/123')).toBe(true)
+    expect(regex.test('/posts/123')).toBe(false)
+  })
+
+  it('static getRegex: multiple routes', () => {
+    const routes = [Route0.create('/users'), Route0.create('/posts/:id'), Route0.create('/')]
+    const regex = Route0.getRegex(routes)
+    expect(regex.test('/users')).toBe(true)
+    expect(regex.test('/posts/123')).toBe(true)
+    expect(regex.test('/')).toBe(true)
+    expect(regex.test('/other')).toBe(false)
+  })
+
+  it('static getRegex: matches in order', () => {
+    const routes = [Route0.create('/users/special'), Route0.create('/users/:id')]
+    const regex = Route0.getRegex(routes)
+    const match = '/users/special'.match(regex)
+    expect(match).toBeTruthy()
+    // Both could match, but first one should win
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    expect(match![0]).toBe('/users/special')
+  })
+
+  it('getRegexString works with getLocation', () => {
+    const route = Route0.create('/users/:id/posts/:postId')
+    const loc = route.getLocation('/users/123/posts/456')
+    expect(loc.exact).toBe(true)
+    expect(loc.params).toMatchObject({ id: '123', postId: '456' })
+  })
+
+  it('regex matches what getLocation uses', () => {
+    const route = Route0.create('/api/:version/users/:id')
+    const testPath = '/api/v1/users/42'
+
+    // Test using getLocation
+    const loc = route.getLocation(testPath)
+    expect(loc.exact).toBe(true)
+
+    // Test using getRegex
+    const regex = route.getRegex()
+    expect(regex.test(testPath)).toBe(true)
+  })
+
+  it('static getRegex: complex routing scenario', () => {
+    const api = Route0.create('/api/v1')
+    const routes = [
+      Route0.create('/'),
+      api,
+      api.extend('/users'),
+      api.extend('/users/:id'),
+      api.extend('/posts/:postId'),
+      Route0.create('/:slug'),
+    ]
+
+    const regex = Route0.getRegex(routes)
+
+    expect(regex.test('/')).toBe(true)
+    expect(regex.test('/api/v1')).toBe(true)
+    expect(regex.test('/api/v1/users')).toBe(true)
+    expect(regex.test('/api/v1/users/123')).toBe(true)
+    expect(regex.test('/api/v1/posts/456')).toBe(true)
+    expect(regex.test('/about')).toBe(true) // matches /:slug
+    expect(regex.test('/api/v1/users/123/extra')).toBe(false)
+  })
+})
+
 describe('ordering', () => {
   it('_makeOrdering: orders routes by specificity', () => {
     const routes = {
@@ -796,7 +1148,7 @@ describe('ordering', () => {
       catchAll: '/:slug',
     }
 
-    const ordering = Routes._makeOrdering(routes)
+    const { pathsOrdering: ordering } = Routes._makeOrdering(routes)
 
     // Expected order:
     // Depth 1: / then /users (static) then /:slug (param)
@@ -813,7 +1165,7 @@ describe('ordering', () => {
       home: '/home',
     }
 
-    const ordering = Routes._makeOrdering(routes)
+    const { pathsOrdering: ordering } = Routes._makeOrdering(routes)
 
     // All have same depth and don't conflict
     // Ordered alphabetically
@@ -833,7 +1185,7 @@ describe('ordering', () => {
       catchAll: '/:slug',
     }
 
-    const ordering = Routes._makeOrdering(routes)
+    const { pathsOrdering: ordering } = Routes._makeOrdering(routes)
 
     // Expected order:
     // Depth 1: / (static), /:slug (param)
@@ -861,11 +1213,11 @@ describe('ordering', () => {
       userDetail: '/users/:id',
     })
 
-    expect(routes.ordering).toBeDefined()
-    expect(Array.isArray(routes.ordering)).toBe(true)
+    expect(routes.pathsOrdering).toBeDefined()
+    expect(Array.isArray(routes.pathsOrdering)).toBe(true)
     // Depth 1: /, /users (alphabetically)
     // Depth 2: /users/:id
-    expect(routes.ordering).toEqual(['/', '/users', '/users/:id'])
+    expect(routes.pathsOrdering).toEqual(['/', '/users', '/users/:id'])
   })
 
   it('ordering is preserved after override', () => {
@@ -875,12 +1227,12 @@ describe('ordering', () => {
       userDetail: '/users/:id',
     })
 
-    const originalOrdering = routes.ordering
+    const originalOrdering = routes.pathsOrdering
 
     const overridden = routes.override({ baseUrl: 'https://example.com' })
 
-    expect(overridden.ordering).toEqual(originalOrdering)
-    expect(overridden.ordering).toEqual(['/', '/users', '/users/:id'])
+    expect(overridden.pathsOrdering).toEqual(originalOrdering)
+    expect(overridden.pathsOrdering).toEqual(['/', '/users', '/users/:id'])
   })
 
   it('_makeOrdering: handles single route', () => {
@@ -888,14 +1240,14 @@ describe('ordering', () => {
       home: '/',
     }
 
-    const ordering = Routes._makeOrdering(routes)
+    const { pathsOrdering: ordering } = Routes._makeOrdering(routes)
     expect(ordering).toEqual(['/'])
   })
 
   it('_makeOrdering: handles empty object', () => {
     const routes = {}
 
-    const ordering = Routes._makeOrdering(routes)
+    const { pathsOrdering: ordering } = Routes._makeOrdering(routes)
     expect(ordering).toEqual([])
   })
 })
