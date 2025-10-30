@@ -571,10 +571,18 @@ export class Route0<TDefinition extends string> {
 }
 
 export class Routes<const T extends RoutesRecord = RoutesRecord> {
-  readonly routes: RoutesRecordHydrated<T>
-  readonly pathsOrdering: string[]
-  readonly keysOrdering: string[]
-  readonly ordered: CallabelRoute[]
+  private readonly routes: RoutesRecordHydrated<T>
+  private readonly pathsOrdering: string[]
+  private readonly keysOrdering: string[]
+  private readonly ordered: CallabelRoute[]
+
+  _: {
+    getLocation: Routes<T>['getLocation']
+    override: Routes<T>['override']
+    pathsOrdering: Routes<T>['pathsOrdering']
+    keysOrdering: Routes<T>['keysOrdering']
+    ordered: Routes<T>['ordered']
+  }
 
   private constructor({
     routes,
@@ -589,11 +597,9 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     keysOrdering?: string[]
     ordered?: CallabelRoute[]
   }) {
-    this.routes = (
-      isHydrated ? (routes as RoutesRecordHydrated<T>) : Routes._hydrate(routes)
-    ) as RoutesRecordHydrated<T>
+    this.routes = (isHydrated ? (routes as RoutesRecordHydrated<T>) : Routes.hydrate(routes)) as RoutesRecordHydrated<T>
     if (!pathsOrdering || !keysOrdering || !ordered) {
-      const ordering = Routes._makeOrdering(this.routes)
+      const ordering = Routes.makeOrdering(this.routes)
       this.pathsOrdering = ordering.pathsOrdering
       this.keysOrdering = ordering.keysOrdering
       this.ordered = this.keysOrdering.map((key) => this.routes[key])
@@ -602,14 +608,21 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
       this.keysOrdering = keysOrdering
       this.ordered = ordered
     }
+    this._ = {
+      getLocation: this.getLocation.bind(this),
+      override: this.override.bind(this),
+      pathsOrdering: this.pathsOrdering,
+      keysOrdering: this.keysOrdering,
+      ordered: this.ordered,
+    }
   }
 
   static create<const T extends RoutesRecord>(routes: T): RoutesPretty<T> {
     const instance = new Routes({ routes })
-    return Routes._prettify(instance)
+    return Routes.prettify(instance)
   }
 
-  static _prettify<const T extends RoutesRecord>(instance: Routes<T>): RoutesPretty<T> {
+  private static prettify<const T extends RoutesRecord>(instance: Routes<T>): RoutesPretty<T> {
     Object.setPrototypeOf(instance, Routes.prototype)
     Object.defineProperty(instance, Symbol.toStringTag, {
       value: 'Routes',
@@ -621,7 +634,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     return instance as unknown as RoutesPretty<T>
   }
 
-  static _hydrate<const T extends RoutesRecord>(routes: T): RoutesRecordHydrated<T> {
+  private static hydrate<const T extends RoutesRecord>(routes: T): RoutesRecordHydrated<T> {
     const result = {} as RoutesRecordHydrated<T>
     for (const key in routes) {
       if (Object.prototype.hasOwnProperty.call(routes, key)) {
@@ -632,13 +645,13 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     return result
   }
 
-  getLocation(href: `${string}://${string}`): UnknownLocation | ExactLocation
-  getLocation(hrefRel: `/${string}`): UnknownLocation | ExactLocation
-  getLocation(hrefOrHrefRel: string): UnknownLocation | ExactLocation
-  getLocation(location: AnyLocation): UnknownLocation | ExactLocation
-  getLocation(url: URL): UnknownLocation | ExactLocation
-  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation
-  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation {
+  private getLocation(href: `${string}://${string}`): UnknownLocation | ExactLocation
+  private getLocation(hrefRel: `/${string}`): UnknownLocation | ExactLocation
+  private getLocation(hrefOrHrefRel: string): UnknownLocation | ExactLocation
+  private getLocation(location: AnyLocation): UnknownLocation | ExactLocation
+  private getLocation(url: URL): UnknownLocation | ExactLocation
+  private getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation
+  private getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation {
     // Find the route that exactly matches the given location
     const input = hrefOrHrefRelOrLocation
     for (const route of this.ordered) {
@@ -651,8 +664,8 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     return typeof input === 'string' ? Route0.getLocation(input) : Route0.getLocation(input)
   }
 
-  static _makeOrdering(routes: RoutesRecord): { pathsOrdering: string[]; keysOrdering: string[] } {
-    const hydrated = Routes._hydrate(routes)
+  private static makeOrdering(routes: RoutesRecord): { pathsOrdering: string[]; keysOrdering: string[] } {
+    const hydrated = Routes.hydrate(routes)
     const entries = Object.entries(hydrated)
 
     const getParts = (path: string) => {
@@ -686,7 +699,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     return { pathsOrdering, keysOrdering }
   }
 
-  override(config: RouteConfigInput): RoutesPretty<T> {
+  private override(config: RouteConfigInput): RoutesPretty<T> {
     const newRoutes = {} as RoutesRecordHydrated<T>
     for (const key in this.routes) {
       if (Object.prototype.hasOwnProperty.call(this.routes, key)) {
@@ -700,7 +713,13 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
       keysOrdering: this.keysOrdering,
       ordered: this.keysOrdering.map((key) => newRoutes[key]),
     })
-    return Routes._prettify(instance)
+    return Routes.prettify(instance)
+  }
+
+  static _ = {
+    prettify: Routes.prettify.bind(Routes),
+    hydrate: Routes.hydrate.bind(Routes),
+    makeOrdering: Routes.makeOrdering.bind(Routes),
   }
 }
 

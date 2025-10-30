@@ -223,7 +223,7 @@ describe('Route0', () => {
   //     r0: route0,
   //     r1: route1,
   //   }
-  //   const routes2 = Route0.overrideMany(routes, { baseUrl: 'https://z.com' })
+  //   const routes2 = Route0._.overrideMany(routes, { baseUrl: 'https://z.com' })
   //   const path = routes2.r1.get({ abs: true })
   //   expectTypeOf<typeof path>().toEqualTypeOf<`${string}/path/suffix`>()
   //   expect(path).toBe('https://z.com/path/suffix')
@@ -661,7 +661,7 @@ describe('getLocation', () => {
         userDetail: '/users/:id',
       })
 
-      const loc = routes.getLocation('/users/123')
+      const loc = routes._.getLocation('/users/123')
       expect(loc.exact).toBe(true)
       expect(loc.parent).toBe(false)
       expect(loc.children).toBe(false)
@@ -680,7 +680,7 @@ describe('getLocation', () => {
       })
 
       // '/users/123/posts' is not an exact match for any route
-      const loc = routes.getLocation('/users/123/posts')
+      const loc = routes._.getLocation('/users/123/posts')
       expect(loc.exact).toBe(false)
       expect(loc.parent).toBe(false)
       expect(loc.children).toBe(false)
@@ -695,7 +695,7 @@ describe('getLocation', () => {
       })
 
       // '/users/123' is not an exact match for any route
-      const loc = routes.getLocation('/users/123')
+      const loc = routes._.getLocation('/users/123')
       expect(loc.exact).toBe(false)
       expect(loc.parent).toBe(false)
       expect(loc.children).toBe(false)
@@ -708,7 +708,7 @@ describe('getLocation', () => {
         users: '/users',
       })
 
-      const loc = routes.getLocation('/posts/123')
+      const loc = routes._.getLocation('/posts/123')
       expect(loc.exact).toBe(false)
       expect(loc.parent).toBe(false)
       expect(loc.children).toBe(false)
@@ -724,19 +724,19 @@ describe('getLocation', () => {
       })
 
       // Should match /users exactly
-      const loc1 = routes.getLocation('/users')
+      const loc1 = routes._.getLocation('/users')
       expect(loc1.exact).toBe(true)
       expect(loc1.pathname).toBe('/users')
 
       // Should match /users/:id exactly
-      const loc2 = routes.getLocation('/users/123')
+      const loc2 = routes._.getLocation('/users/123')
       expect(loc2.exact).toBe(true)
       if (loc2.exact) {
         expect(loc2.params).toMatchObject({ id: '123' })
       }
 
       // Should match /users/:id/posts exactly
-      const loc3 = routes.getLocation('/users/123/posts')
+      const loc3 = routes._.getLocation('/users/123/posts')
       expect(loc3.exact).toBe(true)
       if (loc3.exact) {
         expect(loc3.params).toMatchObject({ id: '123' })
@@ -749,7 +749,7 @@ describe('getLocation', () => {
         users: '/users',
       })
 
-      const loc = routes.getLocation('/search?q=test&filter=all')
+      const loc = routes._.getLocation('/search?q=test&filter=all')
       expect(loc.exact).toBe(true)
       expect(loc.pathname).toBe('/search')
       expect(loc.search).toBe('?q=test&filter=all')
@@ -762,7 +762,7 @@ describe('getLocation', () => {
         users: '/api/v1/users',
       })
 
-      const loc = routes.getLocation('https://example.com/api/v1/users')
+      const loc = routes._.getLocation('https://example.com/api/v1/users')
       expect(loc.exact).toBe(true)
       expect(loc.abs).toBe(true)
       expect(loc.origin).toBe('https://example.com')
@@ -775,7 +775,7 @@ describe('getLocation', () => {
         userDetail: '/users/:id',
       })
 
-      const loc = routes.getLocation('/users/123#profile')
+      const loc = routes._.getLocation('/users/123#profile')
       expect(loc.exact).toBe(true)
       expect(loc.hash).toBe('#profile')
       expect(loc.pathname).toBe('/users/123')
@@ -792,7 +792,7 @@ describe('getLocation', () => {
         userDetail: api.extend('/users/:id'),
       })
 
-      const loc = routes.getLocation('/api/v1/users/456')
+      const loc = routes._.getLocation('/api/v1/users/456')
       expect(loc.exact).toBe(true)
       if (loc.exact) {
         expect(loc.params).toMatchObject({ id: '456' })
@@ -805,7 +805,7 @@ describe('getLocation', () => {
         about: '/about',
       })
 
-      const loc = routes.getLocation('/')
+      const loc = routes._.getLocation('/')
       expect(loc.exact).toBe(true)
       expect(loc.pathname).toBe('/')
     })
@@ -816,7 +816,7 @@ describe('getLocation', () => {
       })
 
       const inputLoc = Route0.getLocation('/users/789')
-      const loc = routes.getLocation(inputLoc)
+      const loc = routes._.getLocation(inputLoc)
       expect(loc.exact).toBe(true)
       if (loc.exact) {
         expect(loc.params).toMatchObject({ id: '789' })
@@ -832,7 +832,7 @@ describe('getLocation', () => {
         userPosts: api.extend('/users/:id/posts&sort&filter'),
       })
 
-      const loc = routes.getLocation('/api/v1/users/42/posts?sort=date&filter=published&extra=value')
+      const loc = routes._.getLocation('/api/v1/users/42/posts?sort=date&filter=published&extra=value')
       expect(loc.exact).toBe(true)
       expect(loc.pathname).toBe('/api/v1/users/42/posts')
       expect(loc.searchParams).toMatchObject({
@@ -938,7 +938,7 @@ describe('Routes', () => {
       about: '/about',
     })
 
-    const overridden = collection.override({ baseUrl: 'https://example.com' })
+    const overridden = collection._.override({ baseUrl: 'https://example.com' })
 
     const home = overridden.home
     const about = overridden.about
@@ -955,7 +955,7 @@ describe('Routes', () => {
     const original = collection.home
     expect(original.get({ abs: true })).toBe('https://example.com')
 
-    const overridden = collection.override({ baseUrl: 'https://newdomain.com' })
+    const overridden = collection._.override({ baseUrl: 'https://newdomain.com' })
     const newRoute = overridden.home
 
     expect(original.get({ abs: true })).toBe('https://example.com')
@@ -975,14 +975,14 @@ describe('Routes', () => {
     expect(collection.api({ abs: true })).toBe('https://api.example.com/api')
     expect(collection.users.get({ abs: true })).toBe('https://api.example.com/api/users')
 
-    const overridden = collection.override({ baseUrl: 'https://new-api.example.com' })
+    const overridden = collection._.override({ baseUrl: 'https://new-api.example.com' })
 
     expect(overridden.api.get({ abs: true })).toBe('https://new-api.example.com/api')
     expect(overridden.users.get({ abs: true })).toBe('https://new-api.example.com/api/users')
   })
 
   it('hydrate static method', () => {
-    const hydrated = Routes._hydrate({
+    const hydrated = Routes._.hydrate({
       home: '/',
       user: '/user/:id',
       about: Route0.create('/about'),
@@ -1312,7 +1312,7 @@ describe('ordering', () => {
       catchAll: '/:slug',
     }
 
-    const { pathsOrdering: ordering } = Routes._makeOrdering(routes)
+    const { pathsOrdering: ordering } = Routes._.makeOrdering(routes)
 
     // Expected order:
     // Depth 1: / then /users (static) then /:slug (param)
@@ -1329,7 +1329,7 @@ describe('ordering', () => {
       home: '/home',
     }
 
-    const { pathsOrdering: ordering } = Routes._makeOrdering(routes)
+    const { pathsOrdering: ordering } = Routes._.makeOrdering(routes)
 
     // All have same depth and don't conflict
     // Ordered alphabetically
@@ -1349,7 +1349,7 @@ describe('ordering', () => {
       catchAll: '/:slug',
     }
 
-    const { pathsOrdering: ordering } = Routes._makeOrdering(routes)
+    const { pathsOrdering: ordering } = Routes._.makeOrdering(routes)
 
     // Expected order:
     // Depth 1: / (static), /:slug (param)
@@ -1377,11 +1377,11 @@ describe('ordering', () => {
       userDetail: '/users/:id',
     })
 
-    expect(routes.pathsOrdering).toBeDefined()
-    expect(Array.isArray(routes.pathsOrdering)).toBe(true)
+    expect(routes._.pathsOrdering).toBeDefined()
+    expect(Array.isArray(routes._.pathsOrdering)).toBe(true)
     // Depth 1: /, /users (alphabetically)
     // Depth 2: /users/:id
-    expect(routes.pathsOrdering).toEqual(['/', '/users', '/users/:id'])
+    expect(routes._.pathsOrdering).toEqual(['/', '/users', '/users/:id'])
   })
 
   it('ordering is preserved after override', () => {
@@ -1391,12 +1391,12 @@ describe('ordering', () => {
       userDetail: '/users/:id',
     })
 
-    const originalOrdering = routes.pathsOrdering
+    const originalOrdering = routes._.pathsOrdering
 
-    const overridden = routes.override({ baseUrl: 'https://example.com' })
+    const overridden = routes._.override({ baseUrl: 'https://example.com' })
 
-    expect(overridden.pathsOrdering).toEqual(originalOrdering)
-    expect(overridden.pathsOrdering).toEqual(['/', '/users', '/users/:id'])
+    expect(overridden._.pathsOrdering).toEqual(originalOrdering)
+    expect(overridden._.pathsOrdering).toEqual(['/', '/users', '/users/:id'])
   })
 
   it('_makeOrdering: handles single route', () => {
@@ -1404,14 +1404,14 @@ describe('ordering', () => {
       home: '/',
     }
 
-    const { pathsOrdering: ordering } = Routes._makeOrdering(routes)
+    const { pathsOrdering: ordering } = Routes._.makeOrdering(routes)
     expect(ordering).toEqual(['/'])
   })
 
   it('_makeOrdering: handles empty object', () => {
     const routes = {}
 
-    const { pathsOrdering: ordering } = Routes._makeOrdering(routes)
+    const { pathsOrdering: ordering } = Routes._.makeOrdering(routes)
     expect(ordering).toEqual([])
   })
 })
