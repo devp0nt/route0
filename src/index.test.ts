@@ -646,7 +646,7 @@ describe('getLocation', () => {
       expect(loc.pathname).toBe('/')
     })
 
-    it('with LocationAny object as input', () => {
+    it('with AnyLocation object as input', () => {
       const routes = Routes.create({
         userDetail: '/users/:id',
       })
