@@ -759,8 +759,8 @@ describe('Routes', () => {
     const user = collection.user
 
     // Verify route definitions are preserved
-    expect(home.pathOriginal).toBe('/')
-    expect(user.pathOriginal).toBe('/user/:id')
+    expect(home.definition).toBe('/')
+    expect(user.definition).toBe('/user/:id')
     expect(home.pathDefinition).toBe('/')
     expect(user.pathDefinition).toBe('/user/:id')
 
