@@ -1,16 +1,7 @@
-// TODO: FlatGetArgs, GetArgs
-// TODO: fix location fn
-// TODO: location suitable and non suitable
-// TODO: collection
-
 // TODO: asterisk
 // TODO: optional params
 // TODO: required search
 
-// TODO: в локейшен хранить и сам роут route and also isRouteDetected
-// TODO: normal name of route proxy so it can be printable and readable
-// TODO: getLocation by windows location
-// TODO: избавиться от жутких эни в роуте
 // TODO: .extension('.json') to not add additional / but just add some extension
 // TODO: search input can be boolean, or even object with qs
 // TODO: Роут0 три пусть три тоже сам генерится вероятно
@@ -386,34 +377,117 @@ export class Route0<TPath extends string> {
       children,
     } as LocationKnown<TPath>
   }
+
+  isSame(other: Route0<TPath>): boolean {
+    return (
+      this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '') === other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '')
+    )
+  }
+
+  isChildren(other: Route0<TPath>): boolean {
+    return (
+      this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '') === other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '')
+    )
+  }
+
+  isParent(other: Route0<TPath>): boolean {
+    return (
+      other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '') === this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '')
+    )
+  }
+
+  isConflict(other: Route0<any>): boolean {
+    const getParts = (path: string) => {
+      if (path === '/') return ['/']
+      return path.split('/').filter(Boolean)
+    }
+
+    const thisParts = getParts(this.pathDefinition)
+    const otherParts = getParts(other.pathDefinition)
+
+    // Different lengths = no conflict (one is deeper than the other)
+    if (thisParts.length !== otherParts.length) {
+      return false
+    }
+
+    // Check if all segments could match
+    for (let i = 0; i < thisParts.length; i++) {
+      const thisPart = thisParts[i]
+      const otherPart = otherParts[i]
+
+      // Both params = always match
+      if (thisPart.startsWith(':') && otherPart.startsWith(':')) {
+        continue
+      }
+
+      // One is param = can match
+      if (thisPart.startsWith(':') || otherPart.startsWith(':')) {
+        continue
+      }
+
+      // Both static = must be same
+      if (thisPart !== otherPart) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  isMoreSpecificThan(other: Route0<any>): boolean {
+    // More specific = should come earlier when conflicted
+    // Static segments beat param segments at the same position
+    const getParts = (path: string) => {
+      if (path === '/') return ['/']
+      return path.split('/').filter(Boolean)
+    }
+
+    const thisParts = getParts(this.pathDefinition)
+    const otherParts = getParts(other.pathDefinition)
+
+    // Compare segment by segment
+    for (let i = 0; i < Math.min(thisParts.length, otherParts.length); i++) {
+      const thisIsStatic = !thisParts[i].startsWith(':')
+      const otherIsStatic = !otherParts[i].startsWith(':')
+
+      if (thisIsStatic && !otherIsStatic) return true
+      if (!thisIsStatic && otherIsStatic) return false
+    }
+
+    // All equal, use lexicographic
+    return this.pathDefinition < other.pathDefinition
+  }
 }
 
 export class Routes<const T extends RoutesRecord = RoutesRecord> {
   readonly routes: RoutesRecordHydrated<T>
+  readonly ordering: string[]
 
-  private constructor(routes: T, isHydrated?: boolean) {
+  private constructor(routes: T, ordering?: string[], isHydrated?: boolean) {
     if (isHydrated) {
       this.routes = routes as unknown as RoutesRecordHydrated<T>
+      this.ordering = ordering ?? Routes._makeOrdering(routes)
     } else {
+      this.ordering = ordering ?? Routes._makeOrdering(routes)
       this.routes = Routes._hydrate(routes)
     }
   }
 
   static create<const T extends RoutesRecord>(routes: T): RoutesPretty<T> {
-    return Routes._prettify(routes, false)
+    const instance = new Routes(routes)
+    return Routes._prettify(instance)
   }
 
-  static _prettify<const T extends RoutesRecord>(routes: T, isHydrated?: boolean): RoutesPretty<T> {
-    const result = new Routes(routes, isHydrated)
-    Object.setPrototypeOf(result, Routes.prototype)
-    Object.defineProperty(result, Symbol.toStringTag, {
+  static _prettify<const T extends RoutesRecord>(instance: Routes<T>): RoutesPretty<T> {
+    Object.setPrototypeOf(instance, Routes.prototype)
+    Object.defineProperty(instance, Symbol.toStringTag, {
       value: 'Routes',
     })
-    Object.assign(result, {
-      override: result.override.bind(result),
+    Object.assign(instance, {
+      override: instance.override.bind(instance),
     })
-    Object.assign(result, result.routes)
-    return result as unknown as RoutesPretty<T>
+    Object.assign(instance, instance.routes)
+    return instance as unknown as RoutesPretty<T>
   }
 
   static _hydrate<const T extends RoutesRecord>(routes: T): RoutesRecordHydrated<T> {
@@ -427,6 +501,39 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     return result
   }
 
+  static _makeOrdering(routes: RoutesRecord): string[] {
+    const hydrated = Routes._hydrate(routes)
+    const entries = Object.entries(hydrated)
+
+    const getParts = (path: string) => {
+      if (path === '/') return ['/']
+      return path.split('/').filter(Boolean)
+    }
+
+    // Sort: shorter paths first, then by specificity, then alphabetically
+    entries.sort(([_keyA, routeA], [_keyB, routeB]) => {
+      const partsA = getParts(routeA.pathDefinition)
+      const partsB = getParts(routeB.pathDefinition)
+
+      // 1. Shorter paths first (by segment count)
+      if (partsA.length !== partsB.length) {
+        return partsA.length - partsB.length
+      }
+
+      // 2. Same length: check if they conflict
+      if (routeA.isConflict(routeB)) {
+        // Conflicting routes: more specific first
+        if (routeA.isMoreSpecificThan(routeB)) return -1
+        if (routeB.isMoreSpecificThan(routeA)) return 1
+      }
+
+      // 3. Same length, not conflicting or equal specificity: alphabetically
+      return routeA.pathDefinition.localeCompare(routeB.pathDefinition)
+    })
+
+    return entries.map(([_key, route]) => route.pathOriginal)
+  }
+
   override(config: RouteConfigInput): RoutesPretty<T> {
     const newRoutes = {} as RoutesRecordHydrated<T>
     for (const key in this.routes) {
@@ -434,7 +541,8 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
         newRoutes[key] = this.routes[key].clone(config) as CallabelRoute<T[typeof key]>
       }
     }
-    return Routes._prettify(newRoutes as unknown as T, true)
+    const instance = new Routes(newRoutes, this.ordering, true)
+    return Routes._prettify(instance) as RoutesPretty<T>
   }
 }
 

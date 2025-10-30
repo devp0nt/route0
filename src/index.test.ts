@@ -1,5 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'bun:test'
 import type {
+  AnyRoute,
+  CallabelRoute,
   Extended,
   HasParams,
   HasSearch,
@@ -16,7 +18,7 @@ import type {
 } from './index.js'
 import { Route0, Routes } from './index.js'
 
-describe('route0', () => {
+describe('Route0', () => {
   it('simple', () => {
     const route0 = Route0.create('/')
     const path = route0.get()
@@ -251,6 +253,17 @@ describe('route0', () => {
     expect(rNo.flat({ id: '1' })).toBe('/b?id=1')
   })
 
+  it('really any route assignable to AnyRoute', () => {
+    expectTypeOf<Route0<string>>().toExtend<AnyRoute>()
+    expectTypeOf<Route0<'/path'>>().toExtend<AnyRoute>()
+    expectTypeOf<Route0<'/path/:id'>>().toExtend<AnyRoute>()
+    expectTypeOf<Route0<'/path/:id&x'>>().toExtend<AnyRoute>()
+    expectTypeOf<CallabelRoute<'/path'>>().toExtend<AnyRoute>()
+    expectTypeOf<CallabelRoute<'/path/:id'>>().toExtend<AnyRoute>()
+    expectTypeOf<CallabelRoute<'/path/:id&x'>>().toExtend<AnyRoute>()
+    expectTypeOf<CallabelRoute>().toExtend<AnyRoute>()
+  })
+
   it('.getLocation location of url', () => {
     let loc = Route0.getLocation('/prefix/some/suffix')
     expect(loc).toMatchObject({
@@ -342,7 +355,7 @@ describe('route0', () => {
   })
 })
 
-describe('route0 type utilities', () => {
+describe('type utilities', () => {
   it('HasParams', () => {
     expectTypeOf<HasParams<'/path'>>().toEqualTypeOf<false>()
     expectTypeOf<HasParams<'/path/:id'>>().toEqualTypeOf<true>()
@@ -473,7 +486,7 @@ describe('route0 type utilities', () => {
   })
 })
 
-describe('RoutesCollection', () => {
+describe('Routes', () => {
   it('create with string routes', () => {
     const collection = Routes.create({
       home: '/',
@@ -663,5 +676,226 @@ describe('RoutesCollection', () => {
       abs: true,
     })
     expect(userPostsPath).toBe('https://api.example.com/api/v1/users/42/posts?sort=date&filter=published')
+  })
+})
+
+describe('specificity', () => {
+  it('isMoreSpecificThan: static vs param', () => {
+    const static1 = Route0.create('/a/b')
+    const param1 = Route0.create('/a/:id')
+
+    expect(static1.isMoreSpecificThan(param1)).toBe(true)
+    expect(param1.isMoreSpecificThan(static1)).toBe(false)
+  })
+
+  it('isMoreSpecificThan: more static segments wins', () => {
+    const twoStatic = Route0.create('/a/b/c')
+    const oneStatic = Route0.create('/a/:id/c')
+    const noStatic = Route0.create('/a/:id/:name')
+
+    expect(twoStatic.isMoreSpecificThan(oneStatic)).toBe(true)
+    expect(oneStatic.isMoreSpecificThan(twoStatic)).toBe(false)
+
+    expect(oneStatic.isMoreSpecificThan(noStatic)).toBe(true)
+    expect(noStatic.isMoreSpecificThan(oneStatic)).toBe(false)
+
+    expect(twoStatic.isMoreSpecificThan(noStatic)).toBe(true)
+    expect(noStatic.isMoreSpecificThan(twoStatic)).toBe(false)
+  })
+
+  it('isMoreSpecificThan: compares overlapping segments then lexicographically', () => {
+    const longer = Route0.create('/a/:id/b/:name')
+    const shorter = Route0.create('/a/:id')
+
+    // Both have same pattern for overlapping segments: static then param
+    // Falls back to lexicographic: '/a/:id' < '/a/:id/b/:name'
+    expect(longer.isMoreSpecificThan(shorter)).toBe(false)
+    expect(shorter.isMoreSpecificThan(longer)).toBe(true)
+  })
+
+  it('isMoreSpecificThan: static at earlier position wins', () => {
+    const route1 = Route0.create('/a/static/:param')
+    const route2 = Route0.create('/a/:param/static')
+
+    // Both have 2 static segments and same length
+    // route1 has static at position 1, route2 has param at position 1
+    expect(route1.isMoreSpecificThan(route2)).toBe(true)
+    expect(route2.isMoreSpecificThan(route1)).toBe(false)
+  })
+
+  it('isMoreSpecificThan: lexicographic when completely equal', () => {
+    const route1 = Route0.create('/aaa/:id')
+    const route2 = Route0.create('/bbb/:id')
+
+    // Same specificity, lexicographic comparison
+    expect(route1.isMoreSpecificThan(route2)).toBe(true)
+    expect(route2.isMoreSpecificThan(route1)).toBe(false)
+  })
+
+  it('isMoreSpecificThan: identical routes', () => {
+    const route1 = Route0.create('/a/:id')
+    const route2 = Route0.create('/a/:id')
+
+    // Identical routes, lexicographic comparison returns false for equal strings
+    expect(route1.isMoreSpecificThan(route2)).toBe(false)
+    expect(route2.isMoreSpecificThan(route1)).toBe(false)
+  })
+
+  it('isMoreSpecificThan: root vs other routes', () => {
+    const root = Route0.create('/')
+    const other = Route0.create('/a')
+    const param = Route0.create('/:id')
+
+    // /a (1 static) vs / (1 static) - both static, lexicographic order
+    expect(other.isMoreSpecificThan(root)).toBe(false) // '/' < '/a' lexicographically
+    expect(root.isMoreSpecificThan(other)).toBe(true)
+
+    // /a (1 static) vs /:id (0 static) - static beats param
+    expect(other.isMoreSpecificThan(param)).toBe(true)
+    expect(param.isMoreSpecificThan(other)).toBe(false)
+
+    // /:id (0 static) vs / (1 static) - static beats param
+    expect(param.isMoreSpecificThan(root)).toBe(false)
+    expect(root.isMoreSpecificThan(param)).toBe(true)
+  })
+
+  it('isConflict: checks if routes overlap', () => {
+    const routeA = Route0.create('/a/:x')
+    const routeB = Route0.create('/a/b')
+    const routeC = Route0.create('/a/:c')
+    const routeD = Route0.create('/a/d')
+    const routeE = Route0.create('/a/b/c')
+
+    // Same depth, can match
+    expect(routeA.isConflict(routeB)).toBe(true)
+    expect(routeA.isConflict(routeC)).toBe(true)
+    expect(routeA.isConflict(routeD)).toBe(true)
+    expect(routeB.isConflict(routeC)).toBe(true)
+
+    // Different depth, no conflict
+    expect(routeA.isConflict(routeE)).toBe(false)
+    expect(routeB.isConflict(routeE)).toBe(false)
+  })
+
+  it('isConflict: non-overlapping static routes', () => {
+    const route1 = Route0.create('/users')
+    const route2 = Route0.create('/posts')
+
+    // Same depth but different static segments
+    expect(route1.isConflict(route2)).toBe(false)
+  })
+})
+
+describe('ordering', () => {
+  it('_makeOrdering: orders routes by specificity', () => {
+    const routes = {
+      root: '/',
+      userDetail: '/users/:id',
+      users: '/users',
+      userPosts: '/users/:id/posts',
+      catchAll: '/:slug',
+    }
+
+    const ordering = Routes._makeOrdering(routes)
+
+    // Expected order:
+    // Depth 1: / then /users (static) then /:slug (param)
+    // Depth 2: /users/:id
+    // Depth 3: /users/:id/posts
+
+    expect(ordering).toEqual(['/', '/users', '/:slug', '/users/:id', '/users/:id/posts'])
+  })
+
+  it('_makeOrdering: handles routes with same specificity', () => {
+    const routes = {
+      about: '/about',
+      contact: '/contact',
+      home: '/home',
+    }
+
+    const ordering = Routes._makeOrdering(routes)
+
+    // All have same depth and don't conflict
+    // Ordered alphabetically
+    expect(ordering).toEqual(['/about', '/contact', '/home'])
+  })
+
+  it('_makeOrdering: complex nested structure', () => {
+    const api = Route0.create('/api/v1')
+    const routes = {
+      root: '/',
+      api,
+      usersStatic: '/api/v1/users/all',
+      users: api.extend('/users'),
+      userDetail: api.extend('/users/:id'),
+      userPosts: api.extend('/users/:id/posts'),
+      adminUser: '/api/v1/admin/:id',
+      catchAll: '/:slug',
+    }
+
+    const ordering = Routes._makeOrdering(routes)
+
+    // Expected order:
+    // Depth 1: / (static), /:slug (param)
+    // Depth 2: /api/v1
+    // Depth 3: /api/v1/users (all static)
+    // Depth 4: /api/v1/admin/:id (has param), /api/v1/users/all (all static), /api/v1/users/:id (has param)
+    // Depth 5: /api/v1/users/:id/posts
+
+    expect(ordering).toEqual([
+      '/',
+      '/:slug',
+      '/api/v1',
+      '/api/v1/users',
+      '/api/v1/admin/:id',
+      '/api/v1/users/all',
+      '/api/v1/users/:id',
+      '/api/v1/users/:id/posts',
+    ])
+  })
+
+  it('Routes instance has ordering property', () => {
+    const routes = Routes.create({
+      home: '/',
+      users: '/users',
+      userDetail: '/users/:id',
+    })
+
+    expect(routes.ordering).toBeDefined()
+    expect(Array.isArray(routes.ordering)).toBe(true)
+    // Depth 1: /, /users (alphabetically)
+    // Depth 2: /users/:id
+    expect(routes.ordering).toEqual(['/', '/users', '/users/:id'])
+  })
+
+  it('ordering is preserved after override', () => {
+    const routes = Routes.create({
+      home: '/',
+      users: '/users',
+      userDetail: '/users/:id',
+    })
+
+    const originalOrdering = routes.ordering
+
+    const overridden = routes.override({ baseUrl: 'https://example.com' })
+
+    expect(overridden.ordering).toEqual(originalOrdering)
+    expect(overridden.ordering).toEqual(['/', '/users', '/users/:id'])
+  })
+
+  it('_makeOrdering: handles single route', () => {
+    const routes = {
+      home: '/',
+    }
+
+    const ordering = Routes._makeOrdering(routes)
+    expect(ordering).toEqual(['/'])
+  })
+
+  it('_makeOrdering: handles empty object', () => {
+    const routes = {}
+
+    const ordering = Routes._makeOrdering(routes)
+    expect(ordering).toEqual([])
   })
 })
