@@ -339,8 +339,12 @@ export class Route0<TDefinition extends string> {
   static getLocation(hrefRel: `/${string}`): UnknownLocation
   static getLocation(hrefOrHrefRel: string): UnknownLocation
   static getLocation(location: AnyLocation): UnknownLocation
-  static getLocation(hrefOrHrefRelOrLocation: string | AnyLocation): UnknownLocation
-  static getLocation(hrefOrHrefRelOrLocation: string | AnyLocation): UnknownLocation {
+  static getLocation(url: URL): UnknownLocation
+  static getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation
+  static getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation {
+    if (hrefOrHrefRelOrLocation instanceof URL) {
+      return Route0.getLocation(hrefOrHrefRelOrLocation.href)
+    }
     if (typeof hrefOrHrefRelOrLocation !== 'string') {
       hrefOrHrefRelOrLocation = hrefOrHrefRelOrLocation.href || hrefOrHrefRelOrLocation.hrefRel
     }
@@ -394,13 +398,18 @@ export class Route0<TDefinition extends string> {
   getLocation(hrefRel: `/${string}`): KnownLocation<TDefinition>
   getLocation(hrefOrHrefRel: string): KnownLocation<TDefinition>
   getLocation(location: AnyLocation): KnownLocation<TDefinition>
-  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation): KnownLocation<TDefinition>
-  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation): KnownLocation<TDefinition> {
+  getLocation(url: AnyLocation): KnownLocation<TDefinition>
+  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): KnownLocation<TDefinition>
+  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): KnownLocation<TDefinition> {
+    if (hrefOrHrefRelOrLocation instanceof URL) {
+      return this.getLocation(hrefOrHrefRelOrLocation.href)
+    }
+    if (typeof hrefOrHrefRelOrLocation !== 'string') {
+      hrefOrHrefRelOrLocation = hrefOrHrefRelOrLocation.href || hrefOrHrefRelOrLocation.hrefRel
+    }
     const location = Route0.getLocation(hrefOrHrefRelOrLocation) as never as KnownLocation<TDefinition>
     location.route = this.definition as Definition<TDefinition>
     location.params = {}
-
-    const escapeRegex = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
 
     // Normalize pathname (no trailing slash except root)
     const pathname =
@@ -439,9 +448,30 @@ export class Route0<TDefinition extends string> {
     const exact = !!exactMatch
     const parent = !exact && parentRe.test(pathname)
 
-    // "children": the URL is a prefix of the route definition (ignoring params' concrete values)
-    // We check if the definition starts with the URL path boundary-wise.
-    const children = !exact && new RegExp(`^${escapeRegex(pathname)}(?:/|$)`).test(def)
+    // "children": the URL is a prefix of the route definition (params match any single segment)
+    const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
+    const defParts = getParts(def)
+    const pathParts = getParts(pathname)
+
+    let isPrefix = true
+    if (pathParts.length > defParts.length) {
+      isPrefix = false
+    } else {
+      for (let i = 0; i < pathParts.length; i++) {
+        const defPart = defParts[i]
+        const pathPart = pathParts[i]
+        if (!defPart) {
+          isPrefix = false
+          break
+        }
+        if (defPart.startsWith(':')) continue
+        if (defPart !== pathPart) {
+          isPrefix = false
+          break
+        }
+      }
+    }
+    const children = !exact && isPrefix
 
     return {
       ...location,
@@ -606,9 +636,11 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
   getLocation(hrefRel: `/${string}`): UnknownLocation | ExactLocation
   getLocation(hrefOrHrefRel: string): UnknownLocation | ExactLocation
   getLocation(location: AnyLocation): UnknownLocation | ExactLocation
-  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation): UnknownLocation | ExactLocation
-  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation): UnknownLocation | ExactLocation {
+  getLocation(url: URL): UnknownLocation | ExactLocation
+  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation
+  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation {
     // Find the route that exactly matches the given location
+    const input = hrefOrHrefRelOrLocation
     for (const route of this.ordered) {
       const loc = route.getLocation(hrefOrHrefRelOrLocation)
       if (loc.exact) {
@@ -616,7 +648,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
       }
     }
     // No exact match found, return UnknownLocation
-    return Route0.getLocation(hrefOrHrefRelOrLocation)
+    return typeof input === 'string' ? Route0.getLocation(input) : Route0.getLocation(input)
   }
 
   static _makeOrdering(routes: RoutesRecord): { pathsOrdering: string[]; keysOrdering: string[] } {

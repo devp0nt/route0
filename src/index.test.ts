@@ -569,19 +569,39 @@ describe('getLocation', () => {
     })
 
     it('#getLocation() parent match', () => {
-      const route0 = Route0.create('/prefix/:x/some')
-      const loc = route0.getLocation('/prefix/xxx/some/extra/path')
-      expect(loc.exact).toBe(false)
-      expect(loc.parent).toBe(true)
-      expect(loc.children).toBe(false)
+      expect(Route0.create('/prefix/xxx/some').getLocation('/prefix/xxx/some/extra/path')).toMatchObject({
+        exact: false,
+        parent: true,
+        children: false,
+      })
+      expect(Route0.create('/prefix/:x/some').getLocation('/prefix/xxx/some/extra/path')).toMatchObject({
+        exact: false,
+        parent: true,
+        children: false,
+      })
+      expect(Route0.create('/:y/:x/some').getLocation('/prefix/xxx/some/extra/path')).toMatchObject({
+        exact: false,
+        parent: true,
+        children: false,
+      })
     })
 
     it('#getLocation() children match', () => {
-      const route0 = Route0.create('/prefix/some/extra/path')
-      const loc = route0.getLocation('/prefix/some')
-      expect(loc.exact).toBe(false)
-      expect(loc.parent).toBe(false)
-      expect(loc.children).toBe(true)
+      expect(Route0.create('/prefix/some/extra/path').getLocation('/prefix/some')).toMatchObject({
+        exact: false,
+        parent: false,
+        children: true,
+      })
+      expect(Route0.create('/prefix/some/extra/:id').getLocation('/prefix/some')).toMatchObject({
+        exact: false,
+        parent: false,
+        children: true,
+      })
+      expect(Route0.create('/:prefix/some/extra/:id').getLocation('/prefix/some')).toMatchObject({
+        exact: false,
+        parent: false,
+        children: true,
+      })
     })
 
     it('#getLocation() with host info', () => {
@@ -600,6 +620,36 @@ describe('getLocation', () => {
       expect(loc.exact).toBe(true)
       expect(loc.hash).toBe('#section')
       expect(loc.params).toMatchObject({ id: '123' })
+    })
+
+    it('.getLocation accepts URL instance (absolute)', () => {
+      const url = new URL('https://example.com/prefix/some/suffix?x=1&z=2#hash')
+      const loc = Route0.getLocation(url)
+      expect(loc).toMatchObject({
+        hash: '#hash',
+        href: 'https://example.com/prefix/some/suffix?x=1&z=2#hash',
+        hrefRel: '/prefix/some/suffix?x=1&z=2#hash',
+        abs: true,
+        origin: 'https://example.com',
+        pathname: '/prefix/some/suffix',
+        searchParams: { x: '1', z: '2' },
+        search: '?x=1&z=2',
+      })
+    })
+
+    it('.getLocation accepts URL instance (relative with base)', () => {
+      const url = new URL('/prefix/some/suffix?x=1&z=2', 'https://example.com')
+      const loc = Route0.getLocation(url)
+      expect(loc).toMatchObject({
+        hash: '',
+        href: 'https://example.com/prefix/some/suffix?x=1&z=2',
+        hrefRel: '/prefix/some/suffix?x=1&z=2',
+        abs: true,
+        origin: 'https://example.com',
+        pathname: '/prefix/some/suffix',
+        searchParams: { x: '1', z: '2' },
+        search: '?x=1&z=2',
+      })
     })
   })
 
