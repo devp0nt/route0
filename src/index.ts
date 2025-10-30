@@ -396,7 +396,7 @@ export class Route0<TDefinition extends string> {
   getLocation(hrefOrHrefRelOrLocation: string | AnyLocation): KnownLocation<TDefinition>
   getLocation(hrefOrHrefRelOrLocation: string | AnyLocation): KnownLocation<TDefinition> {
     const location = Route0.getLocation(hrefOrHrefRelOrLocation) as never as KnownLocation<TDefinition>
-    location.route = this.definition as definition<TDefinition>
+    location.route = this.definition as Definition<TDefinition>
     location.params = {}
 
     const escapeRegex = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
@@ -700,7 +700,7 @@ export type ExtractRoute<
 
 // public utils
 
-export type definition<T extends AnyRoute | string> = T extends AnyRoute
+export type Definition<T extends AnyRoute | string> = T extends AnyRoute
   ? T['definition']
   : T extends string
     ? T
@@ -749,7 +749,7 @@ export type IsSameParams<T1 extends AnyRoute | string, T2 extends AnyRoute | str
 export type HasParams<T extends AnyRoute | string> =
   ExtractPathParams<PathDefinition<T>> extends infer U ? ([U] extends [never] ? false : true) : false
 export type HasSearch<T extends AnyRoute | string> =
-  NonEmpty<SearchTailDefinitionWithoutFirstAmp<definition<T>>> extends infer Tail extends string
+  NonEmpty<SearchTailDefinitionWithoutFirstAmp<Definition<T>>> extends infer Tail extends string
     ? AmpSplit<Tail> extends infer U
       ? [U] extends [never]
         ? false
@@ -769,8 +769,11 @@ export type StrictSearchOutput<T extends AnyRoute | string> = Partial<{
   [K in keyof SearchDefinition<T>]?: string | undefined
 }>
 export type ParamsInput<T extends AnyRoute | string = string> = _ParamsInput<PathDefinition<T>>
-export type SearchInput<T extends AnyRoute | string = string> = _SearchInput<definition<T>>
-export type StrictSearchInput<T extends AnyRoute | string> = _StrictSearchInput<definition<T>>
+export type SearchInput<T extends AnyRoute | string = string> = _SearchInput<Definition<T>>
+export type StrictSearchInput<T extends AnyRoute | string> = _StrictSearchInput<Definition<T>>
+export type FlatInput<T extends AnyRoute | string> = _FlatInput<Definition<T>>
+export type StrictFlatInput<T extends AnyRoute | string> = _StrictFlatInput<Definition<T>>
+export type CanInputBeEmpty<T extends AnyRoute | string> = HasParams<Definition<T>> extends true ? false : true
 
 // location
 
@@ -804,7 +807,7 @@ export type UnknownLocation = _GeneralLocation & {
 export type UnmatchedLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
   params: Record<never, never>
   searchParams: SearchOutput<TRoute>
-  route: definition<TRoute>
+  route: Definition<TRoute>
   exact: false
   parent: false
   children: false
@@ -812,7 +815,7 @@ export type UnmatchedLocation<TRoute extends AnyRoute | string = AnyRoute | stri
 export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
   params: ParamsOutput<TRoute>
   searchParams: SearchOutput<TRoute>
-  route: definition<TRoute>
+  route: Definition<TRoute>
   exact: true
   parent: false
   children: false
@@ -820,7 +823,7 @@ export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> 
 export type ParentLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
   params: Partial<ParamsOutput<TRoute>> // in fact maybe there will be whole params object, but does not matter now
   searchParams: SearchOutput<TRoute>
-  route: definition<TRoute>
+  route: Definition<TRoute>
   exact: false
   parent: true
   children: false
@@ -828,7 +831,7 @@ export type ParentLocation<TRoute extends AnyRoute | string = AnyRoute | string>
 export type ChildrenLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
   params: ParamsOutput<TRoute>
   searchParams: SearchOutput<TRoute>
-  route: definition<TRoute>
+  route: Definition<TRoute>
   exact: false
   parent: false
   children: true
@@ -874,6 +877,18 @@ export type _SearchInput<TDefinition extends string> =
 export type _StrictSearchInput<TDefinition extends string> = Partial<{
   [K in keyof _SearchDefinition<TDefinition>]: string | number
 }>
+export type _FlatInput<TDefinition extends string> =
+  HasParams<TDefinition> extends true
+    ? _ParamsInput<TDefinition> & _SearchInput<TDefinition>
+    : _SearchInput<TDefinition>
+export type _StrictFlatInput<TDefinition extends string> =
+  HasParams<TDefinition> extends true
+    ? HasSearch<TDefinition> extends true
+      ? _StrictSearchInput<TDefinition> & _ParamsInput<TDefinition>
+      : _ParamsInput<TDefinition>
+    : HasSearch<TDefinition> extends true
+      ? _StrictSearchInput<TDefinition>
+      : Record<never, never>
 
 export type TrimSearchTailDefinition<S extends string> = S extends `${infer P}&${string}` ? P : S
 export type SearchTailDefinitionWithoutFirstAmp<S extends string> = S extends `${string}&${infer T}` ? T : ''

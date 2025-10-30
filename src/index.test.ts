@@ -2,7 +2,9 @@ import { describe, expect, expectTypeOf, it } from 'bun:test'
 import type {
   AnyRoute,
   CallabelRoute,
+  CanInputBeEmpty,
   Extended,
+  FlatInput,
   HasParams,
   HasSearch,
   IsChildren,
@@ -13,6 +15,7 @@ import type {
   ParamsOutput,
   SearchInput,
   SearchOutput,
+  StrictFlatInput,
   StrictSearchInput,
   StrictSearchOutput,
 } from './index.js'
@@ -339,6 +342,52 @@ describe('type utilities', () => {
   it('StrictSearchOutput', () => {
     type T1 = StrictSearchOutput<'/path&x&y'>
     expectTypeOf<T1>().toEqualTypeOf<{ x?: string | undefined; y?: string | undefined }>()
+  })
+
+  it('FlatInput', () => {
+    type T1 = FlatInput<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<
+      Partial<{
+        x: string | number
+        y: string | number
+      }> &
+        Record<string, string | number>
+    >()
+
+    type T2 = FlatInput<'/path/:id&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      {
+        id: string | number
+      } & Partial<{
+        x: string | number
+        y: string | number
+      }> &
+        Record<string, string | number>
+    >()
+  })
+  it('StrictFlatInput', () => {
+    type T1 = StrictFlatInput<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<{ x?: string | number; y?: string | number }>()
+    type T2 = StrictFlatInput<'/path/:id&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      Partial<{
+        x: string | number
+        y: string | number
+      }> & {
+        id: string | number
+      }
+    >()
+  })
+
+  it('CanInputBeEmpty', () => {
+    type T1 = CanInputBeEmpty<'/path'>
+    expectTypeOf<T1>().toEqualTypeOf<true>()
+    type T2 = CanInputBeEmpty<'/path/:id'>
+    expectTypeOf<T2>().toEqualTypeOf<false>()
+    type T3 = CanInputBeEmpty<'/path&x&y'>
+    expectTypeOf<T3>().toEqualTypeOf<true>()
+    type T4 = CanInputBeEmpty<'/path/:id&x&y'>
+    expectTypeOf<T4>().toEqualTypeOf<false>()
   })
 
   it('IsParent', () => {
