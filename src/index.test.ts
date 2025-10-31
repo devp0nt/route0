@@ -1434,25 +1434,29 @@ describe('relations: isSame, isParent, isChildren', () => {
   })
 
   it('isParent: true when left is ancestor of right', () => {
-    expect((Route0.create('/path') as any).isParent(Route0.create('/path/child') as any)).toBe(true)
-    expect((Route0.create('/users/:id') as any).isParent(Route0.create('/users/:id/posts') as any)).toBe(true)
+    expect(Route0.create('/').isParent(Route0.create('/path/child'))).toBe(true)
+    expect(Route0.create('/path').isParent(Route0.create('/path/child'))).toBe(true)
+    expect(Route0.create('/users/:id').isParent('/users/:id/posts')).toBe(true)
+    expect(Route0.create('/').isParent(Route0.create('/users/:id/posts'))).toBe(true)
+    expect(Route0.create('/').isParent(Route0.create('/users/:id'))).toBe(true)
   })
 
   it('isParent: false for reverse, equal, or unrelated', () => {
-    expect((Route0.create('/path/child') as any).isParent(Route0.create('/path') as any)).toBe(false)
-    expect((Route0.create('/path') as any).isParent(Route0.create('/path') as any)).toBe(false)
-    expect((Route0.create('/a') as any).isParent(Route0.create('/b') as any)).toBe(false)
+    expect(Route0.create('/path/child').isParent(Route0.create('/path'))).toBe(false)
+    expect(Route0.create('/path').isParent(Route0.create('/path'))).toBe(false)
+    expect(Route0.create('/a').isParent(Route0.create('/b'))).toBe(false)
   })
 
   it('isChildren: true when left is descendant of right', () => {
-    expect((Route0.create('/path/child') as any).isChildren(Route0.create('/path') as any)).toBe(true)
-    expect((Route0.create('/users/:id/posts') as any).isChildren(Route0.create('/users/:id') as any)).toBe(true)
+    expect(Route0.create('/path/child').isChildren(Route0.create('/path'))).toBe(true)
+    expect(Route0.create('/users/:id/posts').isChildren(Route0.create('/users/:id'))).toBe(true)
+    expect(Route0.create('/users/:id/posts').isChildren(Route0.create('/'))).toBe(true)
   })
 
   it('isChildren: false for reverse, equal, or unrelated', () => {
-    expect((Route0.create('/path') as any).isChildren(Route0.create('/path/child') as any)).toBe(false)
-    expect((Route0.create('/path') as any).isChildren(Route0.create('/path') as any)).toBe(false)
-    expect((Route0.create('/a') as any).isChildren(Route0.create('/b') as any)).toBe(false)
+    expect(Route0.create('/path').isChildren(Route0.create('/path/child'))).toBe(false)
+    expect(Route0.create('/path').isChildren(Route0.create('/path'))).toBe(false)
+    expect(Route0.create('/a').isChildren(Route0.create('/b'))).toBe(false)
   })
 
   it('static isSame: works with strings and undefined', () => {

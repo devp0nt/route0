@@ -493,11 +493,17 @@ export class Route0<TDefinition extends string> {
     return Route0.create(a).isSame(Route0.create(b))
   }
 
-  isChildren(other: Route0<TDefinition>): boolean {
+  isChildren(other: AnyRoute | string | undefined): boolean {
+    if (!other) return false
+    other = typeof other === 'string' ? Route0.create(other) : other
     // this is a child of other if:
     // - paths are not exactly the same
     // - other's path is a prefix of this path, matching params as wildcards
     const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
+    // Root is parent of any non-root; thus any non-root is a child of root
+    if (other.pathDefinition === '/' && this.pathDefinition !== '/') {
+      return true
+    }
     const thisParts = getParts(this.pathDefinition)
     const otherParts = getParts(other.pathDefinition)
 
@@ -514,11 +520,17 @@ export class Route0<TDefinition extends string> {
     return true
   }
 
-  isParent(other: Route0<TDefinition>): boolean {
+  isParent(other: AnyRoute | string | undefined): boolean {
+    if (!other) return false
+    other = typeof other === 'string' ? Route0.create(other) : other
     // this is a parent of other if:
     // - paths are not exactly the same
     // - this path is a prefix of other path, matching params as wildcards
     const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
+    // Root is parent of any non-root path
+    if (this.pathDefinition === '/' && other.pathDefinition !== '/') {
+      return true
+    }
     const thisParts = getParts(this.pathDefinition)
     const otherParts = getParts(other.pathDefinition)
 
