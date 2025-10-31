@@ -488,14 +488,19 @@ export class Route0<TDefinition extends string> {
     )
   }
   static isSame(a: AnyRoute | string | undefined, b: AnyRoute | string | undefined): boolean {
-    if ((!a && b) || (a && !b)) return false
-    if (!a || !b) return true
+    if (!a) {
+      if (!b) return true
+      return false
+    }
+    if (!b) {
+      return false
+    }
     return Route0.create(a).isSame(Route0.create(b))
   }
 
   isChildren(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
-    other = typeof other === 'string' ? Route0.create(other) : other
+    other = Route0.create(other)
     // this is a child of other if:
     // - paths are not exactly the same
     // - other's path is a prefix of this path, matching params as wildcards
@@ -522,7 +527,7 @@ export class Route0<TDefinition extends string> {
 
   isParent(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
-    other = typeof other === 'string' ? Route0.create(other) : other
+    other = Route0.create(other)
     // this is a parent of other if:
     // - paths are not exactly the same
     // - this path is a prefix of other path, matching params as wildcards
@@ -547,7 +552,9 @@ export class Route0<TDefinition extends string> {
     return true
   }
 
-  isConflict(other: Route0<any>): boolean {
+  isConflict(other: AnyRoute | string | undefined): boolean {
+    if (!other) return false
+    other = Route0.create(other)
     const getParts = (path: string) => {
       if (path === '/') return ['/']
       return path.split('/').filter(Boolean)
@@ -585,7 +592,9 @@ export class Route0<TDefinition extends string> {
     return true
   }
 
-  isMoreSpecificThan(other: Route0<any>): boolean {
+  isMoreSpecificThan(other: AnyRoute | string | undefined): boolean {
+    if (!other) return false
+    other = Route0.create(other)
     // More specific = should come earlier when conflicted
     // Static segments beat param segments at the same position
     const getParts = (path: string) => {
