@@ -494,17 +494,45 @@ export class Route0<TDefinition extends string> {
   }
 
   isChildren(other: Route0<TDefinition>): boolean {
-    return (
-      this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__') ===
-      other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__')
-    )
+    // this is a child of other if:
+    // - paths are not exactly the same
+    // - other's path is a prefix of this path, matching params as wildcards
+    const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
+    const thisParts = getParts(this.pathDefinition)
+    const otherParts = getParts(other.pathDefinition)
+
+    // A child must be deeper
+    if (thisParts.length <= otherParts.length) return false
+
+    for (let i = 0; i < otherParts.length; i++) {
+      const otherPart = otherParts[i]
+      const thisPart = thisParts[i]
+      if (otherPart.startsWith(':')) continue
+      if (otherPart !== thisPart) return false
+    }
+    // Not equal (depth already ensures not equal)
+    return true
   }
 
   isParent(other: Route0<TDefinition>): boolean {
-    return (
-      other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__') ===
-      this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__')
-    )
+    // this is a parent of other if:
+    // - paths are not exactly the same
+    // - this path is a prefix of other path, matching params as wildcards
+    const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
+    const thisParts = getParts(this.pathDefinition)
+    const otherParts = getParts(other.pathDefinition)
+
+    // A parent must be shallower
+    if (thisParts.length >= otherParts.length) return false
+
+    for (let i = 0; i < thisParts.length; i++) {
+      const thisPart = thisParts[i]
+      const otherPart = otherParts[i]
+      if (thisPart.startsWith(':')) continue
+      if (thisPart !== otherPart) return false
+    }
+    // Not equal (depth already ensures not equal)
+    return true
   }
 
   isConflict(other: Route0<any>): boolean {

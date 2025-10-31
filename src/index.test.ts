@@ -1415,3 +1415,52 @@ describe('ordering', () => {
     expect(ordering).toEqual([])
   })
 })
+
+describe('relations: isSame, isParent, isChildren', () => {
+  it('isSame: same static path', () => {
+    const a = Route0.create('/a')
+    const b = Route0.create('/a')
+    expect(a.isSame(b)).toBe(true)
+  })
+
+  it('isSame: ignores param names but respects structure', () => {
+    const r1 = Route0.create('/users/:id')
+    const r2 = Route0.create('/users/:userId')
+    const r3 = Route0.create('/users')
+    const r4 = Route0.create('/users/:id/posts')
+    expect((r1 as any).isSame(r2 as any)).toBe(true)
+    expect((r1 as any).isSame(r3 as any)).toBe(false)
+    expect((r1 as any).isSame(r4 as any)).toBe(false)
+  })
+
+  it('isParent: true when left is ancestor of right', () => {
+    expect((Route0.create('/path') as any).isParent(Route0.create('/path/child') as any)).toBe(true)
+    expect((Route0.create('/users/:id') as any).isParent(Route0.create('/users/:id/posts') as any)).toBe(true)
+  })
+
+  it('isParent: false for reverse, equal, or unrelated', () => {
+    expect((Route0.create('/path/child') as any).isParent(Route0.create('/path') as any)).toBe(false)
+    expect((Route0.create('/path') as any).isParent(Route0.create('/path') as any)).toBe(false)
+    expect((Route0.create('/a') as any).isParent(Route0.create('/b') as any)).toBe(false)
+  })
+
+  it('isChildren: true when left is descendant of right', () => {
+    expect((Route0.create('/path/child') as any).isChildren(Route0.create('/path') as any)).toBe(true)
+    expect((Route0.create('/users/:id/posts') as any).isChildren(Route0.create('/users/:id') as any)).toBe(true)
+  })
+
+  it('isChildren: false for reverse, equal, or unrelated', () => {
+    expect((Route0.create('/path') as any).isChildren(Route0.create('/path/child') as any)).toBe(false)
+    expect((Route0.create('/path') as any).isChildren(Route0.create('/path') as any)).toBe(false)
+    expect((Route0.create('/a') as any).isChildren(Route0.create('/b') as any)).toBe(false)
+  })
+
+  it('static isSame: works with strings and undefined', () => {
+    expect(Route0.isSame('/a/:id', Route0.create('/a/:name'))).toBe(true)
+    expect(Route0.isSame('/a', '/a')).toBe(true)
+    expect(Route0.isSame('/a', '/b')).toBe(false)
+    expect(Route0.isSame(undefined, undefined)).toBe(true)
+    expect(Route0.isSame(undefined, '/a')).toBe(false)
+    expect(Route0.isSame('/a', undefined)).toBe(false)
+  })
+})
