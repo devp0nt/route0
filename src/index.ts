@@ -308,19 +308,13 @@ export class Route0<TDefinition extends string> {
   }
 
   getRegexString(): string {
-    // Normalize the path definition (remove trailing slash except for root)
-    const def =
-      this.pathDefinition.length > 1 && this.pathDefinition.endsWith('/')
-        ? this.pathDefinition.slice(0, -1)
-        : this.pathDefinition
-
     // Replace :param with placeholders, escape regex special chars, then restore capture groups
-    const pattern = def
-      .replace(/:([A-Za-z0-9_]+)/g, '___PARAM___') // temporarily replace params with placeholder
+    const pattern = this.pathDefinition
+      .replace(/\/+$/, '')
+      .replace(/:(\w+)/g, '___PARAM___') // temporarily replace params with placeholder
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // escape regex special chars
       .replace(/___PARAM___/g, '([^/]+)') // replace placeholder with capture group
-
-    return pattern
+    return pattern || '/'
   }
 
   getRegex(): RegExp {
