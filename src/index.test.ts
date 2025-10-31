@@ -1221,37 +1221,24 @@ describe('regex', () => {
     expect(regex.test('/users/123/posts')).toBe(false)
   })
 
-  it('static getRegexString: single route', () => {
-    const route = Route0.create('/users/:id')
-    const regex = Route0.getRegexString(route)
-    expect(regex).toBe('/users/([^/]+)')
-  })
-
   it('static getRegexString: multiple routes', () => {
     const routes = [Route0.create('/users'), Route0.create('/posts/:id'), Route0.create('/')]
-    const regex = Route0.getRegexString(routes)
+    const regex = Route0.getRegexStringGroup(routes)
     expect(regex).toBe('/users|/posts/([^/]+)|/')
   })
 
-  it('static getRegex: single route', () => {
-    const route = Route0.create('/users/:id')
-    const regex = Route0.getRegex(route)
-    expect(regex.test('/users/123')).toBe(true)
-    expect(regex.test('/posts/123')).toBe(false)
-  })
-
-  it('static getRegex: multiple routes', () => {
+  it('static getRegexGroup: multiple routes', () => {
     const routes = [Route0.create('/users'), Route0.create('/posts/:id'), Route0.create('/')]
-    const regex = Route0.getRegex(routes)
+    const regex = Route0.getRegexGroup(routes)
     expect(regex.test('/users')).toBe(true)
     expect(regex.test('/posts/123')).toBe(true)
     expect(regex.test('/')).toBe(true)
     expect(regex.test('/other')).toBe(false)
   })
 
-  it('static getRegex: matches in order', () => {
+  it('static getRegexGroup: matches in order', () => {
     const routes = [Route0.create('/users/special'), Route0.create('/users/:id')]
-    const regex = Route0.getRegex(routes)
+    const regex = Route0.getRegexGroup(routes)
     const match = '/users/special'.match(regex)
     expect(match).toBeTruthy()
     // Both could match, but first one should win
@@ -1279,7 +1266,7 @@ describe('regex', () => {
     expect(regex.test(testPath)).toBe(true)
   })
 
-  it('static getRegex: complex routing scenario', () => {
+  it('static getRegexGroup: complex routing scenario', () => {
     const api = Route0.create('/api/v1')
     const routes = [
       Route0.create('/'),
@@ -1290,7 +1277,7 @@ describe('regex', () => {
       Route0.create('/:slug'),
     ]
 
-    const regex = Route0.getRegex(routes)
+    const regex = Route0.getRegexGroup(routes)
 
     expect(regex.test('/')).toBe(true)
     expect(regex.test('/api/v1')).toBe(true)
@@ -1299,6 +1286,216 @@ describe('regex', () => {
     expect(regex.test('/api/v1/posts/456')).toBe(true)
     expect(regex.test('/about')).toBe(true) // matches /:slug
     expect(regex.test('/api/v1/users/123/extra')).toBe(false)
+  })
+
+  it('getRegex: handles trailing slash correctly', () => {
+    const route = Route0.create('/users')
+    const regex = route.getRegex()
+    expect(regex.test('/users')).toBe(true)
+    expect(regex.test('/users/')).toBe(true) // trailing slash should match
+    expect(regex.test('/users//')).toBe(false) // double slash should not match
+    expect(regex.test('/users/abc')).toBe(false) // additional segment should not match
+  })
+
+  it('getRegex: route with params and trailing slash', () => {
+    const route = Route0.create('/users/:id')
+    const regex = route.getRegex()
+    expect(regex.test('/users/123')).toBe(true)
+    expect(regex.test('/users/123/')).toBe(true) // trailing slash should match
+    expect(regex.test('/users/123/abc')).toBe(false) // additional segment should not match
+    expect(regex.test('/users/')).toBe(false) // missing param
+  })
+
+  it('getRegex: root route edge cases', () => {
+    const route = Route0.create('/')
+    const regex = route.getRegex()
+    expect(regex.test('/')).toBe(true)
+    expect(regex.test('')).toBe(true) // empty string should match root
+    expect(regex.test('//')).toBe(false) // double slash should not match
+    expect(regex.test('/users')).toBe(false) // non-root should not match
+  })
+
+  it('getRegexString: handles multiple special regex characters', () => {
+    const route1 = Route0.create('/api/v1.0')
+    const route2 = Route0.create('/path(with)parens')
+    const route3 = Route0.create('/path[with]brackets')
+    const route4 = Route0.create('/path*with*asterisks')
+    const route5 = Route0.create('/path+with+pluses')
+    const route6 = Route0.create('/path?with?question')
+    const route7 = Route0.create('/path^with^caret')
+    const route8 = Route0.create('/path$with$dollar')
+
+    expect(route1.getRegexString()).toBe('/api/v1\\.0')
+    expect(route2.getRegexString()).toBe('/path\\(with\\)parens')
+    expect(route3.getRegexString()).toBe('/path\\[with\\]brackets')
+    expect(route4.getRegexString()).toBe('/path\\*with\\*asterisks')
+    expect(route5.getRegexString()).toBe('/path\\+with\\+pluses')
+    expect(route6.getRegexString()).toBe('/path\\?with\\?question')
+    expect(route7.getRegexString()).toBe('/path\\^with\\^caret')
+    expect(route8.getRegexString()).toBe('/path\\$with\\$dollar')
+  })
+
+  it('getRegex: works with escaped special characters', () => {
+    const route = Route0.create('/api/v1.0/users')
+    const regex = route.getRegex()
+    expect(regex.test('/api/v1.0/users')).toBe(true)
+    expect(regex.test('/api/v1.0/users/')).toBe(true)
+    expect(regex.test('/api/v100/users')).toBe(false) // dot must be literal
+    expect(regex.test('/api/v1.0/users/extra')).toBe(false)
+  })
+
+  it('static getRegexGroup: handles routes with overlapping patterns', () => {
+    const routes = [
+      Route0.create('/users/special'),
+      Route0.create('/users/:id'),
+      Route0.create('/users/:id/edit'),
+      Route0.create('/users'),
+    ]
+    const regex = Route0.getRegexGroup(routes)
+
+    // Should match in order - first specific route wins
+    expect(regex.test('/users/special')).toBe(true)
+    expect(regex.test('/users/123')).toBe(true)
+    expect(regex.test('/users/123/edit')).toBe(true)
+    expect(regex.test('/users')).toBe(true)
+    expect(regex.test('/users/special/extra')).toBe(false)
+    expect(regex.test('/users/123/extra')).toBe(false)
+  })
+
+  it('static getRegexGroup: prevents partial matches', () => {
+    const routes = [Route0.create('/api'), Route0.create('/api/v1'), Route0.create('/api/v1/users')]
+    const regex = Route0.getRegexGroup(routes)
+
+    expect(regex.test('/api')).toBe(true)
+    expect(regex.test('/api/')).toBe(true)
+    expect(regex.test('/api/v1')).toBe(true)
+    expect(regex.test('/api/v1/')).toBe(true)
+    expect(regex.test('/api/v1/users')).toBe(true)
+    expect(regex.test('/api/v1/users/')).toBe(true)
+    expect(regex.test('/api/v2')).toBe(false)
+    expect(regex.test('/api/v1/users/123')).toBe(false) // should not match /api/v1/users
+  })
+
+  it('static getRegexGroup: handles root with other routes', () => {
+    const routes = [Route0.create('/'), Route0.create('/home'), Route0.create('/about')]
+    const regex = Route0.getRegexGroup(routes)
+
+    expect(regex.test('/')).toBe(true)
+    expect(regex.test('')).toBe(true)
+    expect(regex.test('/home')).toBe(true)
+    expect(regex.test('/about')).toBe(true)
+    expect(regex.test('/other')).toBe(false)
+  })
+
+  it('static getRegexGroup: multiple routes with params', () => {
+    const routes = [
+      Route0.create('/posts/:id'),
+      Route0.create('/users/:id'),
+      Route0.create('/categories/:category/posts/:id'),
+    ]
+    const regex = Route0.getRegexGroup(routes)
+
+    expect(regex.test('/posts/123')).toBe(true)
+    expect(regex.test('/posts/123/')).toBe(true)
+    expect(regex.test('/users/456')).toBe(true)
+    expect(regex.test('/categories/tech/posts/789')).toBe(true)
+    expect(regex.test('/posts/123/comments')).toBe(false)
+    expect(regex.test('/users/456/posts')).toBe(false)
+  })
+
+  it('getRegex: prevents matching beyond route definition', () => {
+    const route = Route0.create('/users/:id/posts/:postId')
+    const regex = route.getRegex()
+
+    expect(regex.test('/users/1/posts/2')).toBe(true)
+    expect(regex.test('/users/1/posts/2/')).toBe(true)
+    expect(regex.test('/users/1/posts/2/comments')).toBe(false)
+    expect(regex.test('/users/1/posts/2/comments/3')).toBe(false)
+    expect(regex.test('/users/1/posts')).toBe(false)
+    expect(regex.test('/users/1')).toBe(false)
+  })
+
+  it('static getRegexGroup: routes should not match partial segments', () => {
+    const routes = [Route0.create('/admin'), Route0.create('/admin/users'), Route0.create('/admin/settings')]
+    const regex = Route0.getRegexGroup(routes)
+
+    expect(regex.test('/admin')).toBe(true)
+    expect(regex.test('/admin/users')).toBe(true)
+    expect(regex.test('/admin/settings')).toBe(true)
+    expect(regex.test('/admin/users/123')).toBe(false) // /admin/users should not match longer paths
+    expect(regex.test('/admins')).toBe(false) // should not match partial word
+    expect(regex.test('/admin-extra')).toBe(false)
+  })
+
+  it('getRegex: handles consecutive slashes correctly', () => {
+    const route = Route0.create('/users')
+    const regex = route.getRegex()
+
+    expect(regex.test('/users')).toBe(true)
+    expect(regex.test('/users/')).toBe(true)
+    expect(regex.test('//users')).toBe(false) // double leading slash
+    expect(regex.test('/users//')).toBe(false) // double trailing slash
+    expect(regex.test('///users')).toBe(false) // triple slash
+  })
+
+  it('static getRegexGroup: handles very similar route patterns', () => {
+    const routes = [
+      Route0.create('/a/b'),
+      Route0.create('/a/:param'),
+      Route0.create('/a/b/c'),
+      Route0.create('/a/b/:param'),
+    ]
+    const regex = Route0.getRegexGroup(routes)
+
+    expect(regex.test('/a/b')).toBe(true)
+    expect(regex.test('/a/xyz')).toBe(true) // matches /a/:param
+    expect(regex.test('/a/b/c')).toBe(true)
+    expect(regex.test('/a/b/xyz')).toBe(true) // matches /a/b/:param
+    expect(regex.test('/a/b/c/d')).toBe(false)
+  })
+
+  it('getRegex: handles params with special characters', () => {
+    const route = Route0.create('/users/:id')
+    const regex = route.getRegex()
+
+    // Params should match URL-encoded characters
+    expect(regex.test('/users/123')).toBe(true)
+    expect(regex.test('/users/user-123')).toBe(true)
+    expect(regex.test('/users/user_123')).toBe(true)
+    expect(regex.test('/users/user.123')).toBe(true)
+    expect(regex.test('/users/user%20123')).toBe(true) // URL encoded space
+    expect(regex.test('/users/user%2F123')).toBe(true) // URL encoded slash (but this is a param value)
+  })
+
+  it('static getRegexGroup: ensures exact match boundaries', () => {
+    const routes = [Route0.create('/test'), Route0.create('/testing')]
+    const regex = Route0.getRegexGroup(routes)
+
+    expect(regex.test('/test')).toBe(true)
+    expect(regex.test('/test/')).toBe(true)
+    expect(regex.test('/testing')).toBe(true)
+    expect(regex.test('/testing/')).toBe(true)
+    expect(regex.test('/test/ing')).toBe(false) // should not partially match
+    expect(regex.test('/tested')).toBe(false) // should not match longer word
+  })
+
+  it('getRegexString: handles empty segments', () => {
+    const route = Route0.create('/users//posts')
+    const regex = route.getRegexString()
+    // Double slashes should be normalized to single slash
+    expect(regex).toContain('/users')
+    expect(regex).toContain('/posts')
+  })
+
+  it('static getRegexGroup: root route should not interfere with other routes', () => {
+    const routes = [Route0.create('/'), Route0.create('/root')]
+    const regex = Route0.getRegexGroup(routes)
+
+    expect(regex.test('/')).toBe(true)
+    expect(regex.test('')).toBe(true)
+    expect(regex.test('/root')).toBe(true)
+    expect(regex.test('/root/')).toBe(true)
+    expect(regex.test('/rooting')).toBe(false)
   })
 })
 

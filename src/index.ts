@@ -324,15 +324,24 @@ export class Route0<TDefinition extends string> {
   }
 
   getRegex(): RegExp {
-    return new RegExp(`^${this.getRegexString()}$`)
+    const inner = this.getRegexString()
+    if (inner === '/') return /^\/?$/
+    // Match the pattern exactly, with optional trailing slash, but nothing more
+    return new RegExp(`^${inner}/?$`)
   }
 
-  static getRegexString(routes: AnyRoute[] | AnyRoute): string {
-    const routesArray = Array.isArray(routes) ? routes : [routes]
-    return routesArray.map((route) => route.getRegexString()).join('|')
+  static getRegexStringGroup(routes: AnyRoute[]): string {
+    return routes.map((route) => route.getRegexString()).join('|')
   }
-  static getRegex(routes: AnyRoute[] | AnyRoute): RegExp {
-    return new RegExp(`^(${Route0.getRegexString(routes)})$`)
+  static getRegexGroup(routes: AnyRoute[]): RegExp {
+    const patterns = routes.map((route) => {
+      const inner = route.getRegexString()
+      if (inner === '/') return '/?'
+      // Each pattern needs to handle optional trailing slash and be grouped
+      return `${inner}/?`
+    })
+    // Group each pattern with parentheses for proper alternation
+    return new RegExp(`^(${patterns.join('|')})$`)
   }
 
   static getLocation(href: `${string}://${string}`): UnknownLocation
