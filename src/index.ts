@@ -50,13 +50,31 @@ export class Route0<TDefinition extends string> {
   }
 
   static create<TDefinition extends string>(
-    definition: TDefinition | AnyRoute<TDefinition>,
+    definition: TDefinition | AnyRoute<TDefinition> | CallabelRoute<TDefinition>,
     config?: RouteConfigInput,
+  ): CallabelRoute<TDefinition> {
+    if (typeof definition === 'function') {
+      return definition.clone(config) as CallabelRoute<TDefinition>
+    }
+    if (typeof definition === 'object') {
+      return definition.clone(config) as CallabelRoute<TDefinition>
+    }
+    const original = new Route0<TDefinition>(definition, config)
+    const callable = original.get.bind(original)
+    Object.setPrototypeOf(callable, original)
+    Object.defineProperty(callable, Symbol.toStringTag, {
+      value: original.definition,
+    })
+    return callable as never
+  }
+
+  static from<TDefinition extends string>(
+    definition: TDefinition | AnyRoute<TDefinition> | CallabelRoute<TDefinition>,
   ): CallabelRoute<TDefinition> {
     if (typeof definition === 'function') {
       return definition
     }
-    const original = typeof definition === 'object' ? definition : new Route0<TDefinition>(definition, config)
+    const original = typeof definition === 'object' ? definition : new Route0<TDefinition>(definition)
     const callable = original.get.bind(original)
     Object.setPrototypeOf(callable, original)
     Object.defineProperty(callable, Symbol.toStringTag, {

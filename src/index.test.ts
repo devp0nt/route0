@@ -332,6 +332,24 @@ describe('Route0', () => {
     const routeWithParams = Route0.create('/ideas/:id')
     testFn(routeWithParams) // This should also work
   })
+
+  it('clone, from, create', () => {
+    const route = Route0.create('/path')
+    const clonedRoute = route.clone()
+    expect(clonedRoute.get()).toBe('/path')
+    expect(clonedRoute).not.toBe(route)
+    expect(clonedRoute.definition).toBe(route.definition)
+
+    const createdRoute = Route0.create(route)
+    expect(createdRoute.get()).toBe('/path')
+    expect(createdRoute).not.toBe(route)
+    expect(createdRoute.definition).toBe(route.definition)
+
+    const fromRoute = Route0.from(route)
+    expect(fromRoute.get()).toBe('/path')
+    expect(fromRoute).toBe(route)
+    expect(fromRoute.definition).toBe(route.definition)
+  })
 })
 
 describe('type utilities', () => {
