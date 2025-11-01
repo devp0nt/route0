@@ -106,7 +106,9 @@ describe('Route0', () => {
 
   it('simple extend double slash', () => {
     const route0 = Route0.create('/')
+    expect(route0.get()).toBe('/')
     const route1 = route0.extend('/suffix1/')
+    expect(route1.get()).toBe('/suffix1/')
     const route2 = route1.extend('/suffix2')
     const path = route2.get()
     expectTypeOf<typeof path>().toEqualTypeOf<`/suffix1/suffix2`>()
@@ -122,6 +124,36 @@ describe('Route0', () => {
     expectTypeOf<typeof path>().toEqualTypeOf<`/suffix1/suffix2`>()
     expect(path).toBe('/suffix1/suffix2')
     expect(path).toBe(route2.flat())
+  })
+
+  it('simple extend no slash chaos', () => {
+    const route0 = Route0.create('/')
+    expectTypeOf<(typeof route0)['definition']>().toEqualTypeOf<'/'>()
+    expect(route0.get()).toBe('/')
+
+    const route1 = Route0.create('')
+    expectTypeOf<(typeof route1)['definition']>().toEqualTypeOf<''>()
+    expect(route1.get()).toBe('')
+
+    const route2 = route0.extend('/')
+    expectTypeOf<(typeof route2)['definition']>().toEqualTypeOf<'/'>()
+    expect(route2.get()).toBe('/')
+
+    const route3 = route1.extend('/')
+    expectTypeOf<(typeof route3)['definition']>().toEqualTypeOf<'/'>()
+    expect(route3.get()).toBe('/')
+
+    const route4 = route0.extend('path/')
+    expectTypeOf<(typeof route4)['definition']>().toEqualTypeOf<'/path/'>()
+    expect(route4.get()).toBe('/path/')
+
+    const route5 = route1.extend('/path/')
+    expectTypeOf<(typeof route5)['definition']>().toEqualTypeOf<'/path/'>()
+    expect(route5.get()).toBe('/path/')
+
+    const route6 = route1.extend('path')
+    expectTypeOf<(typeof route6)['definition']>().toEqualTypeOf<'/path'>()
+    expect(route6.get()).toBe('/path')
   })
 
   it('extend with params', () => {

@@ -5,7 +5,7 @@
 
 // TODO: .extension('.json') to not add additional / but just add some extension
 // TODO: search input can be boolean, or even object with qs
-// TODO: Роут0 три пусть три тоже сам генерится вероятно
+// TODO: route0 if ens with "...&" then can be any query, else only provided type of queries
 // TODO: Роут0 три мод, тогда там все ноуты кончаются на .селф
 // TODO: use splats in param definition "*"
 // TODO: ? check extend for search only .extend('&x&z')
@@ -303,8 +303,8 @@ export class Route0<TDefinition extends string> {
     return this.pathDefinition
   }
 
-  clone(config?: RouteConfigInput): Route0<TDefinition> {
-    return new Route0(this.definition, config)
+  clone(config?: RouteConfigInput): CallabelRoute<TDefinition> {
+    return Route0.create(this.definition, config)
   }
 
   getRegexString(): string {
@@ -949,7 +949,7 @@ export type KnownLocation<TRoute extends AnyRoute | string = AnyRoute | string> 
   | ExactLocation<TRoute>
   | ParentLocation<TRoute>
   | ChildrenLocation<TRoute>
-export type AnyLocation<TRoute extends AnyRoute = AnyRoute> = UnknownLocation | KnownLocation<TRoute>
+export type AnyLocation<TRoute extends AnyRoute | string = AnyRoute | string> = UnknownLocation | KnownLocation<TRoute>
 
 // internal utils
 
