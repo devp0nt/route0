@@ -325,35 +325,51 @@ export class Route0<TDefinition extends string> {
     return Route0.create(this.definition, config)
   }
 
-  getRegexString(): string {
-    // Replace :param with placeholders, escape regex special chars, then restore capture groups
-    const pattern = this.pathDefinition
-      .replace(/\/+$/, '')
+  getRegexBaseStrictString(): string {
+    return this.pathDefinition
       .replace(/:(\w+)/g, '___PARAM___') // temporarily replace params with placeholder
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // escape regex special chars
-      .replace(/___PARAM___/g, '([^/]+)') // replace placeholder with capture group
-    return pattern || '/'
+      .replace(/___PARAM___/g, '([^/]+)')
+  }
+
+  getRegexBaseString(): string {
+    return this.getRegexBaseStrictString().replace(/\/+$/, '') + '/?' // remove trailing slashes and add optional slash
+  }
+
+  getRegexStrictString(): string {
+    return `^${this.getRegexBaseStrictString()}$`
+  }
+
+  getRegexString(): string {
+    return `^${this.getRegexBaseString()}$`
+  }
+
+  getRegexStrict(): RegExp {
+    return new RegExp(this.getRegexStrictString())
   }
 
   getRegex(): RegExp {
-    const inner = this.getRegexString()
-    if (inner === '/') return /^\/?$/
-    // Match the pattern exactly, with optional trailing slash, but nothing more
-    return new RegExp(`^${inner}/?$`)
+    return new RegExp(this.getRegexString())
+  }
+
+  static getRegexStrictStringGroup(routes: AnyRoute[]): string {
+    const patterns = routes.map((route) => route.getRegexStrictString()).join('|')
+    return `(${patterns})`
+  }
+
+  static getRegexStrictGroup(routes: AnyRoute[]): RegExp {
+    const patterns = this.getRegexStrictStringGroup(routes)
+    return new RegExp(`^(${patterns})$`)
   }
 
   static getRegexStringGroup(routes: AnyRoute[]): string {
-    return routes.map((route) => route.getRegexString()).join('|')
+    const patterns = routes.map((route) => route.getRegexString()).join('|')
+    return `(${patterns})`
   }
+
   static getRegexGroup(routes: AnyRoute[]): RegExp {
-    const patterns = routes.map((route) => {
-      const inner = route.getRegexString()
-      if (inner === '/') return '/?'
-      // Each pattern needs to handle optional trailing slash and be grouped
-      return `${inner}/?`
-    })
-    // Group each pattern with parentheses for proper alternation
-    return new RegExp(`^(${patterns.join('|')})$`)
+    const patterns = this.getRegexStringGroup(routes)
+    return new RegExp(`^(${patterns})$`)
   }
 
   static getLocation(href: `${string}://${string}`): UnknownLocation
@@ -438,9 +454,6 @@ export class Route0<TDefinition extends string> {
         ? location.pathname.slice(0, -1)
         : location.pathname
 
-    // Use getRegexString() to get the pattern
-    const pattern = this.getRegexString()
-
     // Extract param names from the definition
     const paramNames: string[] = []
     const def =
@@ -453,8 +466,8 @@ export class Route0<TDefinition extends string> {
       return ''
     })
 
-    const exactRe = new RegExp(`^${pattern}$`)
-    const parentRe = new RegExp(`^${pattern}(?:/.*)?$`) // route matches the beginning of the URL (may have more)
+    const exactRe = new RegExp(`^${this.getRegexBaseString()}$`)
+    const parentRe = new RegExp(`^${this.getRegexBaseString()}(?:/.*)?$`) // route matches the beginning of the URL (may have more)
     const exactMatch = pathname.match(exactRe)
 
     // Fill params only for exact match (keeps behavior predictable)
