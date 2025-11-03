@@ -350,6 +350,21 @@ describe('Route0', () => {
     expect(fromRoute).toBe(route)
     expect(fromRoute.definition).toBe(route.definition)
   })
+
+  it('x', () => {
+    const a = Route0.create('/')
+    const b = a.extend('/b')
+    const c = b.extend('/:c')
+    const d = c.extend('/x')
+    expect(Route0.from(a.definition).definition).toBe('/')
+    expect(Route0.from(b.definition).definition).toBe('/b')
+    expect(Route0.from(c.definition).definition).toBe('/b/:c')
+    expect(Route0.from(d.definition).definition).toBe('/b/:c/x')
+    expect(Route0.from('/').definition).toBe('/')
+    expect(Route0.from('/b').definition).toBe('/b')
+    expect(Route0.from('/b/:c').definition).toBe('/b/:c')
+    expect(Route0.from('/b/:c/x').definition).toBe('/b/:c/x')
+  })
 })
 
 describe('type utilities', () => {
@@ -910,6 +925,23 @@ describe('getLocation', () => {
       if (loc.exact) {
         expect(loc.params).toMatchObject({ id: '42' })
       }
+    })
+
+    it('get location for extedned routes', () => {
+      const a = Route0.create('/')
+      const b = a.extend('/b')
+      const c = b.extend('/:c')
+      const d = c.extend('/x')
+      const routes = Routes.create({
+        a,
+        b,
+        c,
+        d,
+      })
+
+      const loc = routes._.getLocation('/b/test')
+      expect(loc.exact).toBe(true)
+      expect(loc.route).toBe('/b/:c')
     })
   })
 })
