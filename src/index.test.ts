@@ -601,6 +601,23 @@ describe('getLocation', () => {
       })
     })
 
+    it('.getLocation location of url relative', () => {
+      const loc = Route0.toRelLocation(Route0.getLocation('https://example.com/prefix/some/suffix?x=1&z=2'))
+      expect(loc).toMatchObject({
+        hash: '',
+        href: undefined,
+        hrefRel: '/prefix/some/suffix?x=1&z=2',
+        abs: false,
+        origin: undefined,
+        params: undefined,
+        pathname: '/prefix/some/suffix',
+        searchParams: { x: '1', z: '2' },
+        search: '?x=1&z=2',
+      })
+      const sameLoc = Route0.toRelLocation(loc)
+      expect(sameLoc).toMatchObject(loc)
+    })
+
     it('#getLocation() exact match', () => {
       const route0 = Route0.create('/prefix/:x/some/:y/:z/suffix')
       let loc = route0.getLocation('/prefix/some/suffix')
@@ -1518,13 +1535,20 @@ describe('regex', () => {
   })
 
   it('static getRegexGroup: ensures exact match boundaries', () => {
-    const routes = [Route0.create('/test'), Route0.create('/testing')]
+    const routes = [
+      Route0.create('/test'),
+      Route0.create('/testing'),
+      Route0.create('/testing/:id'),
+      Route0.create('/testing/:id/xxx'),
+    ]
     const regex = Route0.getRegexGroup(routes)
 
     expect(regex.test('/test')).toBe(true)
     expect(regex.test('/test/')).toBe(true)
     expect(regex.test('/testing')).toBe(true)
     expect(regex.test('/testing/')).toBe(true)
+    expect(regex.test('/testing/123')).toBe(true)
+    expect(regex.test('/testing/123/xxx')).toBe(true)
     expect(regex.test('/test/ing')).toBe(false) // should not partially match
     expect(regex.test('/tested')).toBe(false) // should not match longer word
   })
@@ -1538,13 +1562,22 @@ describe('regex', () => {
   })
 
   it('static getRegexGroup: root route should not interfere with other routes', () => {
-    const routes = [Route0.create('/'), Route0.create('/root')]
+    const routes = [
+      Route0.create('/'),
+      Route0.create('/root'),
+      Route0.create('/root/:id'),
+      Route0.create('/root/:id/xxx'),
+    ]
     const regex = Route0.getRegexGroup(routes)
 
     expect(regex.test('/')).toBe(true)
     expect(regex.test('')).toBe(true)
     expect(regex.test('/root')).toBe(true)
     expect(regex.test('/root/')).toBe(true)
+    expect(regex.test('/rootx')).toBe(false)
+    expect(regex.test('/root/123')).toBe(true)
+    expect(regex.test('/root/123/xxx')).toBe(true)
+    expect(regex.test('/root/123/yyy')).toBe(false)
     expect(regex.test('/rooting')).toBe(false)
   })
 })

@@ -372,6 +372,18 @@ export class Route0<TDefinition extends string> {
     return new RegExp(`^(${patterns})$`)
   }
 
+  static toRelLocation<TLocation extends AnyLocation>(location: TLocation): TLocation {
+    return {
+      ...location,
+      abs: false,
+      origin: undefined,
+      href: undefined,
+      port: undefined,
+      host: undefined,
+      hostname: undefined,
+    }
+  }
+
   static getLocation(href: `${string}://${string}`): UnknownLocation
   static getLocation(hrefRel: `/${string}`): UnknownLocation
   static getLocation(hrefOrHrefRel: string): UnknownLocation
