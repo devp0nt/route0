@@ -384,6 +384,20 @@ export class Route0<TDefinition extends string> {
     }
   }
 
+  static toAbsLocation<TLocation extends AnyLocation>(location: TLocation, baseUrl: string): TLocation {
+    const relLoc = Route0.toRelLocation(location)
+    const url = new URL(relLoc.hrefRel, baseUrl)
+    return {
+      ...location,
+      abs: true,
+      origin: url.origin,
+      href: url.href,
+      port: url.port,
+      host: url.host,
+      hostname: url.hostname,
+    }
+  }
+
   static getLocation(href: `${string}://${string}`): UnknownLocation
   static getLocation(hrefRel: `/${string}`): UnknownLocation
   static getLocation(hrefOrHrefRel: string): UnknownLocation

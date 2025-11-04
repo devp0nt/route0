@@ -616,7 +616,7 @@ describe('getLocation', () => {
       })
     })
 
-    it('.getLocation location of url relative', () => {
+    it('.toRelLocation', () => {
       const loc = Route0.toRelLocation(Route0.getLocation('https://example.com/prefix/some/suffix?x=1&z=2'))
       expect(loc).toMatchObject({
         hash: '',
@@ -624,6 +624,24 @@ describe('getLocation', () => {
         hrefRel: '/prefix/some/suffix?x=1&z=2',
         abs: false,
         origin: undefined,
+        params: undefined,
+        pathname: '/prefix/some/suffix',
+        searchParams: { x: '1', z: '2' },
+        search: '?x=1&z=2',
+      })
+      const sameLoc = Route0.toRelLocation(loc)
+      expect(sameLoc).toMatchObject(loc)
+    })
+
+    it('.toAbsLocation', () => {
+      const loc = Route0.toRelLocation(Route0.getLocation('https://example.com/prefix/some/suffix?x=1&z=2'))
+      const absLoc = Route0.toAbsLocation(loc, 'https://example2.com')
+      expect(absLoc).toMatchObject({
+        hash: '',
+        href: 'https://example2.com/prefix/some/suffix?x=1&z=2',
+        hrefRel: '/prefix/some/suffix?x=1&z=2',
+        abs: true,
+        origin: 'https://example2.com',
         params: undefined,
         pathname: '/prefix/some/suffix',
         searchParams: { x: '1', z: '2' },
