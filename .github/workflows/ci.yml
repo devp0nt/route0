@@ -120,28 +120,33 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Extract npm token from .npmrc for semantic-release
+      - name: Ensure npm 11.5.1+ for OIDC support
+        run: npm install -g npm@latest
+
+      - name: Extract npm OIDC token from .npmrc for semantic-release
         run: |
-          # Get the npmrc location from npm config
+          # npm CLI automatically creates .npmrc with OIDC token when registry-url is set
+          # and id-token: write permission is enabled
           NPMRC_PATH=$(npm config get userconfig)
           echo "npmrc location: $NPMRC_PATH"
 
-          # Try to get token using npm config (most reliable)
-          TOKEN=$(npm config get //registry.npmjs.org/:_authToken 2>/dev/null || echo '')
-
-          # If npm config doesn't work, try reading from the file directly
-          if [ -z "$TOKEN" ] && [ -f "$NPMRC_PATH" ]; then
-            echo "Reading token from $NPMRC_PATH"
+          if [ -f "$NPMRC_PATH" ]; then
+            # Extract the OIDC token from .npmrc
             TOKEN=$(grep -E '^//registry\.npmjs\.org/:_authToken=' "$NPMRC_PATH" | sed 's/.*=//' || echo '')
-          fi
-
-          if [ -n "$TOKEN" ] && [ "$TOKEN" != "undefined" ] && [ "$TOKEN" != "null" ]; then
-            echo "NPM_TOKEN=$TOKEN" >> $GITHUB_ENV
-            echo "✓ Extracted npm token"
+            
+            if [ -n "$TOKEN" ] && [ "$TOKEN" != "undefined" ] && [ "$TOKEN" != "null" ]; then
+              echo "NPM_TOKEN=$TOKEN" >> $GITHUB_ENV
+              echo "✓ Extracted OIDC token from .npmrc"
+            else
+              echo "✗ Could not extract token from $NPMRC_PATH"
+              echo "File contents (redacted):"
+              cat "$NPMRC_PATH" | sed 's/\(authToken=\).*/\1***REDACTED***/'
+              exit 1
+            fi
           else
-            echo "✗ Could not extract npm token"
-            echo "npmrc path: $NPMRC_PATH"
-            echo "npm config output:"
+            echo "✗ .npmrc file not found at $NPMRC_PATH"
+            echo "npm version: $(npm --version)"
+            echo "npm config:"
             npm config list
             exit 1
           fi
