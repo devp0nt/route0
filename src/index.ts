@@ -682,16 +682,16 @@ export class Route0<TDefinition extends string> {
 
 export class Routes<const T extends RoutesRecord = RoutesRecord> {
   private readonly routes: RoutesRecordHydrated<T>
-  private readonly pathsOrdering: string[]
-  private readonly keysOrdering: string[]
-  private readonly ordered: CallabelRoute[]
+  _pathsOrdering: string[]
+  _keysOrdering: string[]
+  _ordered: CallabelRoute[]
 
   _: {
-    getLocation: Routes<T>['getLocation']
-    override: Routes<T>['override']
-    pathsOrdering: Routes<T>['pathsOrdering']
-    keysOrdering: Routes<T>['keysOrdering']
-    ordered: Routes<T>['ordered']
+    getLocation: Routes<T>['_getLocation']
+    override: Routes<T>['_override']
+    pathsOrdering: Routes<T>['_pathsOrdering']
+    keysOrdering: Routes<T>['_keysOrdering']
+    ordered: Routes<T>['_ordered']
   }
 
   private constructor({
@@ -710,20 +710,20 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     this.routes = (isHydrated ? (routes as RoutesRecordHydrated<T>) : Routes.hydrate(routes)) as RoutesRecordHydrated<T>
     if (!pathsOrdering || !keysOrdering || !ordered) {
       const ordering = Routes.makeOrdering(this.routes)
-      this.pathsOrdering = ordering.pathsOrdering
-      this.keysOrdering = ordering.keysOrdering
-      this.ordered = this.keysOrdering.map((key) => this.routes[key])
+      this._pathsOrdering = ordering.pathsOrdering
+      this._keysOrdering = ordering.keysOrdering
+      this._ordered = this._keysOrdering.map((key) => this.routes[key])
     } else {
-      this.pathsOrdering = pathsOrdering
-      this.keysOrdering = keysOrdering
-      this.ordered = ordered
+      this._pathsOrdering = pathsOrdering
+      this._keysOrdering = keysOrdering
+      this._ordered = ordered
     }
     this._ = {
-      getLocation: this.getLocation.bind(this),
-      override: this.override.bind(this),
-      pathsOrdering: this.pathsOrdering,
-      keysOrdering: this.keysOrdering,
-      ordered: this.ordered,
+      getLocation: this._getLocation.bind(this),
+      override: this._override.bind(this),
+      pathsOrdering: this._pathsOrdering,
+      keysOrdering: this._keysOrdering,
+      ordered: this._ordered,
     }
   }
 
@@ -738,7 +738,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
       value: 'Routes',
     })
     Object.assign(instance, {
-      override: instance.override.bind(instance),
+      override: instance._override.bind(instance),
     })
     Object.assign(instance, instance.routes)
     return instance as unknown as RoutesPretty<T>
@@ -755,16 +755,16 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     return result
   }
 
-  private getLocation(href: `${string}://${string}`): UnknownLocation | ExactLocation
-  private getLocation(hrefRel: `/${string}`): UnknownLocation | ExactLocation
-  private getLocation(hrefOrHrefRel: string): UnknownLocation | ExactLocation
-  private getLocation(location: AnyLocation): UnknownLocation | ExactLocation
-  private getLocation(url: URL): UnknownLocation | ExactLocation
-  private getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation
-  private getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation {
+  _getLocation(href: `${string}://${string}`): UnknownLocation | ExactLocation
+  _getLocation(hrefRel: `/${string}`): UnknownLocation | ExactLocation
+  _getLocation(hrefOrHrefRel: string): UnknownLocation | ExactLocation
+  _getLocation(location: AnyLocation): UnknownLocation | ExactLocation
+  _getLocation(url: URL): UnknownLocation | ExactLocation
+  _getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation
+  _getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation {
     // Find the route that exactly matches the given location
     const input = hrefOrHrefRelOrLocation
-    for (const route of this.ordered) {
+    for (const route of this._ordered) {
       const loc = route.getLocation(hrefOrHrefRelOrLocation)
       if (loc.exact) {
         return loc
@@ -809,7 +809,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     return { pathsOrdering, keysOrdering }
   }
 
-  private override(config: RouteConfigInput): RoutesPretty<T> {
+  _override(config: RouteConfigInput): RoutesPretty<T> {
     const newRoutes = {} as RoutesRecordHydrated<T>
     for (const key in this.routes) {
       if (Object.prototype.hasOwnProperty.call(this.routes, key)) {
@@ -819,9 +819,9 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     const instance = new Routes({
       routes: newRoutes,
       isHydrated: true,
-      pathsOrdering: this.pathsOrdering,
-      keysOrdering: this.keysOrdering,
-      ordered: this.keysOrdering.map((key) => newRoutes[key]),
+      pathsOrdering: this._pathsOrdering,
+      keysOrdering: this._keysOrdering,
+      ordered: this._keysOrdering.map((key) => newRoutes[key]),
     })
     return Routes.prettify(instance)
   }
@@ -849,7 +849,7 @@ export type RoutesRecordHydrated<TRoutesRecord extends RoutesRecord = RoutesReco
   [K in keyof TRoutesRecord]: CallabelRoute<TRoutesRecord[K]>
 }
 export type RoutesPretty<TRoutesRecord extends RoutesRecord = RoutesRecord> = RoutesRecordHydrated<TRoutesRecord> &
-  Routes<TRoutesRecord>
+  Omit<Routes<TRoutesRecord>, '_getLocation' | '_override' | '_pathsOrdering' | '_keysOrdering' | '_ordered'>
 export type ExtractRoutesKeys<TRoutes extends RoutesPretty | RoutesRecord> = TRoutes extends RoutesPretty
   ? keyof TRoutes['routes']
   : TRoutes extends RoutesRecord
