@@ -104,6 +104,7 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
+          scope: '@devp0nt'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
