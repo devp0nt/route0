@@ -147,66 +147,66 @@ export class Route0<TDefinition extends string> {
   // get(
   //   input: OnlyIfHasParams<
   //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search?: undefined; abs?: false; hash?: string }>
+  //     WithParamsInput<TDefinition, { search?: undefined; abs?: false; hash?: string | number }>
   //   >,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, PathOnlyRouteValue<TDefinition>>
   // get(
   //   input: OnlyIfHasParams<
   //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search: _SearchInput<TDefinition>; abs?: false; hash?: string }>
+  //     WithParamsInput<TDefinition, { search: _SearchInput<TDefinition>; abs?: false; hash?: string | number }>
   //   >,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, WithSearchRouteValue<TDefinition>>
   // get(
   //   input: OnlyIfHasParams<
   //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search?: undefined; abs: true; hash?: string }>
+  //     WithParamsInput<TDefinition, { search?: undefined; abs: true; hash?: string | number }>
   //   >,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsolutePathOnlyRouteValue<TDefinition>>
   // get(
   //   input: OnlyIfHasParams<
   //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search: _SearchInput<TDefinition>; abs: true; hash?: string }>
+  //     WithParamsInput<TDefinition, { search: _SearchInput<TDefinition>; abs: true; hash?: string | number }>
   //   >,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsoluteWithSearchRouteValue<TDefinition>>
 
   // get(
   //   input: OnlyIfHasParams<
   //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search?: _SearchInput<TDefinition>; abs?: false; hash?: string }>
+  //     WithParamsInput<TDefinition, { search?: _SearchInput<TDefinition>; abs?: false; hash?: string | number }>
   //   >,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, PathRouteValue<TDefinition>>
   // get(
   //   input: OnlyIfHasParams<
   //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search: _SearchInput<TDefinition>; abs: true; hash?: string }>
+  //     WithParamsInput<TDefinition, { search: _SearchInput<TDefinition>; abs: true; hash?: string | number }>
   //   >,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
 
   get(
     input: OnlyIfHasParams<
       _ParamsDefinition<TDefinition>,
-      WithParamsInput<TDefinition, { search?: _SearchInput<TDefinition>; abs?: boolean; hash?: string }>
+      WithParamsInput<TDefinition, { search?: _SearchInput<TDefinition>; abs?: boolean; hash?: string | number }>
     >,
   ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, string>
 
   // no params
   // get(...args: OnlyIfNoParams<_ParamsDefinition<TDefinition>, [], [never]>): PathOnlyRouteValue<TDefinition>
   // get(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { search?: undefined; abs?: false; hash?: string }>,
+  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { search?: undefined; abs?: false; hash?: string | number }>,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, PathOnlyRouteValue<TDefinition>>
   // get(
   //   input: OnlyIfNoParams<
   //     _ParamsDefinition<TDefinition>,
-  //     { search: _SearchInput<TDefinition>; abs?: false; hash?: string }
+  //     { search: _SearchInput<TDefinition>; abs?: false; hash?: string | number }
   //   >,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, WithSearchRouteValue<TDefinition>>
   // get(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { search?: undefined; abs: true; hash?: string }>,
+  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { search?: undefined; abs: true; hash?: string | number }>,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsolutePathOnlyRouteValue<TDefinition>>
   // get(
   //   input: OnlyIfNoParams<
   //     _ParamsDefinition<TDefinition>,
-  //     { search: _SearchInput<TDefinition>; abs: true; hash?: string }
+  //     { search: _SearchInput<TDefinition>; abs: true; hash?: string | number }
   //   >,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsoluteWithSearchRouteValue<TDefinition>>
 
@@ -214,13 +214,13 @@ export class Route0<TDefinition extends string> {
   // get(
   //   input: OnlyIfNoParams<
   //     _ParamsDefinition<TDefinition>,
-  //     { search?: _SearchInput<TDefinition>; abs?: false; hash?: string }
+  //     { search?: _SearchInput<TDefinition>; abs?: false; hash?: string | number }
   //   >,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, PathRouteValue<TDefinition>>
   // get(
   //   input: OnlyIfNoParams<
   //     _ParamsDefinition<TDefinition>,
-  //     { search?: _SearchInput<TDefinition>; abs: true; hash?: string }
+  //     { search?: _SearchInput<TDefinition>; abs: true; hash?: string | number }
   //   >,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
 
@@ -228,7 +228,7 @@ export class Route0<TDefinition extends string> {
   get(
     input: OnlyIfNoParams<
       _ParamsDefinition<TDefinition>,
-      { search?: _SearchInput<TDefinition>; abs?: boolean; hash?: string }
+      { search?: _SearchInput<TDefinition>; abs?: boolean; hash?: string | number }
     >,
   ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, string>
 
@@ -284,24 +284,24 @@ export class Route0<TDefinition extends string> {
 
   // has params
   // flat(
-  //   input: OnlyIfHasParams<_ParamsDefinition<TDefinition>, WithParamsInput<TDefinition, { hash?: string }>>,
+  //   input: OnlyIfHasParams<_ParamsDefinition<TDefinition>, WithParamsInput<TDefinition, { hash?: string | number }>>,
   //   abs?: false,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, PathOnlyRouteValue<TDefinition>>
   // flat(
   //   input: OnlyIfHasParams<
   //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string }>
+  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string | number }>
   //   >,
   //   abs?: false,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, WithSearchRouteValue<TDefinition>>
   // flat(
-  //   input: OnlyIfHasParams<_ParamsDefinition<TDefinition>, WithParamsInput<TDefinition, { hash?: string }>>,
+  //   input: OnlyIfHasParams<_ParamsDefinition<TDefinition>, WithParamsInput<TDefinition, { hash?: string | number }>>,
   //   abs: true,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsolutePathOnlyRouteValue<TDefinition>>
   // flat(
   //   input: OnlyIfHasParams<
   //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string }>
+  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string | number }>
   //   >,
   //   abs: true,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsoluteWithSearchRouteValue<TDefinition>>
@@ -309,14 +309,14 @@ export class Route0<TDefinition extends string> {
   // flat(
   //   input: OnlyIfHasParams<
   //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string }>
+  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string | number }>
   //   >,
   //   abs?: false,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, PathRouteValue<TDefinition>>
   // flat(
   //   input: OnlyIfHasParams<
   //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string }>
+  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string | number }>
   //   >,
   //   abs: true,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
@@ -324,7 +324,7 @@ export class Route0<TDefinition extends string> {
   flat(
     input: OnlyIfHasParams<
       _ParamsDefinition<TDefinition>,
-      WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string }>
+      WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string | number }>
     >,
     abs?: boolean,
   ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, string>
@@ -332,35 +332,35 @@ export class Route0<TDefinition extends string> {
   // no params
   // flat(...args: OnlyIfNoParams<_ParamsDefinition<TDefinition>, [], [never]>): PathOnlyRouteValue<TDefinition>
   // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { hash?: string }>,
+  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { hash?: string | number }>,
   //   abs?: false,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, PathOnlyRouteValue<TDefinition>>
   // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string }>,
+  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string | number }>,
   //   abs?: false,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, WithSearchRouteValue<TDefinition>>
   // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { hash?: string }>,
+  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { hash?: string | number }>,
   //   abs: true,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsolutePathOnlyRouteValue<TDefinition>>
   // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string }>,
+  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string | number }>,
   //   abs: true,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsoluteWithSearchRouteValue<TDefinition>>
 
   // flat(...args: OnlyIfNoParams<_ParamsDefinition<TDefinition>, [], [never]>): PathRouteValue<TDefinition>
   // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string }>,
+  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string | number }>,
   //   abs?: false,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, PathRouteValue<TDefinition>>
   // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string }>,
+  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string | number }>,
   //   abs: true,
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
 
   flat(...args: OnlyIfNoParams<_ParamsDefinition<TDefinition>, [], [never]>): string
   flat(
-    input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string }>,
+    input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string | number }>,
     abs?: boolean,
   ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, string>
 
@@ -1048,11 +1048,17 @@ export type FlatOutput<T extends AnyRoute | string = string> =
   HasParams<Definition<T>> extends true ? ParamsOutput<T> & SearchOutput<T> : SearchOutput<T>
 export type StrictFlatOutput<T extends AnyRoute | string> =
   HasParams<Definition<T>> extends true ? ParamsOutput<T> & StrictSearchOutput<T> : StrictSearchOutput<T>
+export type FlatOutputWithHash<T extends AnyRoute | string = string> = FlatOutput<T> & { hash?: string | undefined }
+export type StrictFlatOutputWithHash<T extends AnyRoute | string> = StrictFlatOutput<T> & { hash?: string | undefined }
 export type ParamsInput<T extends AnyRoute | string = string> = _ParamsInput<PathDefinition<T>>
 export type SearchInput<T extends AnyRoute | string = string> = _SearchInput<Definition<T>>
 export type StrictSearchInput<T extends AnyRoute | string> = _StrictSearchInput<Definition<T>>
 export type FlatInput<T extends AnyRoute | string> = _FlatInput<Definition<T>>
 export type StrictFlatInput<T extends AnyRoute | string> = _StrictFlatInput<Definition<T>>
+export type FlatInputWithHash<T extends AnyRoute | string> = _FlatInput<Definition<T>> & { hash?: string | number }
+export type StrictFlatInputWithHash<T extends AnyRoute | string> = _StrictFlatInput<Definition<T>> & {
+  hash?: string | number
+}
 export type CanInputBeEmpty<T extends AnyRoute | string> = HasParams<Definition<T>> extends true ? false : true
 
 export type ParamsInputStringOnly<T extends AnyRoute | string = string> = _ParamsInputStringOnly<PathDefinition<T>>
@@ -1268,7 +1274,7 @@ export type WithParamsInput<
     | {
         search?: _SearchInput<any>
         abs?: boolean
-        hash?: string
+        hash?: string | number
       }
     | undefined = undefined,
 > = _ParamsInput<TDefinition> & (T extends undefined ? Record<never, never> : T)

@@ -9,7 +9,9 @@ import type {
   ExtractRoutesKeys,
   FlatInput,
   FlatInputStringOnly,
+  FlatInputWithHash,
   FlatOutput,
+  FlatOutputWithHash,
   HasParams,
   HasSearch,
   IsChildren,
@@ -24,7 +26,9 @@ import type {
   SearchOutput,
   StrictFlatInput,
   StrictFlatInputStringOnly,
+  StrictFlatInputWithHash,
   StrictFlatOutput,
+  StrictFlatOutputWithHash,
   StrictSearchInput,
   StrictSearchInputStringOnly,
   StrictSearchOutput,
@@ -573,6 +577,82 @@ describe('type utilities', () => {
         x?: string | undefined
         y?: string | undefined
       }>
+    >()
+  })
+
+  it('FlatInputWithHash', () => {
+    type T1 = FlatInputWithHash<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<
+      { hash?: string | number } & Partial<{
+        x: string | number
+        y: string | number
+      }> &
+        Record<string, string | number>
+    >()
+
+    type T2 = FlatInputWithHash<'/path/:id&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      { hash?: string | number } & {
+        id: string | number
+      } & Partial<{
+          x: string | number
+          y: string | number
+        }> &
+        Record<string, string | number>
+    >()
+  })
+  it('StrictFlatInputWithHash', () => {
+    type T1 = StrictFlatInputWithHash<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<{ hash?: string | number } & { x?: string | number; y?: string | number }>()
+    type T2 = StrictFlatInputWithHash<'/path/:id&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      { hash?: string | number } & Partial<{
+        x: string | number
+        y: string | number
+      }> & {
+          id: string | number
+        }
+    >()
+  })
+
+  it('FlatOutputWithHash', () => {
+    type T1 = FlatOutputWithHash<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<
+      {
+        [x: string]: string | undefined
+        x?: string | undefined
+        y?: string | undefined
+      } & {
+        hash?: string | undefined
+      }
+    >()
+
+    type T2 = FlatOutputWithHash<'/path/:id&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      {
+        id: string
+      } & {
+        [x: string]: string | undefined
+        x?: string | undefined
+        y?: string | undefined
+      } & {
+        hash?: string | undefined
+      }
+    >()
+  })
+  it('StrictFlatOutputWithHash', () => {
+    type T1 = StrictFlatOutputWithHash<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<
+      { x?: string | undefined; y?: string | undefined } & { hash?: string | undefined }
+    >()
+    type T2 = StrictFlatOutputWithHash<'/path/:id&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      { id: string } & Partial<{
+        x?: string | undefined
+        y?: string | undefined
+      }> & {
+          hash?: string | undefined
+        }
     >()
   })
 
