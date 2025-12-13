@@ -21,6 +21,7 @@ import type {
   ParamsInput,
   ParamsInputStringOnly,
   ParamsOutput,
+  RoutesPretty,
   SearchInput,
   SearchInputStringOnly,
   SearchOutput,
@@ -974,6 +975,7 @@ describe('getLocation', () => {
       })
       expectTypeOf<ExtractRoutesKeys<typeof routes>>().toEqualTypeOf<'home' | 'users' | 'userDetail'>()
       expectTypeOf<ExtractRoute<typeof routes, 'userDetail'>>().toEqualTypeOf<CallableRoute<'/users/:id'>>()
+      expectTypeOf<ExtractRoutesKeys<RoutesPretty>>().toEqualTypeOf<string>()
     })
 
     it('exact match returns ExactLocation', () => {

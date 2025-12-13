@@ -963,9 +963,9 @@ export type RoutesPretty<TRoutesRecord extends RoutesRecord = RoutesRecord> = Ro
   >
 export type ExtractRoutesKeys<TRoutes extends RoutesPretty<any> | RoutesRecord> =
   TRoutes extends RoutesPretty<any>
-    ? keyof TRoutes['_']['routes']
+    ? Extract<keyof TRoutes['_']['routes'], string>
     : TRoutes extends RoutesRecord
-      ? keyof TRoutes
+      ? Extract<keyof TRoutes, string>
       : never
 export type ExtractRoute<TRoutes extends RoutesPretty<any> | RoutesRecord, TKey extends ExtractRoutesKeys<TRoutes>> =
   TRoutes extends RoutesPretty<any>
