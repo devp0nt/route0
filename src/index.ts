@@ -22,6 +22,7 @@
 // TODO: ? optional path params as @
 // TODO: prependMany, extendMany, overrideMany, with types
 // TODO: optional route params /x/:id?
+// TODO: fix CallableRoute<CallableRoute<>> in RoutesPretty type, it should be just CallableRoute<>
 
 export class Route0<TDefinition extends string> {
   readonly definition: TDefinition
@@ -681,12 +682,13 @@ export class Route0<TDefinition extends string> {
 }
 
 export class Routes<const T extends RoutesRecord = RoutesRecord> {
-  private readonly routes: RoutesRecordHydrated<T>
+  _routes: RoutesRecordHydrated<T>
   _pathsOrdering: string[]
   _keysOrdering: string[]
   _ordered: CallabelRoute[]
 
   _: {
+    routes: Routes<T>['_routes']
     getLocation: Routes<T>['_getLocation']
     override: Routes<T>['_override']
     pathsOrdering: Routes<T>['_pathsOrdering']
@@ -707,18 +709,21 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     keysOrdering?: string[]
     ordered?: CallabelRoute[]
   }) {
-    this.routes = (isHydrated ? (routes as RoutesRecordHydrated<T>) : Routes.hydrate(routes)) as RoutesRecordHydrated<T>
+    this._routes = (
+      isHydrated ? (routes as RoutesRecordHydrated<T>) : Routes.hydrate(routes)
+    ) as RoutesRecordHydrated<T>
     if (!pathsOrdering || !keysOrdering || !ordered) {
-      const ordering = Routes.makeOrdering(this.routes)
+      const ordering = Routes.makeOrdering(this._routes)
       this._pathsOrdering = ordering.pathsOrdering
       this._keysOrdering = ordering.keysOrdering
-      this._ordered = this._keysOrdering.map((key) => this.routes[key])
+      this._ordered = this._keysOrdering.map((key) => this._routes[key])
     } else {
       this._pathsOrdering = pathsOrdering
       this._keysOrdering = keysOrdering
       this._ordered = ordered
     }
     this._ = {
+      routes: this._routes,
       getLocation: this._getLocation.bind(this),
       override: this._override.bind(this),
       pathsOrdering: this._pathsOrdering,
@@ -740,7 +745,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     Object.assign(instance, {
       override: instance._override.bind(instance),
     })
-    Object.assign(instance, instance.routes)
+    Object.assign(instance, instance._routes)
     return instance as unknown as RoutesPretty<T>
   }
 
@@ -811,9 +816,9 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
 
   _override(config: RouteConfigInput): RoutesPretty<T> {
     const newRoutes = {} as RoutesRecordHydrated<T>
-    for (const key in this.routes) {
-      if (Object.prototype.hasOwnProperty.call(this.routes, key)) {
-        newRoutes[key] = this.routes[key].clone(config) as CallabelRoute<T[typeof key]>
+    for (const key in this._routes) {
+      if (Object.prototype.hasOwnProperty.call(this._routes, key)) {
+        newRoutes[key] = this._routes[key].clone(config) as CallabelRoute<T[typeof key]>
       }
     }
     const instance = new Routes({
@@ -849,16 +854,22 @@ export type RoutesRecordHydrated<TRoutesRecord extends RoutesRecord = RoutesReco
   [K in keyof TRoutesRecord]: CallabelRoute<TRoutesRecord[K]>
 }
 export type RoutesPretty<TRoutesRecord extends RoutesRecord = RoutesRecord> = RoutesRecordHydrated<TRoutesRecord> &
-  Omit<Routes<TRoutesRecord>, '_getLocation' | '_override' | '_pathsOrdering' | '_keysOrdering' | '_ordered'>
-export type ExtractRoutesKeys<TRoutes extends RoutesPretty | RoutesRecord> = TRoutes extends RoutesPretty
-  ? keyof TRoutes['routes']
-  : TRoutes extends RoutesRecord
-    ? keyof TRoutes
-    : never
-export type ExtractRoute<
-  TRoutes extends RoutesPretty | RoutesRecord,
-  TKey extends keyof ExtractRoutesKeys<TRoutes>,
-> = TKey extends keyof TRoutes ? TRoutes[TKey] : never
+  Omit<
+    Routes<TRoutesRecord>,
+    '_routes' | '_getLocation' | '_override' | '_pathsOrdering' | '_keysOrdering' | '_ordered'
+  >
+export type ExtractRoutesKeys<TRoutes extends RoutesPretty<any> | RoutesRecord> =
+  TRoutes extends RoutesPretty<any>
+    ? keyof TRoutes['_']['routes']
+    : TRoutes extends RoutesRecord
+      ? keyof TRoutes
+      : never
+export type ExtractRoute<TRoutes extends RoutesPretty<any> | RoutesRecord, TKey extends ExtractRoutesKeys<TRoutes>> =
+  TRoutes extends RoutesPretty<any>
+    ? TRoutes['_']['routes'][TKey]
+    : TRoutes extends RoutesRecord
+      ? TRoutes[TKey]
+      : never
 
 // public utils
 

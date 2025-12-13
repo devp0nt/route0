@@ -5,6 +5,8 @@ import type {
   CallabelRoute,
   CanInputBeEmpty,
   Extended,
+  ExtractRoute,
+  ExtractRoutesKeys,
   FlatInput,
   FlatInputStringOnly,
   FlatOutput,
@@ -823,13 +825,26 @@ describe('getLocation', () => {
   })
 
   describe('Routes', () => {
+    it('types helpers', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const routes = Routes.create({
+        home: '/',
+        users: '/users',
+        userDetail: Route0.create('/users/:id'),
+      })
+      expectTypeOf<ExtractRoutesKeys<typeof routes>>().toEqualTypeOf<'home' | 'users' | 'userDetail'>()
+      expectTypeOf<ExtractRoute<typeof routes, 'userDetail'>>().toEqualTypeOf<CallabelRoute<'/users/:id'>>()
+    })
+
     it('exact match returns ExactLocation', () => {
       const routes = Routes.create({
         home: '/',
         users: '/users',
-        userDetail: '/users/:id',
+        userDetail: Route0.create('/users/:id'),
       })
 
+      expectTypeOf<(typeof routes)['home']>().toEqualTypeOf<CallabelRoute<'/'>>()
+      expectTypeOf<(typeof routes)['userDetail']>().toEqualTypeOf<CallabelRoute<'/users/:id'>>()
       const loc = routes._.getLocation('/users/123')
       expect(loc.exact).toBe(true)
       expect(loc.parent).toBe(false)
