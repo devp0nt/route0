@@ -78,7 +78,7 @@
     "pack:dry": "npm pack --dry-run",
     "pack:dist": "mkdir -p dist-npm && npm pack --pack-destination dist-npm --silent && cd dist-npm && tar -xzf *.tgz && cp -r package/* . && rm -rf package && rm *.tgz",
     "pack:dist:hard": "rimraf dist-npm && bun run pack:dist",
-    "prepare": "husky",
+    "prepare": "node -e \"if (!process.env.CI) require('husky').install()\"",
     "clean": "rimraf dist && rimraf dist-test && rimraf dist-npm && rimraf node_modules/.cache"
   },
   "dependencies": {
