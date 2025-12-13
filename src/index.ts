@@ -940,6 +940,12 @@ export type FlatInput<T extends AnyRoute | string> = _FlatInput<Definition<T>>
 export type StrictFlatInput<T extends AnyRoute | string> = _StrictFlatInput<Definition<T>>
 export type CanInputBeEmpty<T extends AnyRoute | string> = HasParams<Definition<T>> extends true ? false : true
 
+export type ParamsInputStringOnly<T extends AnyRoute | string = string> = _ParamsInputStringOnly<PathDefinition<T>>
+export type SearchInputStringOnly<T extends AnyRoute | string = string> = _SearchInputStringOnly<Definition<T>>
+export type StrictSearchInputStringOnly<T extends AnyRoute | string> = _StrictSearchInputStringOnly<Definition<T>>
+export type FlatInputStringOnly<T extends AnyRoute | string> = _FlatInputStringOnly<Definition<T>>
+export type StrictFlatInputStringOnly<T extends AnyRoute | string> = _StrictFlatInputStringOnly<Definition<T>>
+
 // location
 
 export type LocationParams<TDefinition extends string> = {
@@ -1053,6 +1059,35 @@ export type _StrictFlatInput<TDefinition extends string> =
       : _ParamsInput<TDefinition>
     : HasSearch<TDefinition> extends true
       ? _StrictSearchInput<TDefinition>
+      : Record<never, never>
+
+export type _ParamsInputStringOnly<TDefinition extends string> =
+  _ParamsDefinition<TDefinition> extends undefined
+    ? Record<never, never>
+    : {
+        [K in keyof _ParamsDefinition<TDefinition>]: string
+      }
+export type _SearchInputStringOnly<TDefinition extends string> =
+  _SearchDefinition<TDefinition> extends undefined
+    ? Record<string, string>
+    : Partial<{
+        [K in keyof _SearchDefinition<TDefinition>]: string
+      }> &
+        Record<string, string>
+export type _StrictSearchInputStringOnly<TDefinition extends string> = Partial<{
+  [K in keyof _SearchDefinition<TDefinition>]: string
+}>
+export type _FlatInputStringOnly<TDefinition extends string> =
+  HasParams<TDefinition> extends true
+    ? _ParamsInputStringOnly<TDefinition> & _SearchInputStringOnly<TDefinition>
+    : _SearchInputStringOnly<TDefinition>
+export type _StrictFlatInputStringOnly<TDefinition extends string> =
+  HasParams<TDefinition> extends true
+    ? HasSearch<TDefinition> extends true
+      ? _StrictSearchInputStringOnly<TDefinition> & _ParamsInputStringOnly<TDefinition>
+      : _ParamsInputStringOnly<TDefinition>
+    : HasSearch<TDefinition> extends true
+      ? _StrictSearchInputStringOnly<TDefinition>
       : Record<never, never>
 
 export type TrimSearchTailDefinition<S extends string> = S extends `${infer P}&${string}` ? P : S

@@ -6,6 +6,7 @@ import type {
   CanInputBeEmpty,
   Extended,
   FlatInput,
+  FlatInputStringOnly,
   FlatOutput,
   HasParams,
   HasSearch,
@@ -14,12 +15,16 @@ import type {
   IsSame,
   IsSameParams,
   ParamsInput,
+  ParamsInputStringOnly,
   ParamsOutput,
   SearchInput,
+  SearchInputStringOnly,
   SearchOutput,
   StrictFlatInput,
+  StrictFlatInputStringOnly,
   StrictFlatOutput,
   StrictSearchInput,
+  StrictSearchInputStringOnly,
   StrictSearchOutput,
 } from './index.js'
 import { Route0, Routes } from './index.js'
@@ -506,6 +511,70 @@ describe('type utilities', () => {
         x?: string | undefined
         y?: string | undefined
       }>
+    >()
+  })
+
+  it('ParamsInputStringOnly', () => {
+    expectTypeOf<ParamsInputStringOnly<'/path'>>().toEqualTypeOf<Record<never, never>>()
+    expectTypeOf<ParamsInputStringOnly<'/path/:id'>>().toEqualTypeOf<{ id: string }>()
+    expectTypeOf<ParamsInputStringOnly<'/path/:id/:name'>>().toEqualTypeOf<{ id: string; name: string }>()
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const route = Route0.create('/path/:id/:name')
+    expectTypeOf<ParamsInputStringOnly<typeof route>>().toEqualTypeOf<{ id: string; name: string }>()
+  })
+
+  it('SearchInputStringOnly', () => {
+    type T1 = SearchInputStringOnly<'/path'>
+    expectTypeOf<T1>().toEqualTypeOf<Record<string, string>>()
+
+    type T2 = SearchInputStringOnly<'/path&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      Partial<{
+        x: string
+        y: string
+      }> &
+        Record<string, string>
+    >()
+  })
+
+  it('StrictSearchInputStringOnly', () => {
+    type T1 = StrictSearchInputStringOnly<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<{ x?: string; y?: string }>()
+  })
+
+  it('FlatInputStringOnly', () => {
+    type T1 = FlatInputStringOnly<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<
+      Partial<{
+        x: string
+        y: string
+      }> &
+        Record<string, string>
+    >()
+
+    type T2 = FlatInputStringOnly<'/path/:id&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      {
+        id: string
+      } & Partial<{
+        x: string
+        y: string
+      }> &
+        Record<string, string>
+    >()
+  })
+  it('StrictFlatInputStringOnly', () => {
+    type T1 = StrictFlatInputStringOnly<'/path&x&y'>
+    expectTypeOf<T1>().toEqualTypeOf<{ x?: string; y?: string }>()
+    type T2 = StrictFlatInputStringOnly<'/path/:id&x&y'>
+    expectTypeOf<T2>().toEqualTypeOf<
+      Partial<{
+        x: string
+        y: string
+      }> & {
+        id: string
+      }
     >()
   })
 
