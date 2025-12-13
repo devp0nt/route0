@@ -120,7 +120,33 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Extract npm token from .npmrc for semantic-release
+        run: |
+          # setup-node creates .npmrc in the home directory with OIDC token
+          # Extract the token from ~/.npmrc
+          if [ -f "$HOME/.npmrc" ]; then
+            echo "Found .npmrc at: $HOME/.npmrc"
+            # Extract token (format: //registry.npmjs.org/:_authToken=TOKEN)
+            TOKEN=$(grep -E '^//registry\.npmjs\.org/:_authToken=' "$HOME/.npmrc" | sed 's/.*=//' || echo '')
+            
+            if [ -n "$TOKEN" ]; then
+              echo "NPM_TOKEN=$TOKEN" >> $GITHUB_ENV
+              echo "✓ Extracted npm token from $HOME/.npmrc"
+            else
+              echo "✗ Could not find authToken in $HOME/.npmrc"
+              echo "Contents of $HOME/.npmrc (redacted):"
+              cat "$HOME/.npmrc" | sed 's/\(authToken=\).*/\1***REDACTED***/'
+              exit 1
+            fi
+          else
+            echo "✗ .npmrc file not found at $HOME/.npmrc"
+            echo "Checking npm config:"
+            npm config list
+            exit 1
+          fi
+
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ env.NPM_TOKEN }}
         run: npx semantic-release
