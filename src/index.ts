@@ -655,7 +655,7 @@ export class Route0<TDefinition extends string> {
       if (paramsKeys.length) {
         return {
           success: false,
-          data: null,
+          data: undefined,
           error: new Error(`Missing params: ${paramsKeys.map((k) => `"${k}"`).join(', ')}`),
         }
       }
@@ -664,7 +664,7 @@ export class Route0<TDefinition extends string> {
     if (typeof input !== 'object' || input === null) {
       return {
         success: false,
-        data: null,
+        data: undefined,
         error: new Error('Invalid input: expected object'),
       }
     }
@@ -673,7 +673,7 @@ export class Route0<TDefinition extends string> {
     if (notDefinedKeys.length) {
       return {
         success: false,
-        data: null,
+        data: undefined,
         error: new Error(`Missing params: ${notDefinedKeys.map((k) => `"${k}"`).join(', ')}`),
       }
     }
@@ -691,14 +691,14 @@ export class Route0<TDefinition extends string> {
         const isParamKey = paramsKeys.includes(k)
         return {
           success: false,
-          data: null,
+          data: undefined,
           error: new Error(
             `Invalid input: expected string, number,${!isParamKey ? ' or undefined,' : ''} got ${typeof v} for "${k}"`,
           ),
         }
       }
     }
-    return { success: true, data: data as FlatOutputWithHash<TDefinition>, error: null }
+    return { success: true, data: data as FlatOutputWithHash<TDefinition>, error: undefined }
   }
 
   parseFlatInput<TStrict extends boolean = false>(
@@ -1377,11 +1377,11 @@ export type _SafeParseInputResult<TInputParsed extends Record<string, unknown>> 
   | {
       success: true
       data: TInputParsed
-      error: null
+      error: undefined
     }
   | {
       success: false
-      data: null
+      data: undefined
       error: Error
     }
 export type SafeParseInputStrictResult<TDefinition extends string> = _SafeParseInputResult<

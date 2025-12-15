@@ -1307,7 +1307,7 @@ describe('parseFlatInput', () => {
 
   it('safe error', () => {
     expect(Route0.create('/:id&a&b').parseFlatInputSafe(undefined)).toMatchObject({
-      data: null,
+      data: undefined,
       error: new Error(''),
       success: false,
     })
@@ -1316,7 +1316,7 @@ describe('parseFlatInput', () => {
   it('safe success', () => {
     expect(Route0.create('/:id&a&b').parseFlatInputSafe({ id: '1', a: 2, b: '3' })).toMatchObject({
       data: { id: '1', a: '2', b: '3' },
-      error: null,
+      error: undefined,
       success: true,
     })
   })
@@ -1331,13 +1331,13 @@ describe('parseFlatInput', () => {
     const safeResult = Route0.create('/:id&a&b').parseFlatInputSafe({ id: '1', a: 2, b: '3' })
     expectTypeOf(safeResult).toEqualTypeOf<SafeParseInputResult<'/:id&a&b'>>()
     expectTypeOf(safeResult.success).toEqualTypeOf<boolean>()
-    expectTypeOf(safeResult.data).toEqualTypeOf<FlatOutput<'/:id&a&b'> | null>()
-    expectTypeOf(safeResult.error).toEqualTypeOf<Error | null>()
+    expectTypeOf(safeResult.data).toEqualTypeOf<FlatOutput<'/:id&a&b'> | undefined>()
+    expectTypeOf(safeResult.error).toEqualTypeOf<Error | undefined>()
     const safeResultStrict = Route0.create('/:id&a&b').parseFlatInputSafe({ id: '1', a: 2, b: '3' }, true)
     expectTypeOf(safeResultStrict).toEqualTypeOf<SafeParseInputStrictResult<'/:id&a&b'>>()
     expectTypeOf(safeResultStrict.success).toEqualTypeOf<boolean>()
-    expectTypeOf(safeResultStrict.data).toEqualTypeOf<StrictFlatOutput<'/:id&a&b'> | null>()
-    expectTypeOf(safeResultStrict.error).toEqualTypeOf<Error | null>()
+    expectTypeOf(safeResultStrict.data).toEqualTypeOf<StrictFlatOutput<'/:id&a&b'> | undefined>()
+    expectTypeOf(safeResultStrict.error).toEqualTypeOf<Error | undefined>()
   })
 })
 
