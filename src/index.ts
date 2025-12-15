@@ -654,6 +654,7 @@ export class Route0<TDefinition extends string> {
     if (input === undefined) {
       if (paramsKeys.length) {
         return {
+          success: false,
           data: null,
           error: new Error(`Missing params: ${paramsKeys.map((k) => `"${k}"`).join(', ')}`),
         }
@@ -662,6 +663,7 @@ export class Route0<TDefinition extends string> {
     }
     if (typeof input !== 'object' || input === null) {
       return {
+        success: false,
         data: null,
         error: new Error('Invalid input: expected object'),
       }
@@ -670,6 +672,7 @@ export class Route0<TDefinition extends string> {
     const notDefinedKeys = paramsKeys.filter((k) => !inputKeys.includes(k))
     if (notDefinedKeys.length) {
       return {
+        success: false,
         data: null,
         error: new Error(`Missing params: ${notDefinedKeys.map((k) => `"${k}"`).join(', ')}`),
       }
@@ -687,6 +690,7 @@ export class Route0<TDefinition extends string> {
       } else {
         const isParamKey = paramsKeys.includes(k)
         return {
+          success: false,
           data: null,
           error: new Error(
             `Invalid input: expected string, number,${!isParamKey ? ' or undefined,' : ''} got ${typeof v} for "${k}"`,
@@ -694,7 +698,7 @@ export class Route0<TDefinition extends string> {
         }
       }
     }
-    return { data: data as FlatOutputWithHash<TDefinition>, error: null }
+    return { success: true, data: data as FlatOutputWithHash<TDefinition>, error: null }
   }
 
   parseFlatInput<TStrict extends boolean = false>(
@@ -1371,10 +1375,12 @@ export type _IsSame<T extends string, TExact extends string> = T extends TExact
 
 export type _SafeParseInputResult<TInputParsed extends Record<string, unknown>> =
   | {
+      success: true
       data: TInputParsed
       error: null
     }
   | {
+      success: false
       data: null
       error: Error
     }
