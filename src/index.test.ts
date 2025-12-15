@@ -22,6 +22,8 @@ import type {
   ParamsInputStringOnly,
   ParamsOutput,
   RoutesPretty,
+  SafeParseInputResult,
+  SafeParseInputStrictResult,
   SearchInput,
   SearchInputStringOnly,
   SearchOutput,
@@ -1187,6 +1189,151 @@ describe('getLocation', () => {
       expect(loc.exact).toBe(true)
       expect(loc.route).toBe('/b/:c')
     })
+  })
+})
+
+describe('parseFlatInput', () => {
+  it('no params, no search, undefined input', () => {
+    expect(Route0.create('/').parseFlatInput(undefined)).toMatchObject({})
+  })
+
+  it('no params, no search, empty input', () => {
+    expect(Route0.create('/').parseFlatInput({})).toMatchObject({})
+  })
+
+  it('no params, no search, not empty valid input', () => {
+    expect(Route0.create('/').parseFlatInput({ x: '1', y: 2 })).toMatchObject({ x: '1', y: '2' })
+  })
+
+  it('no params, no search, not empty invalid input', () => {
+    expect(() => Route0.create('/').parseFlatInput({ x: '1', y: 2, z: () => ({}), c: null })).toThrow(
+      'Invalid input: expected string, number, or undefined, got function for "z"',
+    )
+  })
+
+  it('with params, no search, undefined input', () => {
+    expect(() => Route0.create('/:id').parseFlatInput(undefined)).toThrow('Missing params: "id"')
+  })
+
+  it('with params, no search, empty input', () => {
+    expect(() => Route0.create('/:id').parseFlatInput({})).toThrow('Missing params: "id"')
+  })
+
+  it('with params, no search, exact input', () => {
+    expect(Route0.create('/:id').parseFlatInput({ id: '1' })).toMatchObject({ id: '1' })
+  })
+
+  it('with params, no search, larger input', () => {
+    expect(Route0.create('/:id').parseFlatInput({ id: 1, x: '2' })).toMatchObject({ id: '1', x: '2' })
+  })
+
+  it('with params, no search, smaller input', () => {
+    expect(() => Route0.create('/:id/:sn').parseFlatInput({ id: 1 })).toThrow('Missing params: "sn"')
+  })
+
+  it('with params, no search, invalid input', () => {
+    expect(() => Route0.create('/:id').parseFlatInput({ id: '1', sn: 2, x: () => ({}) })).toThrow(
+      'Invalid input: expected string, number, or undefined, got function for "x"',
+    )
+  })
+
+  it('with params, with search, undefined input', () => {
+    expect(() => Route0.create('/:id&a&b').parseFlatInput(undefined)).toThrow('Missing params: "id"')
+  })
+
+  it('with params, with search, empty input', () => {
+    expect(() => Route0.create('/:id&a&b').parseFlatInput({})).toThrow('Missing params: "id"')
+  })
+
+  it('with params, with search, exact input, no search', () => {
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1' })).toMatchObject({ id: '1' })
+  })
+
+  it('with params, with search, exact input, smaller search', () => {
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, a: '2' })).toMatchObject({ id: '1', a: '2' })
+  })
+
+  it('with params, with search, exact input, exact search', () => {
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3' })).toMatchObject({
+      id: '1',
+      a: '2',
+      b: '3',
+    })
+  })
+
+  it('with params, with search, exact input, larger search', () => {
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, a: '2', b: '3', c: 4 })).toMatchObject({
+      id: '1',
+      a: '2',
+      b: '3',
+      c: '4',
+    })
+  })
+
+  it('with params, with search, larger input', () => {
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, x: '2', a: 3, b: 4 })).toMatchObject({
+      id: '1',
+      x: '2',
+      a: '3',
+      b: '4',
+    })
+  })
+
+  it('with params, with search, invalid input', () => {
+    expect(() => Route0.create('/:id&a&b').parseFlatInput({ id: '1', sn: 2, a: () => ({}) })).toThrow(
+      'Invalid input: expected string, number, or undefined, got function for "a"',
+    )
+  })
+
+  it('no params, no search, strict', () => {
+    expect(Route0.create('/').parseFlatInput({ id: '1', sn: 2, a: () => ({}) }, true)).toMatchObject({})
+  })
+
+  it('with params, no search, strict', () => {
+    expect(Route0.create('/:id').parseFlatInput({ id: 1, x: 2 }, true)).toMatchObject({ id: '1' })
+  })
+
+  it('no params, with search, strict', () => {
+    expect(Route0.create('/&a&b').parseFlatInput({ a: '1', b: 2, c: 3 }, true)).toMatchObject({ a: '1', b: '2' })
+  })
+
+  it('with params, with search, strict', () => {
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, true)).toMatchObject({
+      id: '1',
+      a: '2',
+      b: '3',
+    })
+  })
+
+  it('safe error', () => {
+    expect(Route0.create('/:id&a&b').parseFlatInputSafe(undefined)).toMatchObject({
+      data: null,
+      error: new Error(''),
+    })
+  })
+
+  it('safe success', () => {
+    expect(Route0.create('/:id&a&b').parseFlatInputSafe({ id: '1', a: 2, b: '3' })).toMatchObject({
+      data: { id: '1', a: '2', b: '3' },
+      error: null,
+    })
+  })
+
+  it('typed correctly', () => {
+    expectTypeOf(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3' })).toEqualTypeOf<
+      FlatOutput<'/:id&a&b'>
+    >()
+    expectTypeOf(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3' }, true)).toEqualTypeOf<
+      StrictFlatOutput<'/:id&a&b'>
+    >()
+    const safeResult = Route0.create('/:id&a&b').parseFlatInputSafe({ id: '1', a: 2, b: '3' })
+    expectTypeOf(safeResult).toEqualTypeOf<SafeParseInputResult<'/:id&a&b'>>()
+    expectTypeOf(safeResult.data).toEqualTypeOf<FlatOutput<'/:id&a&b'> | null>()
+    expectTypeOf(safeResult.error).toEqualTypeOf<Error | null>()
+    const safeResultStrict = Route0.create('/:id&a&b').parseFlatInputSafe({ id: '1', a: 2, b: '3' }, true)
+    expectTypeOf(safeResultStrict).toEqualTypeOf<SafeParseInputStrictResult<'/:id&a&b'>>()
+    expectTypeOf(safeResultStrict.data).toEqualTypeOf<StrictFlatOutput<'/:id&a&b'> | null>()
+    expectTypeOf(safeResultStrict.error).toEqualTypeOf<Error | null>()
   })
 })
 

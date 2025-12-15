@@ -646,6 +646,68 @@ export class Route0<TDefinition extends string> {
     } as KnownLocation<TDefinition>
   }
 
+  parseFlatInputSafe<TStrict extends boolean = false>(
+    input: unknown,
+    strict?: TStrict,
+  ): TStrict extends false ? SafeParseInputResult<TDefinition> : SafeParseInputStrictResult<TDefinition> {
+    const paramsKeys = this.getParamsKeys()
+    if (input === undefined) {
+      if (paramsKeys.length) {
+        return {
+          data: null,
+          error: new Error(`Missing params: ${paramsKeys.map((k) => `"${k}"`).join(', ')}`),
+        }
+      }
+      input = {}
+    }
+    if (typeof input !== 'object' || input === null) {
+      return {
+        data: null,
+        error: new Error('Invalid input: expected object'),
+      }
+    }
+    const inputKeys = Object.keys(input)
+    const notDefinedKeys = paramsKeys.filter((k) => !inputKeys.includes(k))
+    if (notDefinedKeys.length) {
+      return {
+        data: null,
+        error: new Error(`Missing params: ${notDefinedKeys.map((k) => `"${k}"`).join(', ')}`),
+      }
+    }
+    const data: Record<string, string> = {}
+    const filterKeys = strict ? [...paramsKeys, ...this.getSearchKeys()] : false
+    for (const [k, v] of Object.entries(input)) {
+      if (filterKeys && !filterKeys.includes(k)) {
+        continue
+      }
+      if (typeof v === 'string') {
+        data[k] = v
+      } else if (typeof v === 'number') {
+        data[k] = String(v)
+      } else {
+        const isParamKey = paramsKeys.includes(k)
+        return {
+          data: null,
+          error: new Error(
+            `Invalid input: expected string, number,${!isParamKey ? ' or undefined,' : ''} got ${typeof v} for "${k}"`,
+          ),
+        }
+      }
+    }
+    return { data: data as FlatOutputWithHash<TDefinition>, error: null }
+  }
+
+  parseFlatInput<TStrict extends boolean = false>(
+    input: unknown,
+    strict?: TStrict,
+  ): TStrict extends false ? FlatOutput<TDefinition> : StrictFlatOutput<TDefinition> {
+    const result = this.parseFlatInputSafe(input, strict)
+    if (result.error) {
+      throw result.error
+    }
+    return result.data as TStrict extends false ? FlatOutput<TDefinition> : StrictFlatOutput<TDefinition>
+  }
+
   isSame(other: Route0<TDefinition>): boolean {
     return (
       this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__') ===
@@ -1306,3 +1368,17 @@ export type _IsSame<T extends string, TExact extends string> = T extends TExact
     ? true
     : false
   : false
+
+export type _SafeParseInputResult<TInputParsed extends Record<string, unknown>> =
+  | {
+      data: TInputParsed
+      error: null
+    }
+  | {
+      data: null
+      error: Error
+    }
+export type SafeParseInputStrictResult<TDefinition extends string> = _SafeParseInputResult<
+  StrictFlatOutput<TDefinition>
+>
+export type SafeParseInputResult<TDefinition extends string> = _SafeParseInputResult<FlatOutput<TDefinition>>
