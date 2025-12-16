@@ -7,11 +7,13 @@ import type {
   Extended,
   ExtractRoute,
   ExtractRoutesKeys,
-  FlatInput,
-  FlatInputStringOnly,
-  FlatInputWithHash,
-  FlatOutput,
-  FlatOutputWithHash,
+  LooseFlatInput,
+  LooseFlatInputStringOnly,
+  LooseFlatInputWithHash,
+  LooseFlatOutput,
+  LooseFlatOutputWithHash,
+  HasLooseSearch,
+  HasNamedSearch,
   HasParams,
   HasSearch,
   IsChildren,
@@ -22,11 +24,11 @@ import type {
   ParamsInputStringOnly,
   ParamsOutput,
   RoutesPretty,
-  SafeParseInputResult,
+  SafeParseInputLooseResult,
   SafeParseInputStrictResult,
-  SearchInput,
-  SearchInputStringOnly,
-  SearchOutput,
+  LooseSearchInput,
+  LooseSearchInputStringOnly,
+  LooseSearchOutput,
   StrictFlatInput,
   StrictFlatInputStringOnly,
   StrictFlatInputWithHash,
@@ -455,9 +457,33 @@ describe('type utilities', () => {
     expectTypeOf<HasSearch<'/path'>>().toEqualTypeOf<false>()
     expectTypeOf<HasSearch<'/path&x'>>().toEqualTypeOf<true>()
     expectTypeOf<HasSearch<'/path&x&y'>>().toEqualTypeOf<true>()
+    expectTypeOf<HasSearch<'/path&'>>().toEqualTypeOf<true>()
 
     expectTypeOf<HasSearch<Route0<'/path'>>>().toEqualTypeOf<false>()
     expectTypeOf<HasSearch<Route0<'/path&x&y'>>>().toEqualTypeOf<true>()
+    expectTypeOf<HasSearch<Route0<'/path&'>>>().toEqualTypeOf<true>()
+  })
+
+  it('HasNamedSearch', () => {
+    expectTypeOf<HasNamedSearch<'/path'>>().toEqualTypeOf<false>()
+    expectTypeOf<HasNamedSearch<'/path&x'>>().toEqualTypeOf<true>()
+    expectTypeOf<HasNamedSearch<'/path&x&y'>>().toEqualTypeOf<true>()
+    expectTypeOf<HasNamedSearch<'/path&'>>().toEqualTypeOf<false>()
+
+    expectTypeOf<HasNamedSearch<Route0<'/path'>>>().toEqualTypeOf<false>()
+    expectTypeOf<HasNamedSearch<Route0<'/path&x&y'>>>().toEqualTypeOf<true>()
+    expectTypeOf<HasNamedSearch<Route0<'/path&'>>>().toEqualTypeOf<false>()
+  })
+
+  it('HasLooseSearch', () => {
+    expectTypeOf<HasLooseSearch<'/path'>>().toEqualTypeOf<false>()
+    expectTypeOf<HasLooseSearch<'/path&x'>>().toEqualTypeOf<false>()
+    expectTypeOf<HasLooseSearch<'/path&x&y'>>().toEqualTypeOf<false>()
+    expectTypeOf<HasLooseSearch<'/path&'>>().toEqualTypeOf<true>()
+
+    expectTypeOf<HasLooseSearch<Route0<'/path'>>>().toEqualTypeOf<false>()
+    expectTypeOf<HasLooseSearch<Route0<'/path&x&y'>>>().toEqualTypeOf<false>()
+    expectTypeOf<HasLooseSearch<Route0<'/path&'>>>().toEqualTypeOf<true>()
   })
 
   it('ParamsInput', () => {
@@ -479,11 +505,11 @@ describe('type utilities', () => {
     expectTypeOf<ParamsOutput<typeof route>>().toEqualTypeOf<{ id: string; name: string }>()
   })
 
-  it('SearchInput', () => {
-    type T1 = SearchInput<'/path'>
+  it('LooseSearchInput', () => {
+    type T1 = LooseSearchInput<'/path'>
     expectTypeOf<T1>().toEqualTypeOf<Record<string, string | number>>()
 
-    type T2 = SearchInput<'/path&x&y'>
+    type T2 = LooseSearchInput<'/path&x&y'>
     expectTypeOf<T2>().toEqualTypeOf<
       Partial<{
         x: string | number
@@ -493,13 +519,13 @@ describe('type utilities', () => {
     >()
   })
 
-  it('SearchOutput', () => {
-    type T1 = SearchOutput<'/path'>
+  it('LooseSearchOutput', () => {
+    type T1 = LooseSearchOutput<'/path'>
     expectTypeOf<T1>().toEqualTypeOf<{
       [key: string]: string | undefined
     }>()
 
-    type T2 = SearchOutput<'/path&x&y'>
+    type T2 = LooseSearchOutput<'/path&x&y'>
     expectTypeOf<T2>().toEqualTypeOf<{
       [key: string]: string | undefined
       x?: string | undefined
@@ -517,8 +543,8 @@ describe('type utilities', () => {
     expectTypeOf<T1>().toEqualTypeOf<{ x?: string | undefined; y?: string | undefined }>()
   })
 
-  it('FlatInput', () => {
-    type T1 = FlatInput<'/path&x&y'>
+  it('LooseFlatInput', () => {
+    type T1 = LooseFlatInput<'/path&x&y'>
     expectTypeOf<T1>().toEqualTypeOf<
       Partial<{
         x: string | number
@@ -527,7 +553,7 @@ describe('type utilities', () => {
         Record<string, string | number>
     >()
 
-    type T2 = FlatInput<'/path/:id&x&y'>
+    type T2 = LooseFlatInput<'/path/:id&x&y'>
     expectTypeOf<T2>().toEqualTypeOf<
       {
         id: string | number
@@ -552,15 +578,15 @@ describe('type utilities', () => {
     >()
   })
 
-  it('FlatOutput', () => {
-    type T1 = FlatOutput<'/path&x&y'>
+  it('LooseFlatOutput', () => {
+    type T1 = LooseFlatOutput<'/path&x&y'>
     expectTypeOf<T1>().toEqualTypeOf<{
       [x: string]: string | undefined
       x?: string | undefined
       y?: string | undefined
     }>()
 
-    type T2 = FlatOutput<'/path/:id&x&y'>
+    type T2 = LooseFlatOutput<'/path/:id&x&y'>
     expectTypeOf<T2>().toEqualTypeOf<
       {
         id: string
@@ -571,7 +597,7 @@ describe('type utilities', () => {
       }
     >()
   })
-  it('StrictFlatOutput', () => {
+  it('StrictLooseFlatOutput', () => {
     type T1 = StrictFlatOutput<'/path&x&y'>
     expectTypeOf<T1>().toEqualTypeOf<{ x?: string | undefined; y?: string | undefined }>()
     type T2 = StrictFlatOutput<'/path/:id&x&y'>
@@ -583,8 +609,8 @@ describe('type utilities', () => {
     >()
   })
 
-  it('FlatInputWithHash', () => {
-    type T1 = FlatInputWithHash<'/path&x&y'>
+  it('LooseFlatInputWithHash', () => {
+    type T1 = LooseFlatInputWithHash<'/path&x&y'>
     expectTypeOf<T1>().toEqualTypeOf<
       { hash?: string | number } & Partial<{
         x: string | number
@@ -593,7 +619,7 @@ describe('type utilities', () => {
         Record<string, string | number>
     >()
 
-    type T2 = FlatInputWithHash<'/path/:id&x&y'>
+    type T2 = LooseFlatInputWithHash<'/path/:id&x&y'>
     expectTypeOf<T2>().toEqualTypeOf<
       { hash?: string | number } & {
         id: string | number
@@ -618,8 +644,8 @@ describe('type utilities', () => {
     >()
   })
 
-  it('FlatOutputWithHash', () => {
-    type T1 = FlatOutputWithHash<'/path&x&y'>
+  it('LooseFlatOutputWithHash', () => {
+    type T1 = LooseFlatOutputWithHash<'/path&x&y'>
     expectTypeOf<T1>().toEqualTypeOf<
       {
         [x: string]: string | undefined
@@ -630,7 +656,7 @@ describe('type utilities', () => {
       }
     >()
 
-    type T2 = FlatOutputWithHash<'/path/:id&x&y'>
+    type T2 = LooseFlatOutputWithHash<'/path/:id&x&y'>
     expectTypeOf<T2>().toEqualTypeOf<
       {
         id: string
@@ -669,11 +695,11 @@ describe('type utilities', () => {
     expectTypeOf<ParamsInputStringOnly<typeof route>>().toEqualTypeOf<{ id: string; name: string }>()
   })
 
-  it('SearchInputStringOnly', () => {
-    type T1 = SearchInputStringOnly<'/path'>
+  it('LooseSearchInputStringOnly', () => {
+    type T1 = LooseSearchInputStringOnly<'/path'>
     expectTypeOf<T1>().toEqualTypeOf<Record<string, string>>()
 
-    type T2 = SearchInputStringOnly<'/path&x&y'>
+    type T2 = LooseSearchInputStringOnly<'/path&x&y'>
     expectTypeOf<T2>().toEqualTypeOf<
       Partial<{
         x: string
@@ -688,8 +714,8 @@ describe('type utilities', () => {
     expectTypeOf<T1>().toEqualTypeOf<{ x?: string; y?: string }>()
   })
 
-  it('FlatInputStringOnly', () => {
-    type T1 = FlatInputStringOnly<'/path&x&y'>
+  it('LooseFlatInputStringOnly', () => {
+    type T1 = LooseFlatInputStringOnly<'/path&x&y'>
     expectTypeOf<T1>().toEqualTypeOf<
       Partial<{
         x: string
@@ -698,7 +724,7 @@ describe('type utilities', () => {
         Record<string, string>
     >()
 
-    type T2 = FlatInputStringOnly<'/path/:id&x&y'>
+    type T2 = LooseFlatInputStringOnly<'/path/:id&x&y'>
     expectTypeOf<T2>().toEqualTypeOf<
       {
         id: string
@@ -1194,67 +1220,67 @@ describe('getLocation', () => {
 
 describe('parseFlatInput', () => {
   it('no params, no search, undefined input', () => {
-    expect(Route0.create('/').parseFlatInput(undefined)).toMatchObject({})
+    expect(Route0.create('/').parseFlatInput(undefined, true)).toMatchObject({})
   })
 
   it('no params, no search, empty input', () => {
-    expect(Route0.create('/').parseFlatInput({})).toMatchObject({})
+    expect(Route0.create('/').parseFlatInput({}, true)).toMatchObject({})
   })
 
   it('no params, no search, not empty valid input', () => {
-    expect(Route0.create('/').parseFlatInput({ x: '1', y: 2 })).toMatchObject({ x: '1', y: '2' })
+    expect(Route0.create('/').parseFlatInput({ x: '1', y: 2 }, true)).toMatchObject({ x: '1', y: '2' })
   })
 
   it('no params, no search, not empty invalid input', () => {
-    expect(() => Route0.create('/').parseFlatInput({ x: '1', y: 2, z: () => ({}), c: null })).toThrow(
+    expect(() => Route0.create('/').parseFlatInput({ x: '1', y: 2, z: () => ({}), c: null }, true)).toThrow(
       'Invalid input: expected string, number, or undefined, got function for "z"',
     )
   })
 
   it('with params, no search, undefined input', () => {
-    expect(() => Route0.create('/:id').parseFlatInput(undefined)).toThrow('Missing params: "id"')
+    expect(() => Route0.create('/:id').parseFlatInput(undefined, true)).toThrow('Missing params: "id"')
   })
 
   it('with params, no search, empty input', () => {
-    expect(() => Route0.create('/:id').parseFlatInput({})).toThrow('Missing params: "id"')
+    expect(() => Route0.create('/:id').parseFlatInput({}, true)).toThrow('Missing params: "id"')
   })
 
   it('with params, no search, exact input', () => {
-    expect(Route0.create('/:id').parseFlatInput({ id: '1' })).toMatchObject({ id: '1' })
+    expect(Route0.create('/:id').parseFlatInput({ id: '1' }, true)).toMatchObject({ id: '1' })
   })
 
   it('with params, no search, larger input', () => {
-    expect(Route0.create('/:id').parseFlatInput({ id: 1, x: '2' })).toMatchObject({ id: '1', x: '2' })
+    expect(Route0.create('/:id').parseFlatInput({ id: 1, x: '2' }, true)).toMatchObject({ id: '1', x: '2' })
   })
 
   it('with params, no search, smaller input', () => {
-    expect(() => Route0.create('/:id/:sn').parseFlatInput({ id: 1 })).toThrow('Missing params: "sn"')
+    expect(() => Route0.create('/:id/:sn').parseFlatInput({ id: 1 }, true)).toThrow('Missing params: "sn"')
   })
 
   it('with params, no search, invalid input', () => {
-    expect(() => Route0.create('/:id').parseFlatInput({ id: '1', sn: 2, x: () => ({}) })).toThrow(
+    expect(() => Route0.create('/:id').parseFlatInput({ id: '1', sn: 2, x: () => ({}) }, true)).toThrow(
       'Invalid input: expected string, number, or undefined, got function for "x"',
     )
   })
 
   it('with params, with search, undefined input', () => {
-    expect(() => Route0.create('/:id&a&b').parseFlatInput(undefined)).toThrow('Missing params: "id"')
+    expect(() => Route0.create('/:id&a&b').parseFlatInput(undefined, true)).toThrow('Missing params: "id"')
   })
 
   it('with params, with search, empty input', () => {
-    expect(() => Route0.create('/:id&a&b').parseFlatInput({})).toThrow('Missing params: "id"')
+    expect(() => Route0.create('/:id&a&b').parseFlatInput({}, true)).toThrow('Missing params: "id"')
   })
 
   it('with params, with search, exact input, no search', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1' })).toMatchObject({ id: '1' })
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1' }, true)).toMatchObject({ id: '1' })
   })
 
   it('with params, with search, exact input, smaller search', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, a: '2' })).toMatchObject({ id: '1', a: '2' })
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, a: '2' }, true)).toMatchObject({ id: '1', a: '2' })
   })
 
   it('with params, with search, exact input, exact search', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3' })).toMatchObject({
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3' }, true)).toMatchObject({
       id: '1',
       a: '2',
       b: '3',
@@ -1262,7 +1288,7 @@ describe('parseFlatInput', () => {
   })
 
   it('with params, with search, exact input, larger search', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, a: '2', b: '3', c: 4 })).toMatchObject({
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, a: '2', b: '3', c: 4 }, true)).toMatchObject({
       id: '1',
       a: '2',
       b: '3',
@@ -1271,7 +1297,7 @@ describe('parseFlatInput', () => {
   })
 
   it('with params, with search, larger input', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, x: '2', a: 3, b: 4 })).toMatchObject({
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, x: '2', a: 3, b: 4 }, true)).toMatchObject({
       id: '1',
       x: '2',
       a: '3',
@@ -1280,25 +1306,25 @@ describe('parseFlatInput', () => {
   })
 
   it('with params, with search, invalid input', () => {
-    expect(() => Route0.create('/:id&a&b').parseFlatInput({ id: '1', sn: 2, a: () => ({}) })).toThrow(
+    expect(() => Route0.create('/:id&a&b').parseFlatInput({ id: '1', sn: 2, a: () => ({}) }, true)).toThrow(
       'Invalid input: expected string, number, or undefined, got function for "a"',
     )
   })
 
   it('no params, no search, strict', () => {
-    expect(Route0.create('/').parseFlatInput({ id: '1', sn: 2, a: () => ({}) }, true)).toMatchObject({})
+    expect(Route0.create('/').parseFlatInput({ id: '1', sn: 2, a: () => ({}) }, false)).toMatchObject({})
   })
 
   it('with params, no search, strict', () => {
-    expect(Route0.create('/:id').parseFlatInput({ id: 1, x: 2 }, true)).toMatchObject({ id: '1' })
+    expect(Route0.create('/:id').parseFlatInput({ id: 1, x: 2 }, false)).toMatchObject({ id: '1' })
   })
 
   it('no params, with search, strict', () => {
-    expect(Route0.create('/&a&b').parseFlatInput({ a: '1', b: 2, c: 3 }, true)).toMatchObject({ a: '1', b: '2' })
+    expect(Route0.create('/&a&b').parseFlatInput({ a: '1', b: 2, c: 3 }, false)).toMatchObject({ a: '1', b: '2' })
   })
 
   it('with params, with search, strict', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, true)).toMatchObject({
+    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, false)).toMatchObject({
       id: '1',
       a: '2',
       b: '3',
@@ -1306,7 +1332,7 @@ describe('parseFlatInput', () => {
   })
 
   it('safe error', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInputSafe(undefined)).toMatchObject({
+    expect(Route0.create('/:id&a&b').safeParseFlatInput(undefined, true)).toMatchObject({
       data: undefined,
       error: new Error(''),
       success: false,
@@ -1314,7 +1340,7 @@ describe('parseFlatInput', () => {
   })
 
   it('safe success', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInputSafe({ id: '1', a: 2, b: '3' })).toMatchObject({
+    expect(Route0.create('/:id&a&b').safeParseFlatInput({ id: '1', a: 2, b: '3' }, true)).toMatchObject({
       data: { id: '1', a: '2', b: '3' },
       error: undefined,
       success: true,
@@ -1322,22 +1348,58 @@ describe('parseFlatInput', () => {
   })
 
   it('typed correctly', () => {
-    expectTypeOf(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3' })).toEqualTypeOf<
-      FlatOutput<'/:id&a&b'>
-    >()
     expectTypeOf(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3' }, true)).toEqualTypeOf<
+      LooseFlatOutput<'/:id&a&b'>
+    >()
+    expectTypeOf(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3' }, false)).toEqualTypeOf<
       StrictFlatOutput<'/:id&a&b'>
     >()
-    const safeResult = Route0.create('/:id&a&b').parseFlatInputSafe({ id: '1', a: 2, b: '3' })
-    expectTypeOf(safeResult).toEqualTypeOf<SafeParseInputResult<'/:id&a&b'>>()
-    expectTypeOf(safeResult.success).toEqualTypeOf<boolean>()
-    expectTypeOf(safeResult.data).toEqualTypeOf<FlatOutput<'/:id&a&b'> | undefined>()
-    expectTypeOf(safeResult.error).toEqualTypeOf<Error | undefined>()
-    const safeResultStrict = Route0.create('/:id&a&b').parseFlatInputSafe({ id: '1', a: 2, b: '3' }, true)
+    const safeResultLoose = Route0.create('/:id&a&b').safeParseFlatInput({ id: '1', a: 2, b: '3' }, true)
+    expectTypeOf(safeResultLoose).toEqualTypeOf<SafeParseInputLooseResult<'/:id&a&b'>>()
+    expectTypeOf(safeResultLoose.success).toEqualTypeOf<boolean>()
+    expectTypeOf(safeResultLoose.data).toEqualTypeOf<LooseFlatOutput<'/:id&a&b'> | undefined>()
+    expectTypeOf(safeResultLoose.error).toEqualTypeOf<Error | undefined>()
+    const safeResultStrict = Route0.create('/:id&a&b').safeParseFlatInput({ id: '1', a: 2, b: '3' }, false)
     expectTypeOf(safeResultStrict).toEqualTypeOf<SafeParseInputStrictResult<'/:id&a&b'>>()
     expectTypeOf(safeResultStrict.success).toEqualTypeOf<boolean>()
     expectTypeOf(safeResultStrict.data).toEqualTypeOf<StrictFlatOutput<'/:id&a&b'> | undefined>()
     expectTypeOf(safeResultStrict.error).toEqualTypeOf<Error | undefined>()
+  })
+
+  it('auto loose search', () => {
+    const routeStrict = Route0.create('/:id&a&')
+    expect(routeStrict.parseFlatInput({ id: '1', a: 2, b: '3', c: 4 })).toMatchObject({
+      id: '1',
+      a: '2',
+      b: '3',
+      c: '4',
+    })
+    expectTypeOf(routeStrict.parseFlatInput({ id: '1', a: 2, b: '3', c: 4 })).toEqualTypeOf<
+      LooseFlatOutput<'/:id&a&'>
+    >()
+    expect(routeStrict.safeParseFlatInput({ id: '1', a: 2, b: '3', c: 4 }).data).toMatchObject({
+      id: '1',
+      a: '2',
+      b: '3',
+      c: '4',
+    })
+    expectTypeOf(routeStrict.safeParseFlatInput({ id: '1', a: 2, b: '3', c: 4 })).toEqualTypeOf<
+      SafeParseInputLooseResult<'/:id&a&'>
+    >()
+
+    const routeLoose = Route0.create('/:id&a&b')
+    expect(routeLoose.parseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, false)).toMatchObject({ id: '1', a: '2', b: '3' })
+    expectTypeOf(routeLoose.parseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, false)).toEqualTypeOf<
+      StrictFlatOutput<'/:id&a&b'>
+    >()
+    expect(routeLoose.safeParseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, false).data).toMatchObject({
+      id: '1',
+      a: '2',
+      b: '3',
+    })
+    expectTypeOf(routeLoose.safeParseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, false)).toEqualTypeOf<
+      SafeParseInputStrictResult<'/:id&a&b'>
+    >()
   })
 })
 
