@@ -329,12 +329,13 @@ export class Route0<TDefinition extends string> {
   //   abs: true,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
 
-  flat(
+  flat<TLoose extends boolean = HasLooseSearch<TDefinition>>(
     input: OnlyIfHasParams<
       TDefinition,
-      WithParamsInput<TDefinition, LooseFlatInput<TDefinition> & { hash?: string | number }>
+      WithParamsInput<TDefinition, FlatInput<TDefinition, TLoose> & { hash?: string | number }>
     >,
     abs?: boolean,
+    loose?: TLoose,
   ): OnlyIfHasParams<TDefinition, string>
 
   // no params
@@ -367,9 +368,10 @@ export class Route0<TDefinition extends string> {
   // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
 
   flat(...args: OnlyIfNoParams<TDefinition, [], [never]>): string
-  flat(
-    input: OnlyIfNoParams<TDefinition, LooseFlatInput<TDefinition> & { hash?: string | number }>,
+  flat<TLoose extends boolean = HasLooseSearch<TDefinition>>(
+    input: OnlyIfNoParams<TDefinition, FlatInput<TDefinition, TLoose> & { hash?: string | number }>,
     abs?: boolean,
+    loose?: TLoose,
   ): OnlyIfNoParams<TDefinition, string>
 
   // implementation
@@ -388,6 +390,7 @@ export class Route0<TDefinition extends string> {
         // throw new Error("Invalid get route input: expected object")
         return { searchInput: {}, paramsInput: {}, absInput: args[1] ?? false, hashInput: undefined }
       }
+      const loose = args[2] ?? this.hasLooseSearch
       const paramsKeys = this.getParamsKeys()
       const paramsInput = paramsKeys.reduce<Record<string, string | number>>((acc, key) => {
         if (input[key] !== undefined) {
@@ -407,7 +410,7 @@ export class Route0<TDefinition extends string> {
           if (paramsKeys.includes(k)) {
             return false
           }
-          return true
+          return !!loose
         })
         .reduce<Record<string, string | number>>((acc, key) => {
           acc[key] = input[key]
@@ -418,6 +421,38 @@ export class Route0<TDefinition extends string> {
     })()
 
     return this.get({ ...paramsInput, search: searchInput, abs: absInput, hash: hashInput } as never)
+  }
+
+  flatLoose(
+    input: OnlyIfHasParams<
+      TDefinition,
+      WithParamsInput<TDefinition, LooseFlatInput<TDefinition> & { hash?: string | number }>
+    >,
+    abs?: boolean,
+  ): OnlyIfHasParams<TDefinition, string>
+  flatLoose(...args: OnlyIfNoParams<TDefinition, [], [never]>): string
+  flatLoose(
+    input: OnlyIfNoParams<TDefinition, LooseFlatInput<TDefinition> & { hash?: string | number }>,
+    abs?: boolean,
+  ): OnlyIfNoParams<TDefinition, string>
+  flatLoose(...args: any[]): string {
+    return this.flat(args[0], args[1], true)
+  }
+
+  flatStrict(
+    input: OnlyIfHasParams<
+      TDefinition,
+      WithParamsInput<TDefinition, StrictFlatInput<TDefinition> & { hash?: string | number }>
+    >,
+    abs?: boolean,
+  ): OnlyIfHasParams<TDefinition, string>
+  flatStrict(...args: OnlyIfNoParams<TDefinition, [], [never]>): string
+  flatStrict(
+    input: OnlyIfNoParams<TDefinition, StrictFlatInput<TDefinition> & { hash?: string | number }>,
+    abs?: boolean,
+  ): OnlyIfNoParams<TDefinition, string>
+  flatStrict(...args: any[]): string {
+    return this.flat(args[0], args[1], false)
   }
 
   getParamsKeys(): string[] {
@@ -1120,19 +1155,35 @@ export type LooseFlatOutput<T extends AnyRoute | string = string> =
   HasParams<Definition<T>> extends true ? ParamsOutput<T> & LooseSearchOutput<T> : LooseSearchOutput<T>
 export type StrictFlatOutput<T extends AnyRoute | string> =
   HasParams<Definition<T>> extends true ? ParamsOutput<T> & StrictSearchOutput<T> : StrictSearchOutput<T>
+export type FlatOutput<T extends AnyRoute | string, TLoose extends boolean = HasLooseSearch<T>> = TLoose extends true
+  ? LooseFlatOutput<T>
+  : StrictFlatOutput<T>
 export type LooseFlatOutputWithHash<T extends AnyRoute | string = string> = LooseFlatOutput<T> & {
   hash?: string | undefined
 }
 export type StrictFlatOutputWithHash<T extends AnyRoute | string> = StrictFlatOutput<T> & { hash?: string | undefined }
+export type FlatOutputWithHash<T extends AnyRoute | string, TLoose extends boolean = HasLooseSearch<T>> = FlatOutput<
+  T,
+  TLoose
+> & { hash?: string | undefined }
 export type ParamsInput<T extends AnyRoute | string = string> = _ParamsInput<PathDefinition<T>>
 export type LooseSearchInput<T extends AnyRoute | string = string> = _LooseSearchInput<Definition<T>>
 export type StrictSearchInput<T extends AnyRoute | string> = _StrictSearchInput<Definition<T>>
-export type LooseFlatInput<T extends AnyRoute | string> = _FlatInput<Definition<T>>
+export type LooseFlatInput<T extends AnyRoute | string> = _LooseFlatInput<Definition<T>>
 export type StrictFlatInput<T extends AnyRoute | string> = _StrictFlatInput<Definition<T>>
-export type LooseFlatInputWithHash<T extends AnyRoute | string> = _FlatInput<Definition<T>> & { hash?: string | number }
-export type StrictFlatInputWithHash<T extends AnyRoute | string> = _StrictFlatInput<Definition<T>> & {
+export type FlatInput<T extends AnyRoute | string, TLoose extends boolean = HasLooseSearch<T>> = TLoose extends true
+  ? LooseFlatInput<T>
+  : StrictFlatInput<T>
+export type LooseFlatInputWithHash<T extends AnyRoute | string> = LooseFlatInput<T> & {
   hash?: string | number
 }
+export type StrictFlatInputWithHash<T extends AnyRoute | string> = StrictFlatInput<T> & {
+  hash?: string | number
+}
+export type FlatInputWithHash<T extends AnyRoute | string, TLoose extends boolean = HasLooseSearch<T>> = FlatInput<
+  T,
+  TLoose
+> & { hash?: string | number }
 export type CanInputBeEmpty<T extends AnyRoute | string> = HasParams<Definition<T>> extends true ? false : true
 
 export type ParamsInputStringOnly<T extends AnyRoute | string = string> = _ParamsInputStringOnly<PathDefinition<T>>
@@ -1245,7 +1296,7 @@ export type _LooseSearchInput<TDefinition extends string> =
 export type _StrictSearchInput<TDefinition extends string> = Partial<{
   [K in keyof _SearchDefinition<TDefinition>]: string | number
 }>
-export type _FlatInput<TDefinition extends string> =
+export type _LooseFlatInput<TDefinition extends string> =
   HasParams<TDefinition> extends true
     ? _ParamsInput<TDefinition> & _LooseSearchInput<TDefinition>
     : _LooseSearchInput<TDefinition>

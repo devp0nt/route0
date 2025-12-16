@@ -72,9 +72,15 @@ describe('Route0', () => {
     const pathHash = route0.get({ search: { q: '1' }, hash: 'zxc' })
     // expectTypeOf<typeof path>().toEqualTypeOf<`/?${string}`>()
     expect(path).toBe('/?q=1')
-    expect(path).toBe(route0.flat({ q: '1' }))
+    expect(path).toBe(route0.flat({ q: '1' }, false, true))
+    expect(path).toBe(route0.flatLoose({ q: '1' }))
     expect(pathHash).toBe('/?q=1#zxc')
-    expect(pathHash).toBe(route0.flat({ q: '1', hash: 'zxc' }))
+    expect(pathHash).toBe(route0.flat({ q: '1', hash: 'zxc' }, false, true))
+    expect(pathHash).toBe(route0.flatLoose({ q: '1', hash: 'zxc' }))
+
+    const route1 = Route0.create('/&')
+    expect(path).toBe(route1.flat({ q: '1' }))
+    expect(pathHash).toBe(route1.flat({ q: '1', hash: 'zxc' }))
   })
 
   it('params', () => {
@@ -95,9 +101,12 @@ describe('Route0', () => {
     const pathHash = route0.get({ x: '1', y: 2, z: '3', search: { q: '1' }, hash: 'zxc' })
     // expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/${string}/some/${string}/${string}?${string}`>()
     expect(path).toBe('/prefix/1/some/2/3?q=1')
-    expect(path).toBe(route0.flat({ x: '1', y: 2, z: '3', q: '1' }))
+    expect(path).toBe(route0.flat({ x: '1', y: 2, z: '3', q: '1' }, false, true))
     expect(pathHash).toBe('/prefix/1/some/2/3?q=1#zxc')
-    expect(pathHash).toBe(route0.flat({ x: '1', y: 2, z: '3', q: '1', hash: 'zxc' }))
+    expect(pathHash).toBe(route0.flat({ x: '1', y: 2, z: '3', q: '1', hash: 'zxc' }, false, true))
+    const route1 = Route0.create('/prefix/:x/some/:y/:z&')
+    expect(path).toBe(route1.flat({ x: '1', y: 2, z: '3', q: '1' }))
+    expect(pathHash).toBe(route1.flat({ x: '1', y: 2, z: '3', q: '1', hash: 'zxc' }))
   })
 
   it('search', () => {
@@ -132,8 +141,13 @@ describe('Route0', () => {
     expect(path).toBe('/prefix/1/some/2/3?z=4&c=5&o=6')
     expect(pathHash).toBe('/prefix/1/some/2/3?z=4&c=5&o=6#zxc')
     // very strange case
-    expect(route0.flat({ x: '1', y: '2', z: '4', c: '5', o: '6' })).toBe('/prefix/1/some/2/4?z=4&c=5&o=6')
-    expect(route0.flat({ x: '1', y: '2', z: '4', c: '5', o: '6', hash: 'zxc' })).toBe(
+    expect(route0.flat({ x: '1', y: '2', z: '4', c: '5', o: '6' }, false, true)).toBe('/prefix/1/some/2/4?z=4&c=5&o=6')
+    expect(route0.flat({ x: '1', y: '2', z: '4', c: '5', o: '6', hash: 'zxc' }, false, true)).toBe(
+      '/prefix/1/some/2/4?z=4&c=5&o=6#zxc',
+    )
+    const route1 = Route0.create('/prefix/:x/some/:y/:z&z&c&')
+    expect(route1.flat({ x: '1', y: '2', z: '4', c: '5', o: '6' })).toBe('/prefix/1/some/2/4?z=4&c=5&o=6')
+    expect(route1.flat({ x: '1', y: '2', z: '4', c: '5', o: '6', hash: 'zxc' })).toBe(
       '/prefix/1/some/2/4?z=4&c=5&o=6#zxc',
     )
   })
@@ -354,8 +368,8 @@ describe('Route0', () => {
     expect(rWith.flat({}, true)).toBe('https://example.com/a/undefined')
     // @ts-expect-error missing required path params (object form search)
     expect(rWith.get({ search: { q: '1' } })).toBe('/a/undefined?q=1')
-    // @ts-expect-error missing required path params (object form search)
-    expect(rWith.flat({ q: '1' })).toBe('/a/undefined?q=1')
+    // @ts-expect-error missing required path params (object form search), and loose search not allowed
+    expect(rWith.flat({ q: '1' })).toBe('/a/undefined')
 
     // @ts-expect-error params can not be sent as object value it should be argument
     rWith.get({ params: { id: '1' } }) // not throw becouse this will not used
@@ -364,7 +378,13 @@ describe('Route0', () => {
     const rNo = Route0.create('/b')
     // @ts-expect-error no path params allowed for this route (shorthand)
     expect(rNo.get({ id: '1' })).toBe('/b')
-    expect(rNo.flat({ id: '1' })).toBe('/b?id=1')
+    // @ts-expect-error loose search not allowed
+    expect(rNo.flat({ id: '1' })).toBe('/b')
+    // @ts-expect-error loose search not allowed
+    expect(rNo.flatStrict({ id: '1' })).toBe('/b')
+    expect(rNo.flat({ id: '1' }, false, true)).toBe('/b?id=1')
+    expect(Route0.create('/b&').flat({ id: '1' })).toBe('/b?id=1')
+    expect(Route0.create('/b').flatLoose({ id: '1' })).toBe('/b?id=1')
   })
 
   it('really any route assignable to AnyRoute', () => {
