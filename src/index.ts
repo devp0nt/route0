@@ -1193,6 +1193,10 @@ export type LooseSearchInputStringOnly<T extends AnyRoute | string = string> = _
 export type StrictSearchInputStringOnly<T extends AnyRoute | string> = _StrictSearchInputStringOnly<Definition<T>>
 export type LooseFlatInputStringOnly<T extends AnyRoute | string> = _LooseFlatInputStringOnly<Definition<T>>
 export type StrictFlatInputStringOnly<T extends AnyRoute | string> = _StrictFlatInputStringOnly<Definition<T>>
+export type FlatInputStringOnly<
+  T extends AnyRoute | string,
+  TLoose extends boolean = HasLooseSearch<T>,
+> = TLoose extends true ? LooseFlatInputStringOnly<T> : StrictFlatInputStringOnly<T>
 
 // location
 
