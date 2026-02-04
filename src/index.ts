@@ -1251,10 +1251,26 @@ export type ParentLocation<TRoute extends AnyRoute | string = AnyRoute | string>
   parent: true
   children: false
 }
+export type WeakParentLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
+  params: Partial<ParamsOutput<TRoute>> // in fact maybe there will be whole params object, but does not matter now
+  searchParams: LooseSearchOutput<TRoute>
+  route: string
+  exact: false
+  parent: true
+  children: false
+}
 export type ChildrenLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
-  params: ParamsOutput<TRoute>
+  params: ParamsOutput<TRoute> & Record<string, string>
   searchParams: LooseSearchOutput<TRoute>
   route: Definition<TRoute>
+  exact: false
+  parent: false
+  children: true
+}
+export type WeakChildrenLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
+  params: ParamsOutput<TRoute> & Record<string, string>
+  searchParams: LooseSearchOutput<TRoute>
+  route: string
   exact: false
   parent: false
   children: true
@@ -1264,7 +1280,10 @@ export type KnownLocation<TRoute extends AnyRoute | string = AnyRoute | string> 
   | ExactLocation<TRoute>
   | ParentLocation<TRoute>
   | ChildrenLocation<TRoute>
-export type AnyLocation<TRoute extends AnyRoute | string = AnyRoute | string> = UnknownLocation | KnownLocation<TRoute>
+export type AnyLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  | UnknownLocation
+  | KnownLocation<TRoute>
+  | WeakChildrenLocation<TRoute>
 
 // internal utils
 
