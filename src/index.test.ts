@@ -37,6 +37,12 @@ import type {
   StrictSearchInput,
   StrictSearchInputStringOnly,
   StrictSearchOutput,
+  AnyLocation,
+  UnknownLocation,
+  KnownLocation,
+  WeakChildrenLocation,
+  WeakParentLocation,
+  ExactLocation,
 } from './index.js'
 import { Route0, Routes } from './index.js'
 
@@ -2255,5 +2261,38 @@ describe('relations: isSame, isParent, isChildren', () => {
     expect(Route0.isSame(undefined, undefined)).toBe(true)
     expect(Route0.isSame(undefined, '/a')).toBe(false)
     expect(Route0.isSame('/a', undefined)).toBe(false)
+  })
+})
+
+describe('types widening', () => {
+  it('any location extends any location', () => {
+    expectTypeOf<UnknownLocation>().toExtend<AnyLocation>()
+    expectTypeOf<KnownLocation<'/path'>>().toExtend<AnyLocation>()
+    expectTypeOf<WeakChildrenLocation<'/path'>>().toExtend<AnyLocation>()
+    expectTypeOf<WeakParentLocation<'/path'>>().toExtend<AnyLocation>()
+    expectTypeOf<ExactLocation<'/path'>>().toExtend<AnyLocation>()
+
+    expectTypeOf<UnknownLocation>().toExtend<AnyLocation>()
+    expectTypeOf<KnownLocation<'/:id'>>().toExtend<AnyLocation>()
+    expectTypeOf<WeakChildrenLocation<'/:id'>>().toExtend<AnyLocation>()
+    expectTypeOf<WeakParentLocation<'/:id'>>().toExtend<AnyLocation>()
+    expectTypeOf<ExactLocation<'/:id'>>().toExtend<AnyLocation>()
+  })
+
+  it('location by path extends same location by any path', () => {
+    expectTypeOf<KnownLocation<any>>().toExtend<KnownLocation<'/path'>>()
+    expectTypeOf<WeakChildrenLocation<any>>().toExtend<WeakChildrenLocation<'/path'>>()
+    expectTypeOf<WeakParentLocation<any>>().toExtend<WeakParentLocation<'/path'>>()
+    expectTypeOf<ExactLocation<any>>().toExtend<ExactLocation<'/path'>>()
+
+    expectTypeOf<KnownLocation<any>>().toExtend<KnownLocation<'/:id'>>()
+    expectTypeOf<WeakChildrenLocation<any>>().toExtend<WeakChildrenLocation<'/:id'>>()
+    expectTypeOf<WeakParentLocation<any>>().toExtend<WeakParentLocation<'/:id'>>()
+    expectTypeOf<ExactLocation<any>>().toExtend<ExactLocation<'/:id'>>()
+  })
+
+  it('any route definition extends any route', () => {
+    expectTypeOf<AnyRoute<any>>().toExtend<AnyRoute<'/path'>>()
+    expectTypeOf<AnyRoute<any>>().toExtend<AnyRoute<'/:id'>>()
   })
 })

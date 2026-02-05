@@ -1219,6 +1219,7 @@ export type _GeneralLocation = {
   host?: string
   hostname?: string
 }
+type IsAny<T> = 0 extends 1 & T ? true : false
 export type UnknownLocation = _GeneralLocation & {
   params: undefined
   searchParams: LooseSearchOutput
@@ -1227,54 +1228,72 @@ export type UnknownLocation = _GeneralLocation & {
   parent: false
   children: false
 }
-export type UnmatchedLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
-  params: Record<never, never>
-  searchParams: LooseSearchOutput<TRoute>
-  route: Definition<TRoute>
-  exact: false
-  parent: false
-  children: false
-}
-export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
-  params: ParamsOutput<TRoute>
-  searchParams: LooseSearchOutput<TRoute>
-  route: Definition<TRoute>
-  exact: true
-  parent: false
-  children: false
-}
-export type ParentLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
-  params: Partial<ParamsOutput<TRoute>> // in fact maybe there will be whole params object, but does not matter now
-  searchParams: LooseSearchOutput<TRoute>
-  route: Definition<TRoute>
-  exact: false
-  parent: true
-  children: false
-}
-export type WeakParentLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
-  params: Partial<ParamsOutput<TRoute>> // in fact maybe there will be whole params object, but does not matter now
-  searchParams: LooseSearchOutput<TRoute>
-  route: string
-  exact: false
-  parent: true
-  children: false
-}
-export type ChildrenLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
-  params: ParamsOutput<TRoute> & Record<string, string>
-  searchParams: LooseSearchOutput<TRoute>
-  route: Definition<TRoute>
-  exact: false
-  parent: false
-  children: true
-}
-export type WeakChildrenLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation & {
-  params: ParamsOutput<TRoute> & Record<string, string>
-  searchParams: LooseSearchOutput<TRoute>
-  route: string
-  exact: false
-  parent: false
-  children: true
-}
+export type UnmatchedLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  IsAny<TRoute> extends true
+    ? any
+    : _GeneralLocation & {
+        params: Record<never, never>
+        searchParams: LooseSearchOutput<TRoute>
+        route: Definition<TRoute>
+        exact: false
+        parent: false
+        children: false
+      }
+export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  IsAny<TRoute> extends true
+    ? any
+    : _GeneralLocation & {
+        params: ParamsOutput<TRoute>
+        searchParams: LooseSearchOutput<TRoute>
+        route: Definition<TRoute>
+        exact: true
+        parent: false
+        children: false
+      }
+export type ParentLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  IsAny<TRoute> extends true
+    ? any
+    : _GeneralLocation & {
+        params: Partial<ParamsOutput<TRoute>> // in fact maybe there will be whole params object, but does not matter now
+        searchParams: LooseSearchOutput<TRoute>
+        route: Definition<TRoute>
+        exact: false
+        parent: true
+        children: false
+      }
+export type WeakParentLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  IsAny<TRoute> extends true
+    ? any
+    : _GeneralLocation & {
+        params: Partial<ParamsOutput<TRoute>> // in fact maybe there will be whole params object, but does not matter now
+        searchParams: LooseSearchOutput<TRoute>
+        route: string
+        exact: false
+        parent: true
+        children: false
+      }
+export type ChildrenLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  IsAny<TRoute> extends true
+    ? any
+    : _GeneralLocation & {
+        params: ParamsOutput<TRoute> & Record<string, string>
+        searchParams: LooseSearchOutput<TRoute>
+        route: Definition<TRoute>
+        exact: false
+        parent: false
+        children: true
+      }
+export type WeakChildrenLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  IsAny<TRoute> extends true
+    ? any
+    : _GeneralLocation & {
+        params: ParamsOutput<TRoute> & Record<string, string>
+        searchParams: LooseSearchOutput<TRoute>
+        route: string
+        exact: false
+        parent: false
+        children: true
+      }
 export type KnownLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
   | UnmatchedLocation<TRoute>
   | ExactLocation<TRoute>
