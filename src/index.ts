@@ -18,7 +18,7 @@
 // TODO: ?? Route0.createTree({base:{self: x, children: ...})
 // TODO: ? Routes.create({base:{self: x, children: ...}).attach('section', Routes.create({...}))
 // TODO: overrideTree
-// TODO: .create(route, {baseUrl, useLocation})
+// TODO: .create(route, {baseurl, useLocation})
 // TODO: ? optional path params as @
 // TODO: prependMany, extendMany, overrideMany, with types
 // TODO: optional route params /x/:id?
@@ -30,7 +30,21 @@ export class Route0<TDefinition extends string> {
   readonly paramsDefinition: _ParamsDefinition<TDefinition>
   readonly searchDefinition: _SearchDefinition<TDefinition>
   readonly hasLooseSearch: HasLooseSearch<TDefinition>
-  baseUrl: string
+  private _baseurl: string | undefined
+
+  get baseurl(): string {
+    if (!this._baseurl) {
+      throw new Error(
+        'baseurl for route ' +
+          this.definition +
+          ' is not set, please provide it like Route0.create(route, {baseurl: "https://example.com"}) in config or set via overrides like routes._.override({baseurl: "https://example.com"})',
+      )
+    }
+    return this._baseurl
+  }
+  set baseurl(baseurl: string) {
+    this._baseurl = baseurl
+  }
 
   private constructor(definition: TDefinition, config: RouteConfigInput = {}) {
     this.definition = definition
@@ -39,16 +53,16 @@ export class Route0<TDefinition extends string> {
     this.searchDefinition = Route0._getSearchDefinitionBydefinition(definition)
     this.hasLooseSearch = Route0._hasLooseSearch(definition)
 
-    const { baseUrl } = config
-    if (baseUrl && typeof baseUrl === 'string' && baseUrl.length) {
-      this.baseUrl = baseUrl
+    const { baseurl } = config
+    if (baseurl && typeof baseurl === 'string' && baseurl.length) {
+      this._baseurl = baseurl
     } else {
       const g = globalThis as unknown as { location?: { origin?: string } }
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (typeof g?.location?.origin === 'string' && g.location.origin.length > 0) {
-        this.baseUrl = g.location.origin
+        this._baseurl = g.location.origin
       } else {
-        this.baseUrl = 'https://example.com'
+        this._baseurl = undefined
       }
     }
   }
@@ -96,8 +110,8 @@ export class Route0<TDefinition extends string> {
     }
   }
 
-  private static _getAbsPath(baseUrl: string, pathWithSearch: string) {
-    return new URL(pathWithSearch, baseUrl).toString().replace(/\/$/, '')
+  private static _getAbsPath(baseurl: string, pathWithSearch: string) {
+    return new URL(pathWithSearch, baseurl).toString().replace(/\/$/, '')
   }
 
   private static _getPathDefinitionBydefinition<TDefinition extends string>(definition: TDefinition) {
@@ -148,7 +162,7 @@ export class Route0<TDefinition extends string> {
       Route0._splitPathDefinitionAndSearchTailDefinition(suffixDefinition)
     const pathDefinition = `${parentPathDefinition}/${suffixPathDefinition}`.replace(/\/{2,}/g, '/')
     const definition = `${pathDefinition}${suffixSearchTailDefinition}` as PathExtended<TDefinition, TSuffixDefinition>
-    return Route0.create<PathExtended<TDefinition, TSuffixDefinition>>(definition, { baseUrl: this.baseUrl })
+    return Route0.create<PathExtended<TDefinition, TSuffixDefinition>>(definition, { baseurl: this._baseurl })
   }
 
   // has params
@@ -281,7 +295,7 @@ export class Route0<TDefinition extends string> {
     // dedupe slashes
     url = url.replace(/\/{2,}/g, '/')
     // absolute
-    url = absInput ? Route0._getAbsPath(this.baseUrl, url) : url
+    url = absInput ? Route0._getAbsPath(this.baseurl, url) : url
     // hash
     if (hashInput !== undefined) {
       url = `${url}#${hashInput}`
@@ -532,9 +546,9 @@ export class Route0<TDefinition extends string> {
     }
   }
 
-  static toAbsLocation<TLocation extends AnyLocation>(location: TLocation, baseUrl: string): TLocation {
+  static toAbsLocation<TLocation extends AnyLocation>(location: TLocation, baseurl: string): TLocation {
     const relLoc = Route0.toRelLocation(location)
-    const url = new URL(relLoc.hrefRel, baseUrl)
+    const url = new URL(relLoc.hrefRel, baseurl)
     return {
       ...location,
       abs: true,
@@ -946,9 +960,12 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     }
   }
 
-  static create<const T extends RoutesRecord>(routes: T): RoutesPretty<T> {
-    const instance = new Routes({ routes })
-    return Routes.prettify(instance)
+  static create<const T extends RoutesRecord>(routes: T, override?: RouteConfigInput): RoutesPretty<T> {
+    const result = Routes.prettify(new Routes({ routes }))
+    if (!override) {
+      return result
+    }
+    return result._.override(override)
   }
 
   private static prettify<const T extends RoutesRecord>(instance: Routes<T>): RoutesPretty<T> {
@@ -1058,7 +1075,7 @@ export type AnyRoute<T extends Route0<string> | string = string> = T extends str
 export type CallableRoute<T extends Route0<string> | string = string> = AnyRoute<T> & AnyRoute<T>['get']
 export type AnyRouteOrDefinition<T extends string = string> = AnyRoute<T> | CallableRoute<T> | T
 export type RouteConfigInput = {
-  baseUrl?: string
+  baseurl?: string
 }
 
 // collection

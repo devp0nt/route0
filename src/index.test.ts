@@ -297,7 +297,21 @@ describe('Route0', () => {
     expect(pathHash1).toBe(route1.flat({ id: 'myid', sn: 'mysn', hash: 'zxc' }))
   })
 
-  it('abs default', () => {
+  it('abs default throw if no window.location.origin', () => {
+    const route0 = Route0.create('/path')
+    expect(() => route0.get({ abs: true })).toThrow()
+    // const route0 = Route0.create('/path')
+    // const path = route0.get({ abs: true })
+    // const pathHash = route0.get({ abs: true, hash: 'zxc' })
+    // // expectTypeOf<typeof path>().toEqualTypeOf<`${string}/path`>()
+    // expect(path).toBe('https://example.com/path')
+    // expect(path).toBe(route0.flat({}, true))
+    // expect(pathHash).toBe('https://example.com/path#zxc')
+    // expect(pathHash).toBe(route0.flat({ hash: 'zxc' }, true))
+  })
+
+  it('abs default set window.location.origin', () => {
+    ;(globalThis as unknown as { location?: { origin?: string } }).location = { origin: 'https://example.com' }
     const route0 = Route0.create('/path')
     const path = route0.get({ abs: true })
     const pathHash = route0.get({ abs: true, hash: 'zxc' })
@@ -306,10 +320,11 @@ describe('Route0', () => {
     expect(path).toBe(route0.flat({}, true))
     expect(pathHash).toBe('https://example.com/path#zxc')
     expect(pathHash).toBe(route0.flat({ hash: 'zxc' }, true))
+    delete (globalThis as unknown as { location?: { origin?: string } }).location?.origin
   })
 
   it('abs set', () => {
-    const route0 = Route0.create('/path', { baseUrl: 'https://x.com' })
+    const route0 = Route0.create('/path', { baseurl: 'https://x.com' })
     const path = route0.get({ abs: true })
     const pathHash = route0.get({ abs: true, hash: 'zxc' })
     // expectTypeOf<typeof path>().toEqualTypeOf<`${string}/path`>()
@@ -320,8 +335,8 @@ describe('Route0', () => {
   })
 
   it('abs override', () => {
-    const route0 = Route0.create('/path', { baseUrl: 'https://x.com' })
-    route0.baseUrl = 'https://y.com'
+    const route0 = Route0.create('/path', { baseurl: 'https://x.com' })
+    route0.baseurl = 'https://y.com'
     const path = route0.get({ abs: true })
     const pasthHash = route0.get({ abs: true, hash: 'zxc' })
     // expectTypeOf<typeof path>().toEqualTypeOf<`${string}/path`>()
@@ -332,8 +347,8 @@ describe('Route0', () => {
   })
 
   it('abs override extend', () => {
-    const route0 = Route0.create('/path', { baseUrl: 'https://x.com' })
-    route0.baseUrl = 'https://y.com'
+    const route0 = Route0.create('/path', { baseurl: 'https://x.com' })
+    route0.baseurl = 'https://y.com'
     const route1 = route0.extend('/suffix')
     const path = route1.get({ abs: true })
     const pathHash = route1.get({ abs: true, hash: 'zxc' })
@@ -345,20 +360,20 @@ describe('Route0', () => {
   })
 
   // it('abs override many', () => {
-  //   const route0 = Route0.create('/path', { baseUrl: 'https://x.com' })
+  //   const route0 = Route0.create('/path', { baseurl: 'https://x.com' })
   //   const route1 = route0.extend('/suffix')
   //   const routes = {
   //     r0: route0,
   //     r1: route1,
   //   }
-  //   const routes2 = Route0._.overrideMany(routes, { baseUrl: 'https://z.com' })
+  //   const routes2 = Route0._.overrideMany(routes, { baseurl: 'https://z.com' })
   //   const path = routes2.r1.get({ abs: true })
   //   expectTypeOf<typeof path>().toEqualTypeOf<`${string}/path/suffix`>()
   //   expect(path).toBe('https://z.com/path/suffix')
   // })
 
   it('type errors: require params when defined', () => {
-    const rWith = Route0.create('/a/:id')
+    const rWith = Route0.create('/a/:id', { baseurl: 'https://example.com' })
     // @ts-expect-error missing required path params
     expect(rWith.get()).toBe('/a/undefined')
     // @ts-expect-error missing required path params
@@ -1514,13 +1529,13 @@ describe('Routes', () => {
     expect(user.get({ id: '123' })).toBe('/user/123')
   })
 
-  it('override with baseUrl', () => {
+  it('override with baseurl', () => {
     const collection = Routes.create({
       home: '/',
       about: '/about',
     })
 
-    const overridden = collection._.override({ baseUrl: 'https://example.com' })
+    const overridden = collection._.override({ baseurl: 'https://example.com' })
 
     const home = overridden.home
     const about = overridden.about
@@ -1530,14 +1545,17 @@ describe('Routes', () => {
   })
 
   it('override does not mutate original', () => {
-    const collection = Routes.create({
-      home: '/',
-    })
+    const collection = Routes.create(
+      {
+        home: '/',
+      },
+      { baseurl: 'https://example.com' },
+    )
 
     const original = collection.home
     expect(original.get({ abs: true })).toBe('https://example.com')
 
-    const overridden = collection._.override({ baseUrl: 'https://newdomain.com' })
+    const overridden = collection._.override({ baseurl: 'https://newdomain.com' })
     const newRoute = overridden.home
 
     expect(original.get({ abs: true })).toBe('https://example.com')
@@ -1545,7 +1563,7 @@ describe('Routes', () => {
   })
 
   it('override with extended routes', () => {
-    const apiRoute = Route0.create('/api', { baseUrl: 'https://api.example.com' })
+    const apiRoute = Route0.create('/api', { baseurl: 'https://api.example.com' })
     const usersRoute = apiRoute.extend('/users')
 
     const collection = Routes.create({
@@ -1557,7 +1575,7 @@ describe('Routes', () => {
     expect(collection.api({ abs: true })).toBe('https://api.example.com/api')
     expect(collection.users.get({ abs: true })).toBe('https://api.example.com/api/users')
 
-    const overridden = collection._.override({ baseUrl: 'https://new-api.example.com' })
+    const overridden = collection._.override({ baseurl: 'https://new-api.example.com' })
 
     expect(overridden.api.get({ abs: true })).toBe('https://new-api.example.com/api')
     expect(overridden.users.get({ abs: true })).toBe('https://new-api.example.com/api/users')
@@ -1596,7 +1614,7 @@ describe('Routes', () => {
   })
 
   it('complex nested structure', () => {
-    const api = Route0.create('/api/v1', { baseUrl: 'https://api.example.com' })
+    const api = Route0.create('/api/v1', { baseurl: 'https://api.example.com' })
 
     const collection = Routes.create({
       root: '/',
@@ -2188,7 +2206,7 @@ describe('ordering', () => {
 
     const originalOrdering = routes._.pathsOrdering
 
-    const overridden = routes._.override({ baseUrl: 'https://example.com' })
+    const overridden = routes._.override({ baseurl: 'https://example.com' })
 
     expect(overridden._.pathsOrdering).toEqual(originalOrdering)
     expect(overridden._.pathsOrdering).toEqual(['/', '/users', '/users/:id'])
