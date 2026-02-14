@@ -24,6 +24,17 @@
 // TODO: optional route params /x/:id?
 // TODO: fix CallableRoute<CallableRoute<>> in RoutesPretty type, it should be just CallableRoute<>
 
+/**
+ * Strongly typed route descriptor and URL builder.
+ *
+ * A route definition uses:
+ * - path params: `/users/:id`
+ * - named search keys: `/users&tab&sort`
+ * - loose search mode: trailing `&`, e.g. `/users&`
+ *
+ * Instances are callable (same as `.get()`), so `route(input)` and
+ * `route.get(input)` are equivalent.
+ */
 export class Route0<TDefinition extends string> {
   readonly definition: TDefinition
   readonly pathDefinition: _PathDefinition<TDefinition>
@@ -32,6 +43,7 @@ export class Route0<TDefinition extends string> {
   readonly hasLooseSearch: HasLooseSearch<TDefinition>
   private _baseurl: string | undefined
 
+  /** Base URL used when generating absolute URLs (`abs: true`). */
   get baseurl(): string {
     if (!this._baseurl) {
       throw new Error(
@@ -67,6 +79,11 @@ export class Route0<TDefinition extends string> {
     }
   }
 
+  /**
+   * Creates a callable route instance.
+   *
+   * If an existing route/callable route is provided, it is cloned.
+   */
   static create<TDefinition extends string>(
     definition: TDefinition | AnyRoute<TDefinition> | CallableRoute<TDefinition>,
     config?: RouteConfigInput,
@@ -86,6 +103,11 @@ export class Route0<TDefinition extends string> {
     return callable as never
   }
 
+  /**
+   * Normalizes a definition/route into a callable route.
+   *
+   * Unlike `create`, passing a callable route returns the same instance.
+   */
   static from<TDefinition extends string>(
     definition: TDefinition | AnyRoute<TDefinition> | CallableRoute<TDefinition>,
   ): CallableRoute<TDefinition> {
@@ -154,6 +176,7 @@ export class Route0<TDefinition extends string> {
     return /&$/.test(definition) as HasLooseSearch<TDefinition>
   }
 
+  /** Extends the current route definition by appending a suffix route. */
   extend<TSuffixDefinition extends string>(
     suffixDefinition: TSuffixDefinition,
   ): CallableRoute<PathExtended<TDefinition, TSuffixDefinition>> {
@@ -204,6 +227,13 @@ export class Route0<TDefinition extends string> {
   //   >,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
 
+  /**
+   * Builds a URL string from typed params/search input.
+   *
+   * - `abs: true` returns absolute URL using `baseurl`
+   * - `hash` appends URL fragment
+   * - `search` accepts named/loose search input based on definition
+   */
   get(
     input: OnlyIfHasParams<
       TDefinition,
@@ -343,6 +373,10 @@ export class Route0<TDefinition extends string> {
   //   abs: true,
   // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
 
+  /**
+   * Flat input variant of `get()`, where path params + search keys
+   * are provided in a single object.
+   */
   flat<TLoose extends boolean = HasLooseSearch<TDefinition>>(
     input: OnlyIfHasParams<
       TDefinition,
@@ -437,6 +471,7 @@ export class Route0<TDefinition extends string> {
     return this.get({ ...paramsInput, search: searchInput, abs: absInput, hash: hashInput } as never)
   }
 
+  /** Same as `flat()`, but always accepts loose search keys. */
   flatLoose(
     input: OnlyIfHasParams<
       TDefinition,
@@ -453,6 +488,7 @@ export class Route0<TDefinition extends string> {
     return this.flat(args[0], args[1], true)
   }
 
+  /** Same as `flat()`, but only allows declared search keys. */
   flatStrict(
     input: OnlyIfHasParams<
       TDefinition,
@@ -469,12 +505,15 @@ export class Route0<TDefinition extends string> {
     return this.flat(args[0], args[1], false)
   }
 
+  /** Returns path param keys extracted from route definition. */
   getParamsKeys(): string[] {
     return Object.keys(this.paramsDefinition || {})
   }
+  /** Returns named search keys extracted from route definition. */
   getSearchKeys(): string[] {
     return Object.keys(this.searchDefinition || {})
   }
+  /** Returns all flat input keys (`search + params`). */
   getFlatKeys(): string[] {
     return [...this.getSearchKeys(), ...this.getParamsKeys()]
   }
@@ -483,6 +522,7 @@ export class Route0<TDefinition extends string> {
     return this.pathDefinition
   }
 
+  /** Clones route with optional config override. */
   clone(config?: RouteConfigInput): CallableRoute<TDefinition> {
     return Route0.create(this.definition, config)
   }
@@ -514,26 +554,31 @@ export class Route0<TDefinition extends string> {
     return new RegExp(this.getRegexString())
   }
 
+  /** Creates a grouped strict regex pattern string from many routes. */
   static getRegexStrictStringGroup(routes: AnyRoute[]): string {
     const patterns = routes.map((route) => route.getRegexStrictString()).join('|')
     return `(${patterns})`
   }
 
+  /** Creates a strict grouped regex from many routes. */
   static getRegexStrictGroup(routes: AnyRoute[]): RegExp {
     const patterns = this.getRegexStrictStringGroup(routes)
     return new RegExp(`^(${patterns})$`)
   }
 
+  /** Creates a grouped regex pattern string from many routes. */
   static getRegexStringGroup(routes: AnyRoute[]): string {
     const patterns = routes.map((route) => route.getRegexString()).join('|')
     return `(${patterns})`
   }
 
+  /** Creates a grouped regex from many routes. */
   static getRegexGroup(routes: AnyRoute[]): RegExp {
     const patterns = this.getRegexStringGroup(routes)
     return new RegExp(`^(${patterns})$`)
   }
 
+  /** Converts any location shape to relative form (removes host/origin fields). */
   static toRelLocation<TLocation extends AnyLocation>(location: TLocation): TLocation {
     return {
       ...location,
@@ -546,6 +591,7 @@ export class Route0<TDefinition extends string> {
     }
   }
 
+  /** Converts a location to absolute form using provided base URL. */
   static toAbsLocation<TLocation extends AnyLocation>(location: TLocation, baseurl: string): TLocation {
     const relLoc = Route0.toRelLocation(location)
     const url = new URL(relLoc.hrefRel, baseurl)
@@ -560,6 +606,11 @@ export class Route0<TDefinition extends string> {
     }
   }
 
+  /**
+   * Parses a URL-like input into raw location object (without route knowledge).
+   *
+   * Result is always `UnknownLocation` because no route matching is applied.
+   */
   static getLocation(href: `${string}://${string}`): UnknownLocation
   static getLocation(hrefRel: `/${string}`): UnknownLocation
   static getLocation(hrefOrHrefRel: string): UnknownLocation
@@ -621,6 +672,15 @@ export class Route0<TDefinition extends string> {
     return location
   }
 
+  /**
+   * Parses input and matches it against this route definition.
+   *
+   * Result includes relation flags:
+   * - `exact`
+   * - `ancestor`
+   * - `descendant`
+   * - `unmatched`
+   */
   getLocation(href: `${string}://${string}`): KnownLocation<TDefinition>
   getLocation(hrefRel: `/${string}`): KnownLocation<TDefinition>
   getLocation(hrefOrHrefRel: string): KnownLocation<TDefinition>
@@ -708,6 +768,11 @@ export class Route0<TDefinition extends string> {
     } as KnownLocation<TDefinition>
   }
 
+  /**
+   * Safe parser for flat input objects.
+   *
+   * Returns structured success/error result instead of throwing.
+   */
   safeParseFlatInput<TLoose extends boolean = HasLooseSearch<TDefinition>>(
     input: unknown,
     loose?: TLoose,
@@ -764,6 +829,7 @@ export class Route0<TDefinition extends string> {
     return { success: true, data: data as LooseFlatOutputWithHash<TDefinition>, error: undefined }
   }
 
+  /** Throwing variant of `safeParseFlatInput()`. */
   parseFlatInput<TLoose extends boolean = HasLooseSearch<TDefinition>>(
     input: unknown,
     loose?: TLoose,
@@ -776,12 +842,14 @@ export class Route0<TDefinition extends string> {
     return result.data as TLoose extends true ? LooseFlatOutput<TDefinition> : StrictFlatOutput<TDefinition>
   }
 
+  /** True when path structure is equal (param names are ignored). */
   isSame(other: Route0<TDefinition>): boolean {
     return (
       this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__') ===
       other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__')
     )
   }
+  /** Static convenience wrapper for `isSame`. */
   static isSame(a: AnyRoute | string | undefined, b: AnyRoute | string | undefined): boolean {
     if (!a) {
       if (!b) return true
@@ -793,6 +861,7 @@ export class Route0<TDefinition extends string> {
     return Route0.create(a).isSame(Route0.create(b))
   }
 
+  /** True when current route is more specific/deeper than `other`. */
   isDescendant(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     other = Route0.create(other)
@@ -820,6 +889,7 @@ export class Route0<TDefinition extends string> {
     return true
   }
 
+  /** True when current route is broader/shallower than `other`. */
   isAncestor(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     other = Route0.create(other)
@@ -847,6 +917,7 @@ export class Route0<TDefinition extends string> {
     return true
   }
 
+  /** True when two route patterns can match the same concrete URL. */
   isConflict(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     other = Route0.create(other)
@@ -887,6 +958,7 @@ export class Route0<TDefinition extends string> {
     return true
   }
 
+  /** Specificity comparator used for deterministic route ordering. */
   isMoreSpecificThan(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     other = Route0.create(other)
@@ -914,6 +986,12 @@ export class Route0<TDefinition extends string> {
   }
 }
 
+/**
+ * Typed route collection with deterministic matching order.
+ *
+ * `Routes.create()` accepts either plain string definitions or route objects
+ * and returns a "pretty" object with direct route access + helper methods under `._`.
+ */
 export class Routes<const T extends RoutesRecord = RoutesRecord> {
   _routes: RoutesRecordHydrated<T>
   _pathsOrdering: string[]
@@ -965,6 +1043,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     }
   }
 
+  /** Creates and hydrates a typed routes collection. */
   static create<const T extends RoutesRecord>(routes: T, override?: RouteConfigInput): RoutesPretty<T> {
     const result = Routes.prettify(new Routes({ routes }))
     if (!override) {
@@ -996,6 +1075,12 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     return result
   }
 
+  /**
+   * Matches an input URL against collection routes.
+   *
+   * Returns first exact match according to precomputed ordering,
+   * otherwise returns `UnknownLocation`.
+   */
   _getLocation(href: `${string}://${string}`): UnknownLocation | ExactLocation
   _getLocation(hrefRel: `/${string}`): UnknownLocation | ExactLocation
   _getLocation(hrefOrHrefRel: string): UnknownLocation | ExactLocation
@@ -1050,6 +1135,7 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
     return { pathsOrdering, keysOrdering }
   }
 
+  /** Returns a cloned routes collection with config applied to each route. */
   _override(config: RouteConfigInput): RoutesPretty<T> {
     const newRoutes = {} as RoutesRecordHydrated<T>
     for (const key in this._routes) {
@@ -1076,19 +1162,26 @@ export class Routes<const T extends RoutesRecord = RoutesRecord> {
 
 // main
 
+/** Any route instance shape, preserving literal path type when known. */
 export type AnyRoute<T extends Route0<string> | string = string> = T extends string ? Route0<T> : T
+/** Callable route (`route(input)`) plus route instance methods/properties. */
 export type CallableRoute<T extends Route0<string> | string = string> = AnyRoute<T> & AnyRoute<T>['get']
+/** Route input accepted by most APIs: definition string or route object/callable. */
 export type AnyRouteOrDefinition<T extends string = string> = AnyRoute<T> | CallableRoute<T> | T
+/** Route-level runtime configuration. */
 export type RouteConfigInput = {
   baseurl?: string
 }
 
 // collection
 
+/** User-provided routes map (plain definitions or route instances). */
 export type RoutesRecord = Record<string, AnyRoute | string>
+/** Same as `RoutesRecord` but all values normalized to callable routes. */
 export type RoutesRecordHydrated<TRoutesRecord extends RoutesRecord = RoutesRecord> = {
   [K in keyof TRoutesRecord]: CallableRoute<TRoutesRecord[K]>
 }
+/** Public shape returned by `Routes.create()`. */
 export type RoutesPretty<TRoutesRecord extends RoutesRecord = RoutesRecord> = RoutesRecordHydrated<TRoutesRecord> &
   Omit<
     Routes<TRoutesRecord>,
@@ -1229,20 +1322,81 @@ export type LocationSearch<TDefinition extends string = string> = {
   [K in keyof _SearchDefinition<TDefinition>]: string | undefined
 } & Record<string, string | undefined>
 
+/**
+ * URL location primitives independent from route-matching state.
+ *
+ * `hrefRel` is relative href and includes `pathname + search + hash`.
+ */
 export type _GeneralLocation = {
+  /**
+   * Path without search/hash (normalized for trailing slash).
+   *
+   * Example:
+   * - input: `https://example.com/users/42?tab=posts#section`
+   * - pathname: `/users/42`
+   */
   pathname: string
+  /**
+   * Raw query string with leading `?`, if present.
+   *
+   * Example:
+   * - `?tab=posts&sort=desc`
+   */
   search: string
+  /**
+   * Parsed query map (first value per key).
+   *
+   * Example:
+   * - search: `?tab=posts&sort=desc`
+   * - searchParams: `{ tab: 'posts', sort: 'desc' }`
+   */
   searchParams: Record<string, string | undefined>
+  /**
+   * Raw hash with leading `#`, if present.
+   *
+   * Example:
+   * - `#section`
+   */
   hash: string
+  /**
+   * URL origin for absolute inputs.
+   *
+   * Example:
+   * - href: `https://example.com/users/42`
+   * - origin: `https://example.com`
+   */
   origin?: string
+  /**
+   * Full absolute href for absolute inputs.
+   *
+   * Example:
+   * - `https://example.com/users/42?tab=posts#section`
+   */
   href?: string
+  /**
+   * Relative href (`pathname + search + hash`).
+   *
+   * Example:
+   * - pathname: `/users/42`
+   * - search: `?tab=posts`
+   * - hash: `#section`
+   * - hrefRel: `/users/42?tab=posts#section`
+   */
   hrefRel: string
+  /**
+   * Whether input was absolute URL.
+   *
+   * Examples:
+   * - `https://example.com/users/42` -> `true`
+   * - `/users/42` -> `false`
+   */
   abs: boolean
   port?: string
   host?: string
   hostname?: string
 }
 type IsAny<T> = 0 extends 1 & T ? true : false
+/** Location state before matching against a concrete route. */
 export type UnknownLocationState = {
   known: false
   route: undefined
@@ -1255,6 +1409,7 @@ export type UnknownLocationState = {
 }
 export type UnknownLocation = _GeneralLocation & UnknownLocationState
 
+/** Known route context, but no exact/ancestor/descendant relation matched. */
 export type UnmatchedLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
   route: Definition<TRoute>
@@ -1268,6 +1423,7 @@ export type UnmatchedLocationState<TRoute extends AnyRoute | string = AnyRoute |
 export type UnmatchedLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
   IsAny<TRoute> extends true ? any : _GeneralLocation & UnmatchedLocationState<TRoute>
 
+/** Exact match state for a known route. */
 export type ExactLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
   route: Definition<TRoute>
@@ -1281,6 +1437,7 @@ export type ExactLocationState<TRoute extends AnyRoute | string = AnyRoute | str
 export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
   IsAny<TRoute> extends true ? any : _GeneralLocation & ExactLocationState<TRoute>
 
+/** Input URL is a descendant of route definition (route is ancestor). */
 export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
   route: Definition<TRoute>
@@ -1294,6 +1451,7 @@ export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | 
 export type AncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
   IsAny<TRoute> extends true ? any : _GeneralLocation & AncestorLocationState<TRoute>
 
+/** Relaxed ancestor state variant for widened generic scenarios. */
 export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
   route: Definition<TRoute>
@@ -1307,6 +1465,7 @@ export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRout
 export type WeakAncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
   IsAny<TRoute> extends true ? any : _GeneralLocation & WeakAncestorLocationState<TRoute>
 
+/** Input URL is an ancestor prefix of route definition (route is descendant). */
 export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
   route: Definition<TRoute>
@@ -1320,6 +1479,7 @@ export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute 
 export type DescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
   IsAny<TRoute> extends true ? any : _GeneralLocation & DescendantLocationState
 
+/** Relaxed descendant state variant for widened generic scenarios. */
 export type WeakDescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
   route: Definition<TRoute>
