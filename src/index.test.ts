@@ -16,8 +16,8 @@ import type {
   HasNamedSearch,
   HasParams,
   HasSearch,
-  IsChildren,
-  IsParent,
+  IsDescendant,
+  IsAncestor,
   IsSame,
   IsSameParams,
   ParamsInput,
@@ -40,8 +40,8 @@ import type {
   AnyLocation,
   UnknownLocation,
   KnownLocation,
-  WeakChildrenLocation,
-  WeakParentLocation,
+  WeakDescendantLocation,
+  WeakAncestorLocation,
   ExactLocation,
 } from './index.js'
 import { Route0, Routes } from './index.js'
@@ -801,22 +801,22 @@ describe('type utilities', () => {
     expectTypeOf<T4>().toEqualTypeOf<false>()
   })
 
-  it('IsParent', () => {
-    type T1 = IsParent<'/path/child', '/path'>
-    type T2 = IsParent<'/path', '/path/child'>
-    type T3 = IsParent<'/other', '/path'>
-    type T4 = IsParent<'/path', '/path'>
+  it('IsAncestor', () => {
+    type T1 = IsAncestor<'/path/child', '/path'>
+    type T2 = IsAncestor<'/path', '/path/child'>
+    type T3 = IsAncestor<'/other', '/path'>
+    type T4 = IsAncestor<'/path', '/path'>
     expectTypeOf<T1>().toEqualTypeOf<true>()
     expectTypeOf<T2>().toEqualTypeOf<false>()
     expectTypeOf<T3>().toEqualTypeOf<false>()
     expectTypeOf<T4>().toEqualTypeOf<false>()
   })
 
-  it('IsChildren', () => {
-    type T1 = IsChildren<'/path', '/path/child'>
-    type T2 = IsChildren<'/path/child', '/path'>
-    type T3 = IsChildren<'/path', '/other'>
-    type T4 = IsChildren<'/path', '/path'>
+  it('IsDescendant', () => {
+    type T1 = IsDescendant<'/path', '/path/child'>
+    type T2 = IsDescendant<'/path/child', '/path'>
+    type T3 = IsDescendant<'/path', '/other'>
+    type T4 = IsDescendant<'/path', '/path'>
     expectTypeOf<T1>().toEqualTypeOf<true>()
     expectTypeOf<T2>().toEqualTypeOf<false>()
     expectTypeOf<T3>().toEqualTypeOf<false>()
@@ -851,8 +851,8 @@ describe('type utilities', () => {
     expectTypeOf<Extended<undefined, '/path'>>().toEqualTypeOf<Route0<'/path'>>()
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const parent = Route0.create('/path')
-    expectTypeOf<Extended<typeof parent, '/child'>>().toEqualTypeOf<Route0<'/path/child'>>()
+    const ancestor = Route0.create('/path')
+    expectTypeOf<Extended<typeof ancestor, '/child'>>().toEqualTypeOf<Route0<'/path/child'>>()
   })
 })
 
@@ -935,53 +935,69 @@ describe('getLocation', () => {
     it('#getLocation() exact match', () => {
       const route0 = Route0.create('/prefix/:x/some/:y/:z/suffix')
       let loc = route0.getLocation('/prefix/some/suffix')
+      expect(loc.known).toBe(true)
       expect(loc.exact).toBe(false)
-      expect(loc.parent).toBe(false)
-      expect(loc.children).toBe(false)
+      expect(loc.unmatched).toBe(true)
+      expect(loc.ancestor).toBe(false)
+      expect(loc.descendant).toBe(false)
       expect(loc.params).toMatchObject({})
       loc = route0.getLocation('/prefix/xxx/some/yyy/zzz/suffix')
+      expect(loc.known).toBe(true)
       expect(loc.exact).toBe(true)
-      expect(loc.parent).toBe(false)
-      expect(loc.children).toBe(false)
+      expect(loc.unmatched).toBe(false)
+      expect(loc.ancestor).toBe(false)
+      expect(loc.descendant).toBe(false)
       if (loc.exact) {
         expectTypeOf<typeof loc.params>().toEqualTypeOf<{ x: string; y: string; z: string }>()
       }
       expect(loc.params).toMatchObject({ x: 'xxx', y: 'yyy', z: 'zzz' })
     })
 
-    it('#getLocation() parent match', () => {
+    it('#getLocation() ancestor match', () => {
       expect(Route0.create('/prefix/xxx/some').getLocation('/prefix/xxx/some/extra/path')).toMatchObject({
+        known: true,
         exact: false,
-        parent: true,
-        children: false,
+        unmatched: false,
+        ancestor: true,
+        descendant: false,
       })
       expect(Route0.create('/prefix/:x/some').getLocation('/prefix/xxx/some/extra/path')).toMatchObject({
+        known: true,
         exact: false,
-        parent: true,
-        children: false,
+        unmatched: false,
+        ancestor: true,
+        descendant: false,
       })
       expect(Route0.create('/:y/:x/some').getLocation('/prefix/xxx/some/extra/path')).toMatchObject({
+        known: true,
         exact: false,
-        parent: true,
-        children: false,
+        unmatched: false,
+        ancestor: true,
+        descendant: false,
       })
     })
 
-    it('#getLocation() children match', () => {
+    it('#getLocation() descendant match', () => {
       expect(Route0.create('/prefix/some/extra/path').getLocation('/prefix/some')).toMatchObject({
+        known: true,
         exact: false,
-        parent: false,
-        children: true,
+        unmatched: false,
+        ancestor: false,
+        descendant: true,
       })
       expect(Route0.create('/prefix/some/extra/:id').getLocation('/prefix/some')).toMatchObject({
+        known: true,
         exact: false,
-        parent: false,
-        children: true,
+        unmatched: false,
+        ancestor: false,
+        descendant: true,
       })
       expect(Route0.create('/:prefix/some/extra/:id').getLocation('/prefix/some')).toMatchObject({
+        known: true,
         exact: false,
-        parent: false,
-        children: true,
+        unmatched: false,
+        ancestor: false,
+        descendant: true,
       })
     })
 
@@ -1057,9 +1073,11 @@ describe('getLocation', () => {
       expectTypeOf<(typeof routes)['home']>().toEqualTypeOf<CallableRoute<'/'>>()
       expectTypeOf<(typeof routes)['userDetail']>().toEqualTypeOf<CallableRoute<'/users/:id'>>()
       const loc = routes._.getLocation('/users/123')
+      expect(loc.known).toBe(true)
       expect(loc.exact).toBe(true)
-      expect(loc.parent).toBe(false)
-      expect(loc.children).toBe(false)
+      expect(loc.unmatched).toBe(false)
+      expect(loc.ancestor).toBe(false)
+      expect(loc.descendant).toBe(false)
       expect(loc.pathname).toBe('/users/123')
       expect(Route0.isSame(loc.route, routes.userDetail)).toBe(true)
       if (loc.exact) {
@@ -1067,7 +1085,7 @@ describe('getLocation', () => {
       }
     })
 
-    it('no exact match returns UnknownLocation (parent case)', () => {
+    it('no exact match returns UnknownLocation (ancestor case)', () => {
       const routes = Routes.create({
         home: '/',
         users: '/users',
@@ -1076,13 +1094,15 @@ describe('getLocation', () => {
 
       // '/users/123/posts' is not an exact match for any route
       const loc = routes._.getLocation('/users/123/posts')
+      expect(loc.known).toBe(false)
       expect(loc.exact).toBe(false)
-      expect(loc.parent).toBe(false)
-      expect(loc.children).toBe(false)
+      expect(loc.unmatched).toBe(false)
+      expect(loc.ancestor).toBe(false)
+      expect(loc.descendant).toBe(false)
       expect(loc.pathname).toBe('/users/123/posts')
     })
 
-    it('no exact match returns UnknownLocation (children case)', () => {
+    it('no exact match returns UnknownLocation (descendant case)', () => {
       const routes = Routes.create({
         home: '/',
         users: '/users',
@@ -1091,9 +1111,11 @@ describe('getLocation', () => {
 
       // '/users/123' is not an exact match for any route
       const loc = routes._.getLocation('/users/123')
+      expect(loc.known).toBe(false)
       expect(loc.exact).toBe(false)
-      expect(loc.parent).toBe(false)
-      expect(loc.children).toBe(false)
+      expect(loc.unmatched).toBe(false)
+      expect(loc.ancestor).toBe(false)
+      expect(loc.descendant).toBe(false)
       expect(loc.pathname).toBe('/users/123')
     })
 
@@ -1104,9 +1126,11 @@ describe('getLocation', () => {
       })
 
       const loc = routes._.getLocation('/posts/123')
+      expect(loc.known).toBe(false)
       expect(loc.exact).toBe(false)
-      expect(loc.parent).toBe(false)
-      expect(loc.children).toBe(false)
+      expect(loc.unmatched).toBe(false)
+      expect(loc.ancestor).toBe(false)
+      expect(loc.descendant).toBe(false)
       expect(loc.pathname).toBe('/posts/123')
       expect(loc.params).toBeUndefined()
     })
@@ -2229,7 +2253,7 @@ describe('ordering', () => {
   })
 })
 
-describe('relations: isSame, isParent, isChildren', () => {
+describe('relations: isSame, isAncestor, isDescendant', () => {
   it('isSame: same static path', () => {
     const a = Route0.create('/a')
     const b = Route0.create('/a')
@@ -2246,30 +2270,30 @@ describe('relations: isSame, isParent, isChildren', () => {
     expect((r1 as any).isSame(r4 as any)).toBe(false)
   })
 
-  it('isParent: true when left is ancestor of right', () => {
-    expect(Route0.create('/').isParent(Route0.create('/path/child'))).toBe(true)
-    expect(Route0.create('/path').isParent(Route0.create('/path/child'))).toBe(true)
-    expect(Route0.create('/users/:id').isParent('/users/:id/posts')).toBe(true)
-    expect(Route0.create('/').isParent(Route0.create('/users/:id/posts'))).toBe(true)
-    expect(Route0.create('/').isParent(Route0.create('/users/:id'))).toBe(true)
+  it('isAncestor: true when left is ancestor of right', () => {
+    expect(Route0.create('/').isAncestor(Route0.create('/path/child'))).toBe(true)
+    expect(Route0.create('/path').isAncestor(Route0.create('/path/child'))).toBe(true)
+    expect(Route0.create('/users/:id').isAncestor('/users/:id/posts')).toBe(true)
+    expect(Route0.create('/').isAncestor(Route0.create('/users/:id/posts'))).toBe(true)
+    expect(Route0.create('/').isAncestor(Route0.create('/users/:id'))).toBe(true)
   })
 
-  it('isParent: false for reverse, equal, or unrelated', () => {
-    expect(Route0.create('/path/child').isParent(Route0.create('/path'))).toBe(false)
-    expect(Route0.create('/path').isParent(Route0.create('/path'))).toBe(false)
-    expect(Route0.create('/a').isParent(Route0.create('/b'))).toBe(false)
+  it('isAncestor: false for reverse, equal, or unrelated', () => {
+    expect(Route0.create('/path/child').isAncestor(Route0.create('/path'))).toBe(false)
+    expect(Route0.create('/path').isAncestor(Route0.create('/path'))).toBe(false)
+    expect(Route0.create('/a').isAncestor(Route0.create('/b'))).toBe(false)
   })
 
-  it('isChildren: true when left is descendant of right', () => {
-    expect(Route0.create('/path/child').isChildren(Route0.create('/path'))).toBe(true)
-    expect(Route0.create('/users/:id/posts').isChildren(Route0.create('/users/:id'))).toBe(true)
-    expect(Route0.create('/users/:id/posts').isChildren(Route0.create('/'))).toBe(true)
+  it('isDescendant: true when left is descendant of right', () => {
+    expect(Route0.create('/path/child').isDescendant(Route0.create('/path'))).toBe(true)
+    expect(Route0.create('/users/:id/posts').isDescendant(Route0.create('/users/:id'))).toBe(true)
+    expect(Route0.create('/users/:id/posts').isDescendant(Route0.create('/'))).toBe(true)
   })
 
-  it('isChildren: false for reverse, equal, or unrelated', () => {
-    expect(Route0.create('/path').isChildren(Route0.create('/path/child'))).toBe(false)
-    expect(Route0.create('/path').isChildren(Route0.create('/path'))).toBe(false)
-    expect(Route0.create('/a').isChildren(Route0.create('/b'))).toBe(false)
+  it('isDescendant: false for reverse, equal, or unrelated', () => {
+    expect(Route0.create('/path').isDescendant(Route0.create('/path/child'))).toBe(false)
+    expect(Route0.create('/path').isDescendant(Route0.create('/path'))).toBe(false)
+    expect(Route0.create('/a').isDescendant(Route0.create('/b'))).toBe(false)
   })
 
   it('static isSame: works with strings and undefined', () => {
@@ -2286,26 +2310,26 @@ describe('types widening', () => {
   it('any location extends any location', () => {
     expectTypeOf<UnknownLocation>().toExtend<AnyLocation>()
     expectTypeOf<KnownLocation<'/path'>>().toExtend<AnyLocation>()
-    expectTypeOf<WeakChildrenLocation<'/path'>>().toExtend<AnyLocation>()
-    expectTypeOf<WeakParentLocation<'/path'>>().toExtend<AnyLocation>()
+    expectTypeOf<WeakDescendantLocation<'/path'>>().toExtend<AnyLocation>()
+    expectTypeOf<WeakAncestorLocation<'/path'>>().toExtend<AnyLocation>()
     expectTypeOf<ExactLocation<'/path'>>().toExtend<AnyLocation>()
 
     expectTypeOf<UnknownLocation>().toExtend<AnyLocation>()
     expectTypeOf<KnownLocation<'/:id'>>().toExtend<AnyLocation>()
-    expectTypeOf<WeakChildrenLocation<'/:id'>>().toExtend<AnyLocation>()
-    expectTypeOf<WeakParentLocation<'/:id'>>().toExtend<AnyLocation>()
+    expectTypeOf<WeakDescendantLocation<'/:id'>>().toExtend<AnyLocation>()
+    expectTypeOf<WeakAncestorLocation<'/:id'>>().toExtend<AnyLocation>()
     expectTypeOf<ExactLocation<'/:id'>>().toExtend<AnyLocation>()
   })
 
   it('location by path extends same location by any path', () => {
     expectTypeOf<KnownLocation<any>>().toExtend<KnownLocation<'/path'>>()
-    expectTypeOf<WeakChildrenLocation<any>>().toExtend<WeakChildrenLocation<'/path'>>()
-    expectTypeOf<WeakParentLocation<any>>().toExtend<WeakParentLocation<'/path'>>()
+    expectTypeOf<WeakDescendantLocation<any>>().toExtend<WeakDescendantLocation<'/path'>>()
+    expectTypeOf<WeakAncestorLocation<any>>().toExtend<WeakAncestorLocation<'/path'>>()
     expectTypeOf<ExactLocation<any>>().toExtend<ExactLocation<'/path'>>()
 
     expectTypeOf<KnownLocation<any>>().toExtend<KnownLocation<'/:id'>>()
-    expectTypeOf<WeakChildrenLocation<any>>().toExtend<WeakChildrenLocation<'/:id'>>()
-    expectTypeOf<WeakParentLocation<any>>().toExtend<WeakParentLocation<'/:id'>>()
+    expectTypeOf<WeakDescendantLocation<any>>().toExtend<WeakDescendantLocation<'/:id'>>()
+    expectTypeOf<WeakAncestorLocation<any>>().toExtend<WeakAncestorLocation<'/:id'>>()
     expectTypeOf<ExactLocation<any>>().toExtend<ExactLocation<'/:id'>>()
   })
 

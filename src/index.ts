@@ -11,7 +11,7 @@
 // TODO: ? check extend for search only .extend('&x&z')
 // TODO: .create(route, {useSearch, useParams})
 // TODO: Из пас экзакт, из пасвизквери экзает, из чилдрен, из парент, из экзактОр
-// TODO: isEqual, isChildren, isParent
+// TODO: isEqual, isDescendant, isAncestor
 // TODO: extractParams, extractSearch
 // TODO: getPathDefinition respecting definitionParamPrefix, definitionSearchPrefix
 // TODO: prepend
@@ -611,9 +611,11 @@ export class Route0<TDefinition extends string> {
       searchParams,
       params: undefined,
       route: undefined,
+      known: false,
       exact: false,
-      parent: false,
-      children: false,
+      ancestor: false,
+      descendant: false,
+      unmatched: false,
     }
 
     return location
@@ -655,7 +657,7 @@ export class Route0<TDefinition extends string> {
     })
 
     const exactRe = new RegExp(`^${this.getRegexBaseString()}$`)
-    const parentRe = new RegExp(`^${this.getRegexBaseString()}(?:/.*)?$`) // route matches the beginning of the URL (may have more)
+    const ancestorRe = new RegExp(`^${this.getRegexBaseString()}(?:/.*)?$`) // route matches the beginning of the URL (may have more)
     const exactMatch = pathname.match(exactRe)
 
     // Fill params only for exact match (keeps behavior predictable)
@@ -668,9 +670,9 @@ export class Route0<TDefinition extends string> {
     }
 
     const exact = !!exactMatch
-    const parent = !exact && parentRe.test(pathname)
+    const ancestor = !exact && ancestorRe.test(pathname)
 
-    // "children": the URL is a prefix of the route definition (params match any single segment)
+    // "descendant": the URL is a prefix of the route definition (params match any single segment)
     const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
     const defParts = getParts(def)
     const pathParts = getParts(pathname)
@@ -693,13 +695,16 @@ export class Route0<TDefinition extends string> {
         }
       }
     }
-    const children = !exact && isPrefix
+    const descendant = !exact && isPrefix
+    const unmatched = !exact && !ancestor && !descendant
 
     return {
       ...location,
+      known: true,
       exact,
-      parent,
-      children,
+      ancestor,
+      descendant,
+      unmatched,
     } as KnownLocation<TDefinition>
   }
 
@@ -788,21 +793,21 @@ export class Route0<TDefinition extends string> {
     return Route0.create(a).isSame(Route0.create(b))
   }
 
-  isChildren(other: AnyRoute | string | undefined): boolean {
+  isDescendant(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     other = Route0.create(other)
-    // this is a child of other if:
+    // this is a descendant of other if:
     // - paths are not exactly the same
     // - other's path is a prefix of this path, matching params as wildcards
     const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
-    // Root is parent of any non-root; thus any non-root is a child of root
+    // Root is ancestor of any non-root; thus any non-root is a descendant of root
     if (other.pathDefinition === '/' && this.pathDefinition !== '/') {
       return true
     }
     const thisParts = getParts(this.pathDefinition)
     const otherParts = getParts(other.pathDefinition)
 
-    // A child must be deeper
+    // A descendant must be deeper
     if (thisParts.length <= otherParts.length) return false
 
     for (let i = 0; i < otherParts.length; i++) {
@@ -815,21 +820,21 @@ export class Route0<TDefinition extends string> {
     return true
   }
 
-  isParent(other: AnyRoute | string | undefined): boolean {
+  isAncestor(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     other = Route0.create(other)
-    // this is a parent of other if:
+    // this is an ancestor of other if:
     // - paths are not exactly the same
     // - this path is a prefix of other path, matching params as wildcards
     const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
-    // Root is parent of any non-root path
+    // Root is ancestor of any non-root path
     if (this.pathDefinition === '/' && other.pathDefinition !== '/') {
       return true
     }
     const thisParts = getParts(this.pathDefinition)
     const otherParts = getParts(other.pathDefinition)
 
-    // A parent must be shallower
+    // An ancestor must be shallower
     if (thisParts.length >= otherParts.length) return false
 
     for (let i = 0; i < thisParts.length; i++) {
@@ -1133,13 +1138,13 @@ export type Extended<T extends AnyRoute | string | undefined, TSuffixDefinition 
       ? Route0<TSuffixDefinition>
       : never
 
-export type IsParent<T extends AnyRoute | string, TParent extends AnyRoute | string> = _IsParent<
+export type IsAncestor<T extends AnyRoute | string, TAncestor extends AnyRoute | string> = _IsAncestor<
   PathDefinition<T>,
-  PathDefinition<TParent>
+  PathDefinition<TAncestor>
 >
-export type IsChildren<T extends AnyRoute | string, TChildren extends AnyRoute | string> = _IsChildren<
+export type IsDescendant<T extends AnyRoute | string, TDescendant extends AnyRoute | string> = _IsDescendant<
   PathDefinition<T>,
-  PathDefinition<TChildren>
+  PathDefinition<TDescendant>
 >
 export type IsSame<T extends AnyRoute | string, TExact extends AnyRoute | string> = _IsSame<
   PathDefinition<T>,
@@ -1227,6 +1232,7 @@ export type LocationSearch<TDefinition extends string = string> = {
 export type _GeneralLocation = {
   pathname: string
   search: string
+  searchParams: Record<string, string | undefined>
   hash: string
   origin?: string
   href?: string
@@ -1237,89 +1243,103 @@ export type _GeneralLocation = {
   hostname?: string
 }
 type IsAny<T> = 0 extends 1 & T ? true : false
-export type UnknownLocation = _GeneralLocation & {
+export type UnknownLocationState = {
+  known: false
+  route: undefined
   params: undefined
   searchParams: LooseSearchOutput
-  route: undefined
   exact: false
-  parent: false
-  children: false
+  ancestor: false
+  descendant: false
+  unmatched: false
+}
+export type UnknownLocation = _GeneralLocation & UnknownLocationState
+
+export type UnmatchedLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  known: true
+  route: Definition<TRoute>
+  params: Record<never, never>
+  searchParams: LooseSearchOutput<TRoute>
+  exact: false
+  ancestor: false
+  descendant: false
+  unmatched: true
 }
 export type UnmatchedLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true
-    ? any
-    : _GeneralLocation & {
-        params: Record<never, never>
-        searchParams: LooseSearchOutput<TRoute>
-        route: Definition<TRoute>
-        exact: false
-        parent: false
-        children: false
-      }
+  IsAny<TRoute> extends true ? any : _GeneralLocation & UnmatchedLocationState<TRoute>
+
+export type ExactLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  known: true
+  route: Definition<TRoute>
+  params: ParamsOutput<TRoute>
+  searchParams: LooseSearchOutput<TRoute>
+  exact: true
+  ancestor: false
+  descendant: false
+  unmatched: false
+}
 export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true
-    ? any
-    : _GeneralLocation & {
-        params: ParamsOutput<TRoute>
-        searchParams: LooseSearchOutput<TRoute>
-        route: Definition<TRoute>
-        exact: true
-        parent: false
-        children: false
-      }
-export type ParentLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true
-    ? any
-    : _GeneralLocation & {
-        params: Partial<ParamsOutput<TRoute>> // in fact maybe there will be whole params object, but does not matter now
-        searchParams: LooseSearchOutput<TRoute>
-        route: Definition<TRoute>
-        exact: false
-        parent: true
-        children: false
-      }
-export type WeakParentLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true
-    ? any
-    : _GeneralLocation & {
-        params: Partial<ParamsOutput<TRoute>> // in fact maybe there will be whole params object, but does not matter now
-        searchParams: LooseSearchOutput<TRoute>
-        route: string
-        exact: false
-        parent: true
-        children: false
-      }
-export type ChildrenLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true
-    ? any
-    : _GeneralLocation & {
-        params: ParamsOutput<TRoute> & Record<string, string>
-        searchParams: LooseSearchOutput<TRoute>
-        route: Definition<TRoute>
-        exact: false
-        parent: false
-        children: true
-      }
-export type WeakChildrenLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true
-    ? any
-    : _GeneralLocation & {
-        params: ParamsOutput<TRoute> & Record<string, string>
-        searchParams: LooseSearchOutput<TRoute>
-        route: string
-        exact: false
-        parent: false
-        children: true
-      }
+  IsAny<TRoute> extends true ? any : _GeneralLocation & ExactLocationState<TRoute>
+
+export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  known: true
+  route: Definition<TRoute>
+  params: Partial<ParamsOutput<TRoute>>
+  searchParams: LooseSearchOutput<TRoute>
+  exact: false
+  ancestor: true
+  descendant: false
+  unmatched: false
+}
+export type AncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  IsAny<TRoute> extends true ? any : _GeneralLocation & AncestorLocationState<TRoute>
+
+export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  known: true
+  route: Definition<TRoute>
+  params: Partial<ParamsOutput<TRoute>>
+  searchParams: LooseSearchOutput<TRoute>
+  exact: false
+  ancestor: true
+  descendant: false
+  unmatched: false
+}
+export type WeakAncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  IsAny<TRoute> extends true ? any : _GeneralLocation & WeakAncestorLocationState<TRoute>
+
+export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  known: true
+  route: Definition<TRoute>
+  params: ParamsOutput<TRoute>
+  searchParams: LooseSearchOutput<TRoute>
+  exact: false
+  ancestor: false
+  descendant: true
+  unmatched: false
+}
+export type DescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  IsAny<TRoute> extends true ? any : _GeneralLocation & DescendantLocationState
+
+export type WeakDescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  known: true
+  route: Definition<TRoute>
+  params: ParamsOutput<TRoute>
+  searchParams: LooseSearchOutput<TRoute>
+  exact: false
+  ancestor: false
+  descendant: true
+  unmatched: false
+}
+export type WeakDescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  IsAny<TRoute> extends true ? any : _GeneralLocation & WeakDescendantLocationState<TRoute>
 export type KnownLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
   | UnmatchedLocation<TRoute>
   | ExactLocation<TRoute>
-  | ParentLocation<TRoute>
-  | ChildrenLocation<TRoute>
-export type AnyLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  | UnknownLocation
-  | KnownLocation<TRoute>
-  | WeakChildrenLocation<TRoute>
+  | AncestorLocation<TRoute>
+  | WeakAncestorLocation<TRoute>
+  | DescendantLocation<TRoute>
+  | WeakDescendantLocation<TRoute>
+export type AnyLocation<TRoute extends AnyRoute | string = AnyRoute | string> = UnknownLocation | KnownLocation<TRoute>
 
 // internal utils
 
@@ -1484,14 +1504,14 @@ export type _IsSameParams<T1 extends object | undefined, T2 extends object | und
         : false
       : false
 
-export type _IsParent<T extends string, TParent extends string> = T extends TParent
+export type _IsAncestor<T extends string, TAncestor extends string> = T extends TAncestor
   ? false
-  : T extends `${TParent}${string}`
+  : T extends `${TAncestor}${string}`
     ? true
     : false
-export type _IsChildren<T extends string, TChildren extends string> = TChildren extends T
+export type _IsDescendant<T extends string, TDescendant extends string> = TDescendant extends T
   ? false
-  : TChildren extends `${T}${string}`
+  : TDescendant extends `${T}${string}`
     ? true
     : false
 export type _IsSame<T extends string, TExact extends string> = T extends TExact
