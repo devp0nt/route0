@@ -719,18 +719,19 @@ export class Route0<TDefinition extends string> {
     const exactRe = new RegExp(`^${this.getRegexBaseString()}$`)
     const ancestorRe = new RegExp(`^${this.getRegexBaseString()}(?:/.*)?$`) // route matches the beginning of the URL (may have more)
     const exactMatch = pathname.match(exactRe)
+    const ancestorMatch = pathname.match(ancestorRe)
+    const exact = !!exactMatch
+    const ancestor = !exact && !!ancestorMatch
 
-    // Fill params only for exact match (keeps behavior predictable)
-    if (exactMatch) {
-      const values = exactMatch.slice(1)
+    // Parse params for exact and ancestor matches.
+    const paramsMatch = exactMatch || (ancestor ? ancestorMatch : null)
+    if (paramsMatch) {
+      const values = paramsMatch.slice(1, 1 + paramNames.length)
       const params = Object.fromEntries(paramNames.map((n, i) => [n, decodeURIComponent(values[i] ?? '')]))
       location.params = params
     } else {
       location.params = {}
     }
-
-    const exact = !!exactMatch
-    const ancestor = !exact && ancestorRe.test(pathname)
 
     // "descendant": the URL is a prefix of the route definition (params match any single segment)
     const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
@@ -757,6 +758,21 @@ export class Route0<TDefinition extends string> {
     }
     const descendant = !exact && isPrefix
     const unmatched = !exact && !ancestor && !descendant
+
+    // For descendant matches, include only params that are already determined
+    // by the current (shorter) pathname prefix.
+    if (descendant) {
+      const descendantParams: Record<string, string> = {}
+      for (let i = 0; i < pathParts.length; i++) {
+        const defPart = defParts[i]
+        const pathPart = pathParts[i]
+        if (!defPart || !pathPart) continue
+        if (defPart.startsWith(':')) {
+          descendantParams[defPart.slice(1)] = decodeURIComponent(pathPart)
+        }
+      }
+      location.params = descendantParams
+    }
 
     return {
       ...location,
@@ -1414,7 +1430,7 @@ export type UnmatchedLocationState<TRoute extends AnyRoute | string = AnyRoute |
   known: true
   route: Definition<TRoute>
   params: Record<never, never>
-  searchParams: LooseSearchOutput<TRoute>
+  searchParams: Record<string, string | undefined>
   exact: false
   ancestor: false
   descendant: false
@@ -1441,8 +1457,8 @@ export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> 
 export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
   route: Definition<TRoute>
-  params: Partial<ParamsOutput<TRoute>>
-  searchParams: LooseSearchOutput<TRoute>
+  params: ParamsOutput<TRoute>
+  searchParams: Record<string, string | undefined>
   exact: false
   ancestor: true
   descendant: false
@@ -1451,12 +1467,12 @@ export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | 
 export type AncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
   IsAny<TRoute> extends true ? any : _GeneralLocation & AncestorLocationState<TRoute>
 
-/** Relaxed ancestor state variant for widened generic scenarios. */
+/** It is when route not match at all, but params match. */
 export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
   route: Definition<TRoute>
-  params: Partial<ParamsOutput<TRoute>>
-  searchParams: LooseSearchOutput<TRoute>
+  params: ParamsOutput<TRoute>
+  searchParams: Record<string, string | undefined>
   exact: false
   ancestor: true
   descendant: false
@@ -1469,8 +1485,8 @@ export type WeakAncestorLocation<TRoute extends AnyRoute | string = AnyRoute | s
 export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
   route: Definition<TRoute>
-  params: ParamsOutput<TRoute>
-  searchParams: LooseSearchOutput<TRoute>
+  params: Partial<ParamsOutput<TRoute>>
+  searchParams: Record<string, string | undefined>
   exact: false
   ancestor: false
   descendant: true
@@ -1479,12 +1495,12 @@ export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute 
 export type DescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
   IsAny<TRoute> extends true ? any : _GeneralLocation & DescendantLocationState
 
-/** Relaxed descendant state variant for widened generic scenarios. */
+/** It is when route not match at all, but params partially match. */
 export type WeakDescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
   route: Definition<TRoute>
-  params: ParamsOutput<TRoute>
-  searchParams: LooseSearchOutput<TRoute>
+  params: Partial<ParamsOutput<TRoute>>
+  searchParams: Record<string, string | undefined>
   exact: false
   ancestor: false
   descendant: true

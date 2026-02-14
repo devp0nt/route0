@@ -960,6 +960,7 @@ describe('getLocation', () => {
         unmatched: false,
         ancestor: true,
         descendant: false,
+        params: {},
       })
       expect(Route0.create('/prefix/:x/some').getLocation('/prefix/xxx/some/extra/path')).toMatchObject({
         known: true,
@@ -967,6 +968,7 @@ describe('getLocation', () => {
         unmatched: false,
         ancestor: true,
         descendant: false,
+        params: { x: 'xxx' },
       })
       expect(Route0.create('/:y/:x/some').getLocation('/prefix/xxx/some/extra/path')).toMatchObject({
         known: true,
@@ -974,6 +976,7 @@ describe('getLocation', () => {
         unmatched: false,
         ancestor: true,
         descendant: false,
+        params: { y: 'prefix', x: 'xxx' },
       })
     })
 
@@ -984,6 +987,7 @@ describe('getLocation', () => {
         unmatched: false,
         ancestor: false,
         descendant: true,
+        params: {},
       })
       expect(Route0.create('/prefix/some/extra/:id').getLocation('/prefix/some')).toMatchObject({
         known: true,
@@ -991,6 +995,7 @@ describe('getLocation', () => {
         unmatched: false,
         ancestor: false,
         descendant: true,
+        params: {},
       })
       expect(Route0.create('/:prefix/some/extra/:id').getLocation('/prefix/some')).toMatchObject({
         known: true,
@@ -998,6 +1003,7 @@ describe('getLocation', () => {
         unmatched: false,
         ancestor: false,
         descendant: true,
+        params: { prefix: 'prefix' },
       })
     })
 
