@@ -69,7 +69,7 @@ export class Route0<TDefinition extends string> {
     if (baseurl && typeof baseurl === 'string' && baseurl.length) {
       this._baseurl = baseurl
     } else {
-      const g = globalThis as unknown as { location?: { origin?: string } }
+      const g = globalThis as unknown as { location?: { origin?: string } } | undefined
       if (typeof g?.location?.origin === 'string' && g.location.origin.length > 0) {
         this._baseurl = g.location.origin
       } else {
@@ -171,7 +171,7 @@ export class Route0<TDefinition extends string> {
 
   private static _hasLooseSearch<TDefinition extends string>(definition: TDefinition): HasLooseSearch<TDefinition> {
     // ends with &
-    return /&$/.test(definition) as HasLooseSearch<TDefinition>
+    return definition.endsWith('&') as HasLooseSearch<TDefinition>
   }
 
   /** Extends the current route definition by appending a suffix route. */
@@ -326,8 +326,10 @@ export class Route0<TDefinition extends string> {
         [key: string]: unknown
       }
       return {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         searchInput: search || {},
         paramsInput: params,
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         absInput: abs ?? false,
         hashInput: hash,
       }
@@ -346,6 +348,7 @@ export class Route0<TDefinition extends string> {
 
     let url = this.pathDefinition as string
     // replace params
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     url = url.replace(/:([A-Za-z0-9_]+)/g, (_m, k) => encodeURIComponent(String(paramsInput?.[k] ?? '')))
     // search params
     const searchInputStringified = Object.fromEntries(Object.entries(searchInput).map(([k, v]) => [k, String(v)]))
@@ -467,6 +470,7 @@ export class Route0<TDefinition extends string> {
         }
       }
       const input = args[0] as Record<string, string | number> | undefined
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (typeof input !== 'object' || input === null) {
         // throw new Error("Invalid get route input: expected object")
         return {
@@ -479,6 +483,7 @@ export class Route0<TDefinition extends string> {
       const loose = (args[2] as boolean | undefined) ?? this.hasLooseSearch
       const paramsKeys = this.getParamsKeys()
       const paramsInput = paramsKeys.reduce<Record<string, string | number>>((acc, key) => {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (input[key] !== undefined) {
           acc[key] = input[key]
         }
@@ -496,7 +501,7 @@ export class Route0<TDefinition extends string> {
           if (paramsKeys.includes(k)) {
             return false
           }
-          return !!loose
+          return loose
         })
         .reduce<Record<string, string | number>>((acc, key) => {
           acc[key] = input[key]
@@ -759,6 +764,7 @@ export class Route0<TDefinition extends string> {
         ? this.pathDefinition.slice(0, -1)
         : this.pathDefinition
     def.replace(/:([A-Za-z0-9_]+)/g, (_m: string, name: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
       paramNames.push(String(name))
       return ''
     })
@@ -1653,6 +1659,7 @@ export type SearchTailDefinitionWithoutFirstAndLastAmp<S extends string> = S ext
     : ''
 export type SearchTailDefinitionWithFirstAmp<S extends string> = S extends `${string}&${infer T}` ? `&${T}` : ''
 export type AmpSplit<S extends string> = S extends `${infer A}&${infer B}` ? A | AmpSplit<B> : S
+// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type NonEmpty<T> = [T] extends ['' | never] ? never : T
 export type ExtractPathParams<S extends string> = S extends `${string}:${infer After}`
   ? After extends `${infer Name}/${infer Rest}`
@@ -1660,7 +1667,8 @@ export type ExtractPathParams<S extends string> = S extends `${string}:${infer A
     : After
   : never
 export type ReplacePathParams<S extends string> = S extends `${infer Head}:${infer Tail}`
-  ? Tail extends `${infer _Param}/${infer Rest}`
+  ? // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    Tail extends `${infer _Param}/${infer Rest}`
     ? ReplacePathParams<`${Head}${string}/${Rest}`>
     : `${Head}${string}`
   : S

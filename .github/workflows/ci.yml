@@ -38,6 +38,9 @@ jobs:
       - name: Type check (tsgo)
         run: bun run typesgo
 
+      - name: Lint (eslint)
+        run: bun run lint
+
       - name: Build
         run: bun run build:all
 
