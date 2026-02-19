@@ -1282,10 +1282,14 @@ describe('getLocation', () => {
     })
 
     it('any RoutesPretty type suitable to any RoutesPretty stype', () => {
-      Routes.create({
+      const routes = Routes.create({
         home: '/',
         v: '/b',
       }) satisfies RoutesPretty
+      const fn = <T extends RoutesPretty>(routes: T) => {
+        return routes
+      }
+      fn(routes)
     })
   })
 })
