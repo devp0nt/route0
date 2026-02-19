@@ -1060,7 +1060,6 @@ export class Route0<TDefinition extends string> {
  * and returns a "pretty" object with direct route access + helper methods under `._`.
  */
 
-// biome-ignore lint/suspicious/noExplicitAny: ok
 export class Routes<const T extends RoutesRecord = any> {
   _routes: RoutesRecordHydrated<T>
   _pathsOrdering: string[]
@@ -1250,12 +1249,10 @@ export type RouteConfigInput = {
 /** User-provided routes map (plain definitions or route instances). */
 export type RoutesRecord = Record<string, AnyRoute | string>
 /** Same as `RoutesRecord` but all values normalized to callable routes. */
-// biome-ignore lint/suspicious/noExplicitAny: ok
 export type RoutesRecordHydrated<TRoutesRecord extends RoutesRecord = any> = {
   [K in keyof TRoutesRecord]: CallableRoute<TRoutesRecord[K]>
 }
 /** Public shape returned by `Routes.create()`. Default `any` so `satisfies RoutesPretty` accepts any created routes. */
-// biome-ignore lint/suspicious/noExplicitAny: ok
 export type RoutesPretty<TRoutesRecord extends RoutesRecord = any> = RoutesRecordHydrated<TRoutesRecord> &
   Omit<
     Routes<TRoutesRecord>,
@@ -1713,7 +1710,6 @@ export type WithParamsInput<
   TDefinition extends string,
   T extends
     | {
-        // biome-ignore lint/suspicious/noExplicitAny: ok
         search?: _LooseSearchInput<any>
         abs?: boolean
         hash?: string | number

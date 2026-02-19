@@ -2328,29 +2328,19 @@ describe('types widening', () => {
   })
 
   it('location by path extends same location by any path', () => {
-    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<KnownLocation<any>>().toExtend<KnownLocation<'/path'>>()
-    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<WeakDescendantLocation<any>>().toExtend<WeakDescendantLocation<'/path'>>()
-    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<WeakAncestorLocation<any>>().toExtend<WeakAncestorLocation<'/path'>>()
-    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<ExactLocation<any>>().toExtend<ExactLocation<'/path'>>()
 
-    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<KnownLocation<any>>().toExtend<KnownLocation<'/:id'>>()
-    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<WeakDescendantLocation<any>>().toExtend<WeakDescendantLocation<'/:id'>>()
-    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<WeakAncestorLocation<any>>().toExtend<WeakAncestorLocation<'/:id'>>()
-    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<ExactLocation<any>>().toExtend<ExactLocation<'/:id'>>()
   })
 
   it('any route definition extends any route', () => {
-    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<AnyRoute<any>>().toExtend<AnyRoute<'/path'>>()
-    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<AnyRoute<any>>().toExtend<AnyRoute<'/:id'>>()
   })
 })
