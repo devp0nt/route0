@@ -237,7 +237,14 @@ export class Route0<TDefinition extends string> {
   get(
     input: OnlyIfHasParams<
       TDefinition,
-      WithParamsInput<TDefinition, { search?: _LooseSearchInput<TDefinition>; abs?: boolean; hash?: string | number }>
+      WithParamsInput<
+        TDefinition,
+        {
+          search?: _LooseSearchInput<TDefinition>
+          abs?: boolean
+          hash?: string | number
+        }
+      >
     >,
   ): OnlyIfHasParams<TDefinition, string>
 
@@ -280,12 +287,16 @@ export class Route0<TDefinition extends string> {
   get(
     input: OnlyIfNoParams<
       TDefinition,
-      { search?: _LooseSearchInput<TDefinition>; abs?: boolean; hash?: string | number }
+      {
+        search?: _LooseSearchInput<TDefinition>
+        abs?: boolean
+        hash?: string | number
+      }
     >,
   ): OnlyIfNoParams<TDefinition, string>
 
   // implementation
-  get(...args: any[]): string {
+  get(...args: unknown[]): string {
     const { searchInput, paramsInput, absInput, hashInput } = ((): {
       searchInput: Record<string, string | number>
       paramsInput: Record<string, string | number>
@@ -293,15 +304,35 @@ export class Route0<TDefinition extends string> {
       hashInput: string | undefined
     } => {
       if (args.length === 0) {
-        return { searchInput: {}, paramsInput: {}, absInput: false, hashInput: undefined }
+        return {
+          searchInput: {},
+          paramsInput: {},
+          absInput: false,
+          hashInput: undefined,
+        }
       }
       const input = args[0]
       if (typeof input !== 'object' || input === null) {
         // throw new Error("Invalid get route input: expected object")
-        return { searchInput: {}, paramsInput: {}, absInput: false, hashInput: undefined }
+        return {
+          searchInput: {},
+          paramsInput: {},
+          absInput: false,
+          hashInput: undefined,
+        }
       }
-      const { search, abs, hash, ...params } = input
-      return { searchInput: search || {}, paramsInput: params, absInput: abs ?? false, hashInput: hash }
+      const { search, abs, hash, ...params } = input as Record<string, string | number> & {
+        search: Record<string, string | number>
+        abs: boolean
+        hash: string | undefined
+        [key: string]: unknown
+      }
+      return {
+        searchInput: search || {},
+        paramsInput: params,
+        absInput: abs ?? false,
+        hashInput: hash,
+      }
     })()
 
     // validate params
@@ -423,7 +454,7 @@ export class Route0<TDefinition extends string> {
   ): OnlyIfNoParams<TDefinition, string>
 
   // implementation
-  flat(...args: any[]): string {
+  flat(...args: unknown[]): string {
     const { searchInput, paramsInput, absInput, hashInput } = ((): {
       searchInput: Record<string, string | number>
       paramsInput: Record<string, string | number>
@@ -431,14 +462,24 @@ export class Route0<TDefinition extends string> {
       hashInput: string | undefined
     } => {
       if (args.length === 0) {
-        return { searchInput: {}, paramsInput: {}, absInput: false, hashInput: undefined }
+        return {
+          searchInput: {},
+          paramsInput: {},
+          absInput: false,
+          hashInput: undefined,
+        }
       }
-      const input = args[0]
+      const input = args[0] as Record<string, string | number> | undefined
       if (typeof input !== 'object' || input === null) {
         // throw new Error("Invalid get route input: expected object")
-        return { searchInput: {}, paramsInput: {}, absInput: args[1] ?? false, hashInput: undefined }
+        return {
+          searchInput: {},
+          paramsInput: {},
+          absInput: (args[1] as boolean | undefined) ?? false,
+          hashInput: undefined,
+        }
       }
-      const loose = args[2] ?? this.hasLooseSearch
+      const loose = (args[2] as boolean | undefined) ?? this.hasLooseSearch
       const paramsKeys = this.getParamsKeys()
       const paramsInput = paramsKeys.reduce<Record<string, string | number>>((acc, key) => {
         if (input[key] !== undefined) {
@@ -465,10 +506,20 @@ export class Route0<TDefinition extends string> {
           return acc
         }, {})
       const hashInput = input.hash
-      return { searchInput, paramsInput, absInput: args[1] ?? false, hashInput }
+      return {
+        searchInput,
+        paramsInput,
+        absInput: (args[1] as boolean | undefined) ?? false,
+        hashInput: hashInput as string | undefined,
+      }
     })()
 
-    return this.get({ ...paramsInput, search: searchInput, abs: absInput, hash: hashInput } as never)
+    return this.get({
+      ...paramsInput,
+      search: searchInput,
+      abs: absInput,
+      hash: hashInput,
+    } as never)
   }
 
   /** Same as `flat()`, but always accepts loose search keys. */
@@ -484,8 +535,8 @@ export class Route0<TDefinition extends string> {
     input: OnlyIfNoParams<TDefinition, LooseFlatInput<TDefinition> & { hash?: string | number }>,
     abs?: boolean,
   ): OnlyIfNoParams<TDefinition, string>
-  flatLoose(...args: any[]): string {
-    return this.flat(args[0], args[1], true)
+  flatLoose(...args: unknown[]): string {
+    return this.flat(args[0] as never, args[1] as never, true)
   }
 
   /** Same as `flat()`, but only allows declared search keys. */
@@ -501,8 +552,8 @@ export class Route0<TDefinition extends string> {
     input: OnlyIfNoParams<TDefinition, StrictFlatInput<TDefinition> & { hash?: string | number }>,
     abs?: boolean,
   ): OnlyIfNoParams<TDefinition, string>
-  flatStrict(...args: any[]): string {
-    return this.flat(args[0], args[1], false)
+  flatStrict(...args: unknown[]): string {
+    return this.flat(args[0] as never, args[1] as never, false)
   }
 
   /** Returns path param keys extracted from route definition. */
@@ -562,7 +613,7 @@ export class Route0<TDefinition extends string> {
 
   /** Creates a strict grouped regex from many routes. */
   static getRegexStrictGroup(routes: AnyRoute[]): RegExp {
-    const patterns = this.getRegexStrictStringGroup(routes)
+    const patterns = Route0.getRegexStrictStringGroup(routes)
     return new RegExp(`^(${patterns})$`)
   }
 
@@ -574,7 +625,7 @@ export class Route0<TDefinition extends string> {
 
   /** Creates a grouped regex from many routes. */
   static getRegexGroup(routes: AnyRoute[]): RegExp {
-    const patterns = this.getRegexStringGroup(routes)
+    const patterns = Route0.getRegexStringGroup(routes)
     return new RegExp(`^(${patterns})$`)
   }
 
@@ -842,7 +893,11 @@ export class Route0<TDefinition extends string> {
         }
       }
     }
-    return { success: true, data: data as LooseFlatOutputWithHash<TDefinition>, error: undefined }
+    return {
+      success: true,
+      data: data as LooseFlatOutputWithHash<TDefinition>,
+      error: undefined,
+    }
   }
 
   /** Throwing variant of `safeParseFlatInput()`. */
@@ -859,7 +914,7 @@ export class Route0<TDefinition extends string> {
   }
 
   /** True when path structure is equal (param names are ignored). */
-  isSame(other: Route0<TDefinition>): boolean {
+  isSame(other: AnyRoute): boolean {
     return (
       this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__') ===
       other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__')
@@ -1008,6 +1063,8 @@ export class Route0<TDefinition extends string> {
  * `Routes.create()` accepts either plain string definitions or route objects
  * and returns a "pretty" object with direct route access + helper methods under `._`.
  */
+
+// biome-ignore lint/suspicious/noExplicitAny: ok
 export class Routes<const T extends RoutesRecord = any> {
   _routes: RoutesRecordHydrated<T>
   _pathsOrdering: string[]
@@ -1083,7 +1140,7 @@ export class Routes<const T extends RoutesRecord = any> {
   private static hydrate<const T extends RoutesRecord>(routes: T): RoutesRecordHydrated<T> {
     const result = {} as RoutesRecordHydrated<T>
     for (const key in routes) {
-      if (Object.prototype.hasOwnProperty.call(routes, key)) {
+      if (Object.hasOwn(routes, key)) {
         const value = routes[key]
         result[key] = (typeof value === 'string' ? Route0.create(value) : value) as CallableRoute<T[typeof key]>
       }
@@ -1116,7 +1173,10 @@ export class Routes<const T extends RoutesRecord = any> {
     return typeof input === 'string' ? Route0.getLocation(input) : Route0.getLocation(input)
   }
 
-  private static makeOrdering(routes: RoutesRecord): { pathsOrdering: string[]; keysOrdering: string[] } {
+  private static makeOrdering(routes: RoutesRecord): {
+    pathsOrdering: string[]
+    keysOrdering: string[]
+  } {
     const hydrated = Routes.hydrate(routes)
     const entries = Object.entries(hydrated)
 
@@ -1147,7 +1207,7 @@ export class Routes<const T extends RoutesRecord = any> {
     })
 
     const pathsOrdering = entries.map(([_key, route]) => route.definition)
-    const keysOrdering = entries.map(([_key, route]) => _key)
+    const keysOrdering = entries.map(([_key]) => _key)
     return { pathsOrdering, keysOrdering }
   }
 
@@ -1155,7 +1215,7 @@ export class Routes<const T extends RoutesRecord = any> {
   _override(config: RouteConfigInput): RoutesPretty<T> {
     const newRoutes = {} as RoutesRecordHydrated<T>
     for (const key in this._routes) {
-      if (Object.prototype.hasOwnProperty.call(this._routes, key)) {
+      if (Object.hasOwn(this._routes, key)) {
         newRoutes[key] = this._routes[key].clone(config) as CallableRoute<T[typeof key]>
       }
     }
@@ -1194,10 +1254,12 @@ export type RouteConfigInput = {
 /** User-provided routes map (plain definitions or route instances). */
 export type RoutesRecord = Record<string, AnyRoute | string>
 /** Same as `RoutesRecord` but all values normalized to callable routes. */
+// biome-ignore lint/suspicious/noExplicitAny: ok
 export type RoutesRecordHydrated<TRoutesRecord extends RoutesRecord = any> = {
   [K in keyof TRoutesRecord]: CallableRoute<TRoutesRecord[K]>
 }
 /** Public shape returned by `Routes.create()`. Default `any` so `satisfies RoutesPretty` accepts any created routes. */
+// biome-ignore lint/suspicious/noExplicitAny: ok
 export type RoutesPretty<TRoutesRecord extends RoutesRecord = any> = RoutesRecordHydrated<TRoutesRecord> &
   Omit<
     Routes<TRoutesRecord>,
@@ -1408,7 +1470,6 @@ export type _GeneralLocation = {
   host?: string
   hostname?: string
 }
-type IsAny<T> = 0 extends 1 & T ? true : false
 /** Location state before matching against a concrete route. */
 export type UnknownLocationState = {
   known: false
@@ -1433,8 +1494,8 @@ export type UnmatchedLocationState<TRoute extends AnyRoute | string = AnyRoute |
   descendant: false
   unmatched: true
 }
-export type UnmatchedLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true ? any : _GeneralLocation & UnmatchedLocationState<TRoute>
+export type UnmatchedLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
+  UnmatchedLocationState<TRoute>
 
 /** Exact match state for a known route. */
 export type ExactLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
@@ -1447,8 +1508,8 @@ export type ExactLocationState<TRoute extends AnyRoute | string = AnyRoute | str
   descendant: false
   unmatched: false
 }
-export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true ? any : _GeneralLocation & ExactLocationState<TRoute>
+export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
+  ExactLocationState<TRoute>
 
 /** Input URL is a descendant of route definition (route is ancestor). */
 export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
@@ -1461,8 +1522,8 @@ export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | 
   descendant: false
   unmatched: false
 }
-export type AncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true ? any : _GeneralLocation & AncestorLocationState<TRoute>
+export type AncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
+  AncestorLocationState<TRoute>
 
 /** It is when route not match at all, but params match. */
 export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
@@ -1475,8 +1536,8 @@ export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRout
   descendant: false
   unmatched: false
 }
-export type WeakAncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true ? any : _GeneralLocation & WeakAncestorLocationState<TRoute>
+export type WeakAncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
+  WeakAncestorLocationState<TRoute>
 
 /** Input URL is an ancestor prefix of route definition (route is descendant). */
 export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
@@ -1489,8 +1550,8 @@ export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute 
   descendant: true
   unmatched: false
 }
-export type DescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true ? any : _GeneralLocation & DescendantLocationState
+export type DescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
+  DescendantLocationState<TRoute>
 
 /** It is when route not match at all, but params partially match. */
 export type WeakDescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
@@ -1503,8 +1564,8 @@ export type WeakDescendantLocationState<TRoute extends AnyRoute | string = AnyRo
   descendant: true
   unmatched: false
 }
-export type WeakDescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  IsAny<TRoute> extends true ? any : _GeneralLocation & WeakDescendantLocationState<TRoute>
+export type WeakDescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
+  WeakDescendantLocationState<TRoute>
 export type KnownLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
   | UnmatchedLocation<TRoute>
   | ExactLocation<TRoute>
@@ -1658,6 +1719,7 @@ export type WithParamsInput<
   TDefinition extends string,
   T extends
     | {
+        // biome-ignore lint/suspicious/noExplicitAny: ok
         search?: _LooseSearchInput<any>
         abs?: boolean
         hash?: string | number

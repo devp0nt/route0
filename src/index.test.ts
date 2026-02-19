@@ -1,34 +1,37 @@
 import { describe, expect, expectTypeOf, it } from 'bun:test'
 import type {
+  AnyLocation,
   AnyRoute,
   AnyRouteOrDefinition,
   CallableRoute,
   CanInputBeEmpty,
+  ExactLocation,
   Extended,
   ExtractRoute,
   ExtractRoutesKeys,
+  HasLooseSearch,
+  HasNamedSearch,
+  HasParams,
+  HasSearch,
+  IsAncestor,
+  IsDescendant,
+  IsSame,
+  IsSameParams,
+  KnownLocation,
   LooseFlatInput,
   LooseFlatInputStringOnly,
   LooseFlatInputWithHash,
   LooseFlatOutput,
   LooseFlatOutputWithHash,
-  HasLooseSearch,
-  HasNamedSearch,
-  HasParams,
-  HasSearch,
-  IsDescendant,
-  IsAncestor,
-  IsSame,
-  IsSameParams,
+  LooseSearchInput,
+  LooseSearchInputStringOnly,
+  LooseSearchOutput,
   ParamsInput,
   ParamsInputStringOnly,
   ParamsOutput,
   RoutesPretty,
   SafeParseInputLooseResult,
   SafeParseInputStrictResult,
-  LooseSearchInput,
-  LooseSearchInputStringOnly,
-  LooseSearchOutput,
   StrictFlatInput,
   StrictFlatInputStringOnly,
   StrictFlatInputWithHash,
@@ -37,12 +40,9 @@ import type {
   StrictSearchInput,
   StrictSearchInputStringOnly,
   StrictSearchOutput,
-  AnyLocation,
   UnknownLocation,
-  KnownLocation,
-  WeakDescendantLocation,
   WeakAncestorLocation,
-  ExactLocation,
+  WeakDescendantLocation,
 } from './index.js'
 import { Route0, Routes } from './index.js'
 
@@ -1538,13 +1538,13 @@ describe('Routes', () => {
     })
 
     const user = collection.user
-    expect(user.get({ id: '123' } as any)).toBe('/user/123')
+    expect(user.get({ id: '123' })).toBe('/user/123')
 
     const search = collection.search
     expect(search.get({ search: { q: 'test', filter: 'all' } })).toBe('/search?q=test&filter=all')
 
     const userWithSearch = collection.userWithSearch
-    expect(userWithSearch.get({ id: '456', search: { tab: 'posts' } } as any)).toBe('/user/456?tab=posts')
+    expect(userWithSearch.get({ id: '456', search: { tab: 'posts' } })).toBe('/user/456?tab=posts')
   })
 
   it('get maintains route definitions', () => {
@@ -1665,10 +1665,10 @@ describe('Routes', () => {
     expect(collection.api({ abs: true })).toBe('https://api.example.com/api/v1')
     expect(collection.users.get({ abs: true })).toBe('https://api.example.com/api/v1/users')
 
-    const userDetailPath: any = collection.userDetail.get({ id: '42', abs: true })
+    const userDetailPath = collection.userDetail.get({ id: '42', abs: true })
     expect(userDetailPath).toBe('https://api.example.com/api/v1/users/42')
 
-    const userPostsPath: any = collection.userPosts.get({
+    const userPostsPath = collection.userPosts.get({
       id: '42',
       search: { sort: 'date', filter: 'published' },
       abs: true,
@@ -1879,8 +1879,7 @@ describe('regex', () => {
     const match = '/users/special'.match(regex)
     expect(match).toBeTruthy()
     // Both could match, but first one should win
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    expect(match![0]).toBe('/users/special')
+    expect(match?.[0]).toBe('/users/special')
   })
 
   it('getRegexString works with getLocation', () => {
@@ -2278,9 +2277,9 @@ describe('relations: isSame, isAncestor, isDescendant', () => {
     const r2 = Route0.create('/users/:userId')
     const r3 = Route0.create('/users')
     const r4 = Route0.create('/users/:id/posts')
-    expect((r1 as any).isSame(r2 as any)).toBe(true)
-    expect((r1 as any).isSame(r3 as any)).toBe(false)
-    expect((r1 as any).isSame(r4 as any)).toBe(false)
+    expect(r1.isSame(r2)).toBe(true)
+    expect(r1.isSame(r3)).toBe(false)
+    expect(r1.isSame(r4)).toBe(false)
   })
 
   it('isAncestor: true when left is ancestor of right', () => {
@@ -2335,19 +2334,29 @@ describe('types widening', () => {
   })
 
   it('location by path extends same location by any path', () => {
+    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<KnownLocation<any>>().toExtend<KnownLocation<'/path'>>()
+    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<WeakDescendantLocation<any>>().toExtend<WeakDescendantLocation<'/path'>>()
+    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<WeakAncestorLocation<any>>().toExtend<WeakAncestorLocation<'/path'>>()
+    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<ExactLocation<any>>().toExtend<ExactLocation<'/path'>>()
 
+    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<KnownLocation<any>>().toExtend<KnownLocation<'/:id'>>()
+    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<WeakDescendantLocation<any>>().toExtend<WeakDescendantLocation<'/:id'>>()
+    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<WeakAncestorLocation<any>>().toExtend<WeakAncestorLocation<'/:id'>>()
+    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<ExactLocation<any>>().toExtend<ExactLocation<'/:id'>>()
   })
 
   it('any route definition extends any route', () => {
+    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<AnyRoute<any>>().toExtend<AnyRoute<'/path'>>()
+    // biome-ignore lint/suspicious/noExplicitAny: ok
     expectTypeOf<AnyRoute<any>>().toExtend<AnyRoute<'/:id'>>()
   })
 })

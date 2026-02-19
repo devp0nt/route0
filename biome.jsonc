@@ -1,0 +1,79 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/.git",
+      "!**/dist",
+      "!**/dist-test",
+      "!**/dist-npm",
+      "!**/.cache",
+      "!**/.husky",
+      "!**/coverage",
+      "!**/.bak"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "semicolons": "asNeeded",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "json": {
+    "formatter": {
+      "trailingCommas": "none"
+    }
+  },
+  "assist": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "a11y": {
+        "noLabelWithoutControl": "off",
+        "noStaticElementInteractions": "off",
+        "useButtonType": "off",
+        "useKeyWithClickEvents": "off"
+      },
+      "correctness": {},
+      "complexity": {
+        "noStaticOnlyClass": "off"
+      },
+      "security": {
+        // "noDangerouslySetInnerHtml": "off"
+      },
+      "style": {
+        "useTemplate": "off"
+      },
+      "suspicious": {
+        // "noAssignInExpressions": "off",
+        // "noExplicitAny": "off",
+        "noTemplateCurlyInString": "off",
+        "useAdjacentOverloadSignatures": "off",
+        "noConfusingVoidType": "off",
+        "noGlobalIsNan": "off",
+        "noDocumentCookie": "off",
+        "useIterableCallbackReturn": "off",
+        "noImplicitAnyLet": "off"
+      }
+    }
+  }
+}
