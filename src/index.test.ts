@@ -1286,6 +1286,13 @@ describe('getLocation', () => {
       expect(loc.exact).toBe(true)
       expect(loc.route).toBe('/b/:c')
     })
+
+    it('any RoutesPretty type suitable to any RoutesPretty stype', () => {
+      Routes.create({
+        home: '/',
+        v: '/b',
+      }) satisfies RoutesPretty
+    })
   })
 })
 

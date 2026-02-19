@@ -1008,7 +1008,7 @@ export class Route0<TDefinition extends string> {
  * `Routes.create()` accepts either plain string definitions or route objects
  * and returns a "pretty" object with direct route access + helper methods under `._`.
  */
-export class Routes<const T extends RoutesRecord = RoutesRecord> {
+export class Routes<const T extends RoutesRecord = any> {
   _routes: RoutesRecordHydrated<T>
   _pathsOrdering: string[]
   _keysOrdering: string[]
@@ -1194,27 +1194,24 @@ export type RouteConfigInput = {
 /** User-provided routes map (plain definitions or route instances). */
 export type RoutesRecord = Record<string, AnyRoute | string>
 /** Same as `RoutesRecord` but all values normalized to callable routes. */
-export type RoutesRecordHydrated<TRoutesRecord extends RoutesRecord = RoutesRecord> = {
+export type RoutesRecordHydrated<TRoutesRecord extends RoutesRecord = any> = {
   [K in keyof TRoutesRecord]: CallableRoute<TRoutesRecord[K]>
 }
-/** Public shape returned by `Routes.create()`. */
-export type RoutesPretty<TRoutesRecord extends RoutesRecord = RoutesRecord> = RoutesRecordHydrated<TRoutesRecord> &
+/** Public shape returned by `Routes.create()`. Default `any` so `satisfies RoutesPretty` accepts any created routes. */
+export type RoutesPretty<TRoutesRecord extends RoutesRecord = any> = RoutesRecordHydrated<TRoutesRecord> &
   Omit<
     Routes<TRoutesRecord>,
     '_routes' | '_getLocation' | '_override' | '_pathsOrdering' | '_keysOrdering' | '_ordered'
   >
-export type ExtractRoutesKeys<TRoutes extends RoutesPretty<any> | RoutesRecord> =
-  TRoutes extends RoutesPretty<any>
-    ? Extract<keyof TRoutes['_']['routes'], string>
-    : TRoutes extends RoutesRecord
-      ? Extract<keyof TRoutes, string>
-      : never
-export type ExtractRoute<TRoutes extends RoutesPretty<any> | RoutesRecord, TKey extends ExtractRoutesKeys<TRoutes>> =
-  TRoutes extends RoutesPretty<any>
-    ? TRoutes['_']['routes'][TKey]
-    : TRoutes extends RoutesRecord
-      ? TRoutes[TKey]
-      : never
+export type ExtractRoutesKeys<TRoutes extends RoutesPretty | RoutesRecord> = TRoutes extends RoutesPretty
+  ? Extract<keyof TRoutes['_']['routes'], string>
+  : TRoutes extends RoutesRecord
+    ? Extract<keyof TRoutes, string>
+    : never
+export type ExtractRoute<
+  TRoutes extends RoutesPretty | RoutesRecord,
+  TKey extends ExtractRoutesKeys<TRoutes>,
+> = TRoutes extends RoutesPretty ? TRoutes['_']['routes'][TKey] : TRoutes extends RoutesRecord ? TRoutes[TKey] : never
 
 // public utils
 
@@ -1458,7 +1455,7 @@ export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | 
   known: true
   route: Definition<TRoute>
   params: ParamsOutput<TRoute>
-  searchParams: Record<string, string | undefined>
+  searchParams: LooseSearchOutput<TRoute>
   exact: false
   ancestor: true
   descendant: false
@@ -1472,7 +1469,7 @@ export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRout
   known: true
   route: Definition<TRoute>
   params: ParamsOutput<TRoute>
-  searchParams: Record<string, string | undefined>
+  searchParams: LooseSearchOutput<TRoute>
   exact: false
   ancestor: true
   descendant: false
@@ -1486,7 +1483,7 @@ export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute 
   known: true
   route: Definition<TRoute>
   params: Partial<ParamsOutput<TRoute>>
-  searchParams: Record<string, string | undefined>
+  searchParams: LooseSearchOutput<TRoute>
   exact: false
   ancestor: false
   descendant: true
@@ -1500,7 +1497,7 @@ export type WeakDescendantLocationState<TRoute extends AnyRoute | string = AnyRo
   known: true
   route: Definition<TRoute>
   params: Partial<ParamsOutput<TRoute>>
-  searchParams: Record<string, string | undefined>
+  searchParams: LooseSearchOutput<TRoute>
   exact: false
   ancestor: false
   descendant: true
