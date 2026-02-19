@@ -764,7 +764,6 @@ export class Route0<TDefinition extends string> {
         ? this.pathDefinition.slice(0, -1)
         : this.pathDefinition
     def.replace(/:([A-Za-z0-9_]+)/g, (_m: string, name: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
       paramNames.push(String(name))
       return ''
     })
@@ -1659,7 +1658,6 @@ export type SearchTailDefinitionWithoutFirstAndLastAmp<S extends string> = S ext
     : ''
 export type SearchTailDefinitionWithFirstAmp<S extends string> = S extends `${string}&${infer T}` ? `&${T}` : ''
 export type AmpSplit<S extends string> = S extends `${infer A}&${infer B}` ? A | AmpSplit<B> : S
-// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type NonEmpty<T> = [T] extends ['' | never] ? never : T
 export type ExtractPathParams<S extends string> = S extends `${string}:${infer After}`
   ? After extends `${infer Name}/${infer Rest}`

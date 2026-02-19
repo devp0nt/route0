@@ -97,8 +97,7 @@
     "@typescript/native-preview": "^7.0.0-dev.20260219.1",
     "cross-env": "^10.0.0",
     "esbuild-fix-imports-plugin": "^1.0.22",
-    "eslint": "^9.36.0",
-    "eslint-config-love": "^130.0.0",
+    "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-no-only-tests": "^3.3.0",
     "husky": "^9.1.7",
@@ -108,7 +107,8 @@
     "semantic-release": "^25.0.2",
     "tsc-watch": "^7.1.1",
     "tsup": "^8.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.56.0"
   },
   "engines": {
     "node": ">=18.0.0",
