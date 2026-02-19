@@ -430,7 +430,6 @@ describe('Route0', () => {
     expectTypeOf<typeof route>().toExtend<AnyRoute>()
     expectTypeOf<typeof route>().toExtend<AnyRouteOrDefinition>()
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const route2 = route.extend('/path2')
     expectTypeOf<typeof route2>().toExtend<AnyRoute>()
     expectTypeOf<typeof route2>().toExtend<AnyRouteOrDefinition>()
@@ -532,7 +531,6 @@ describe('type utilities', () => {
     expectTypeOf<ParamsInput<'/path/:id'>>().toEqualTypeOf<{ id: string | number }>()
     expectTypeOf<ParamsInput<'/path/:id/:name'>>().toEqualTypeOf<{ id: string | number; name: string | number }>()
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const route = Route0.create('/path/:id/:name')
     expectTypeOf<ParamsInput<typeof route>>().toEqualTypeOf<{ id: string | number; name: string | number }>()
   })
@@ -541,7 +539,6 @@ describe('type utilities', () => {
     expectTypeOf<ParamsOutput<'/path/:id'>>().toEqualTypeOf<{ id: string }>()
     expectTypeOf<ParamsOutput<'/path/:id/:name'>>().toEqualTypeOf<{ id: string; name: string }>()
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const route = Route0.create('/path/:id/:name')
     expectTypeOf<ParamsOutput<typeof route>>().toEqualTypeOf<{ id: string; name: string }>()
   })
@@ -731,7 +728,6 @@ describe('type utilities', () => {
     expectTypeOf<ParamsInputStringOnly<'/path/:id'>>().toEqualTypeOf<{ id: string }>()
     expectTypeOf<ParamsInputStringOnly<'/path/:id/:name'>>().toEqualTypeOf<{ id: string; name: string }>()
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const route = Route0.create('/path/:id/:name')
     expectTypeOf<ParamsInputStringOnly<typeof route>>().toEqualTypeOf<{ id: string; name: string }>()
   })
@@ -850,7 +846,6 @@ describe('type utilities', () => {
     expectTypeOf<Extended<'/path/:id', '/child&x'>>().toEqualTypeOf<Route0<'/path/:id/child&x'>>()
     expectTypeOf<Extended<undefined, '/path'>>().toEqualTypeOf<Route0<'/path'>>()
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const ancestor = Route0.create('/path')
     expectTypeOf<Extended<typeof ancestor, '/child'>>().toEqualTypeOf<Route0<'/path/child'>>()
   })
@@ -1058,7 +1053,6 @@ describe('getLocation', () => {
 
   describe('Routes', () => {
     it('types helpers', () => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const routes = Routes.create({
         home: '/',
         users: '/users',
