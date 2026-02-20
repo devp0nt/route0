@@ -310,6 +310,12 @@ describe('Route0', () => {
     // expect(pathHash).toBe(route0.flat({ hash: 'zxc' }, true))
   })
 
+  it('abs as string not throw if no window.location.origin', () => {
+    const route0 = Route0.create('/path')
+    const path = route0.get({ abs: 'https://example.com' })
+    expect(path).toBe('https://example.com/path')
+  })
+
   it('abs default set window.location.origin', () => {
     ;(globalThis as unknown as { location?: { origin?: string } }).location = { origin: 'https://example.com' }
     const route0 = Route0.create('/path')

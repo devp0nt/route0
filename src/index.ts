@@ -239,7 +239,7 @@ export class Route0<TDefinition extends string> {
         TDefinition,
         {
           search?: _LooseSearchInput<TDefinition>
-          abs?: boolean
+          abs?: boolean | string
           hash?: string | number
         }
       >
@@ -287,7 +287,7 @@ export class Route0<TDefinition extends string> {
       TDefinition,
       {
         search?: _LooseSearchInput<TDefinition>
-        abs?: boolean
+        abs?: boolean | string
         hash?: string | number
       }
     >,
@@ -295,10 +295,11 @@ export class Route0<TDefinition extends string> {
 
   // implementation
   get(...args: unknown[]): string {
-    const { searchInput, paramsInput, absInput, hashInput } = ((): {
+    const { searchInput, paramsInput, absInput, absBaseurlInput, hashInput } = ((): {
       searchInput: Record<string, string | number>
       paramsInput: Record<string, string | number>
       absInput: boolean
+      absBaseurlInput: string | undefined
       hashInput: string | undefined
     } => {
       if (args.length === 0) {
@@ -306,6 +307,7 @@ export class Route0<TDefinition extends string> {
           searchInput: {},
           paramsInput: {},
           absInput: false,
+          absBaseurlInput: undefined,
           hashInput: undefined,
         }
       }
@@ -316,21 +318,23 @@ export class Route0<TDefinition extends string> {
           searchInput: {},
           paramsInput: {},
           absInput: false,
+          absBaseurlInput: undefined,
           hashInput: undefined,
         }
       }
       const { search, abs, hash, ...params } = input as Record<string, string | number> & {
         search: Record<string, string | number>
-        abs: boolean
+        abs: boolean | string
         hash: string | undefined
         [key: string]: unknown
       }
+      const absBaseurlInput = typeof abs === 'string' && abs.length > 0 ? abs : undefined
       return {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         searchInput: search || {},
         paramsInput: params,
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        absInput: abs ?? false,
+        absInput: absBaseurlInput !== undefined || abs === true,
+        absBaseurlInput,
         hashInput: hash,
       }
     })()
@@ -356,7 +360,7 @@ export class Route0<TDefinition extends string> {
     // dedupe slashes
     url = url.replace(/\/{2,}/g, '/')
     // absolute
-    url = absInput ? Route0._getAbsPath(this.baseurl, url) : url
+    url = absInput ? Route0._getAbsPath(absBaseurlInput || this.baseurl, url) : url
     // hash
     if (hashInput !== undefined) {
       url = `${url}#${hashInput}`
@@ -413,7 +417,7 @@ export class Route0<TDefinition extends string> {
       TDefinition,
       WithParamsInput<TDefinition, FlatInput<TDefinition, TLoose> & { hash?: string | number }>
     >,
-    abs?: boolean,
+    abs?: boolean | string,
     loose?: TLoose,
   ): OnlyIfHasParams<TDefinition, string>
 
@@ -449,7 +453,7 @@ export class Route0<TDefinition extends string> {
   flat(...args: OnlyIfNoParams<TDefinition, [], [never]>): string
   flat<TLoose extends boolean = HasLooseSearch<TDefinition>>(
     input: OnlyIfNoParams<TDefinition, FlatInput<TDefinition, TLoose> & { hash?: string | number }>,
-    abs?: boolean,
+    abs?: boolean | string,
     loose?: TLoose,
   ): OnlyIfNoParams<TDefinition, string>
 
@@ -458,7 +462,7 @@ export class Route0<TDefinition extends string> {
     const { searchInput, paramsInput, absInput, hashInput } = ((): {
       searchInput: Record<string, string | number>
       paramsInput: Record<string, string | number>
-      absInput: boolean
+      absInput: boolean | string
       hashInput: string | undefined
     } => {
       if (args.length === 0) {
@@ -476,7 +480,7 @@ export class Route0<TDefinition extends string> {
         return {
           searchInput: {},
           paramsInput: {},
-          absInput: (args[1] as boolean | undefined) ?? false,
+          absInput: (args[1] as boolean | string | undefined) ?? false,
           hashInput: undefined,
         }
       }
@@ -511,7 +515,7 @@ export class Route0<TDefinition extends string> {
       return {
         searchInput,
         paramsInput,
-        absInput: (args[1] as boolean | undefined) ?? false,
+        absInput: (args[1] as boolean | string | undefined) ?? false,
         hashInput: hashInput as string | undefined,
       }
     })()
@@ -530,12 +534,12 @@ export class Route0<TDefinition extends string> {
       TDefinition,
       WithParamsInput<TDefinition, LooseFlatInput<TDefinition> & { hash?: string | number }>
     >,
-    abs?: boolean,
+    abs?: boolean | string,
   ): OnlyIfHasParams<TDefinition, string>
   flatLoose(...args: OnlyIfNoParams<TDefinition, [], [never]>): string
   flatLoose(
     input: OnlyIfNoParams<TDefinition, LooseFlatInput<TDefinition> & { hash?: string | number }>,
-    abs?: boolean,
+    abs?: boolean | string,
   ): OnlyIfNoParams<TDefinition, string>
   flatLoose(...args: unknown[]): string {
     return this.flat(args[0] as never, args[1] as never, true)
@@ -547,12 +551,12 @@ export class Route0<TDefinition extends string> {
       TDefinition,
       WithParamsInput<TDefinition, StrictFlatInput<TDefinition> & { hash?: string | number }>
     >,
-    abs?: boolean,
+    abs?: boolean | string,
   ): OnlyIfHasParams<TDefinition, string>
   flatStrict(...args: OnlyIfNoParams<TDefinition, [], [never]>): string
   flatStrict(
     input: OnlyIfNoParams<TDefinition, StrictFlatInput<TDefinition> & { hash?: string | number }>,
-    abs?: boolean,
+    abs?: boolean | string,
   ): OnlyIfNoParams<TDefinition, string>
   flatStrict(...args: unknown[]): string {
     return this.flat(args[0] as never, args[1] as never, false)
@@ -1717,7 +1721,7 @@ export type WithParamsInput<
   T extends
     | {
         search?: _LooseSearchInput<any>
-        abs?: boolean
+        abs?: boolean | string
         hash?: string | number
       }
     | undefined = undefined,
