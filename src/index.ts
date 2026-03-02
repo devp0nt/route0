@@ -49,7 +49,7 @@ export class Route0<TDefinition extends string> {
       throw new Error(
         'origin for route ' +
           this.definition +
-          ' is not set, please provide it like Route0.create(route, {origin: "https://example.com"}) in config or set via overrides like routes._.override({origin: "https://example.com"})',
+          ' is not set, please provide it like Route0.create(route, {origin: "https://example.com"}) in config or set via clones like routes._.clone({origin: "https://example.com"})',
       )
     }
     return this._origin
@@ -1078,7 +1078,7 @@ export class Routes<const T extends RoutesRecord = any> {
   _: {
     routes: Routes<T>['_routes']
     getLocation: Routes<T>['_getLocation']
-    override: Routes<T>['_override']
+    clone: Routes<T>['_clone']
     pathsOrdering: Routes<T>['_pathsOrdering']
     keysOrdering: Routes<T>['_keysOrdering']
     ordered: Routes<T>['_ordered']
@@ -1113,7 +1113,7 @@ export class Routes<const T extends RoutesRecord = any> {
     this._ = {
       routes: this._routes,
       getLocation: this._getLocation.bind(this),
-      override: this._override.bind(this),
+      clone: this._clone.bind(this),
       pathsOrdering: this._pathsOrdering,
       keysOrdering: this._keysOrdering,
       ordered: this._ordered,
@@ -1126,7 +1126,7 @@ export class Routes<const T extends RoutesRecord = any> {
     if (!override) {
       return result
     }
-    return result._.override(override)
+    return result._.clone(override)
   }
 
   private static prettify<const T extends RoutesRecord>(instance: Routes<T>): RoutesPretty<T> {
@@ -1135,7 +1135,7 @@ export class Routes<const T extends RoutesRecord = any> {
       value: 'Routes',
     })
     Object.assign(instance, {
-      override: instance._override.bind(instance),
+      clone: instance._clone.bind(instance),
     })
     Object.assign(instance, instance._routes)
     return instance as unknown as RoutesPretty<T>
@@ -1216,7 +1216,7 @@ export class Routes<const T extends RoutesRecord = any> {
   }
 
   /** Returns a cloned routes collection with config applied to each route. */
-  _override(config: RouteConfigInput): RoutesPretty<T> {
+  _clone(config: RouteConfigInput): RoutesPretty<T> {
     const newRoutes = {} as RoutesRecordHydrated<T>
     for (const key in this._routes) {
       if (Object.hasOwn(this._routes, key)) {
@@ -1263,10 +1263,7 @@ export type RoutesRecordHydrated<TRoutesRecord extends RoutesRecord = any> = {
 }
 /** Public shape returned by `Routes.create()`. Default `any` so `satisfies RoutesPretty` accepts any created routes. */
 export type RoutesPretty<TRoutesRecord extends RoutesRecord = any> = RoutesRecordHydrated<TRoutesRecord> &
-  Omit<
-    Routes<TRoutesRecord>,
-    '_routes' | '_getLocation' | '_override' | '_pathsOrdering' | '_keysOrdering' | '_ordered'
-  >
+  Omit<Routes<TRoutesRecord>, '_routes' | '_getLocation' | '_clone' | '_pathsOrdering' | '_keysOrdering' | '_ordered'>
 export type ExtractRoutesKeys<TRoutes extends RoutesPretty | RoutesRecord> = TRoutes extends RoutesPretty
   ? Extract<keyof TRoutes['_']['routes'], string>
   : TRoutes extends RoutesRecord

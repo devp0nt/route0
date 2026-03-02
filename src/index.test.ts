@@ -1582,13 +1582,13 @@ describe('Routes', () => {
     expect(user.get({ id: '123' })).toBe('/user/123')
   })
 
-  it('override with origin', () => {
+  it('clone with origin', () => {
     const collection = Routes.create({
       home: '/',
       about: '/about',
     })
 
-    const overridden = collection._.override({ origin: 'https://example.com' })
+    const overridden = collection._.clone({ origin: 'https://example.com' })
 
     const home = overridden.home
     const about = overridden.about
@@ -1597,7 +1597,7 @@ describe('Routes', () => {
     expect(about.get({ abs: true })).toBe('https://example.com/about')
   })
 
-  it('override does not mutate original', () => {
+  it('clone does not mutate original', () => {
     const collection = Routes.create(
       {
         home: '/',
@@ -1608,14 +1608,14 @@ describe('Routes', () => {
     const original = collection.home
     expect(original.get({ abs: true })).toBe('https://example.com')
 
-    const overridden = collection._.override({ origin: 'https://newdomain.com' })
+    const overridden = collection._.clone({ origin: 'https://newdomain.com' })
     const newRoute = overridden.home
 
     expect(original.get({ abs: true })).toBe('https://example.com')
     expect(newRoute.get({ abs: true })).toBe('https://newdomain.com')
   })
 
-  it('override with extended routes', () => {
+  it('clone with extended routes', () => {
     const apiRoute = Route0.create('/api', { origin: 'https://api.example.com' })
     const usersRoute = apiRoute.extend('/users')
 
@@ -1628,7 +1628,7 @@ describe('Routes', () => {
     expect(collection.api({ abs: true })).toBe('https://api.example.com/api')
     expect(collection.users.get({ abs: true })).toBe('https://api.example.com/api/users')
 
-    const overridden = collection._.override({ origin: 'https://new-api.example.com' })
+    const overridden = collection._.clone({ origin: 'https://new-api.example.com' })
 
     expect(overridden.api.get({ abs: true })).toBe('https://new-api.example.com/api')
     expect(overridden.users.get({ abs: true })).toBe('https://new-api.example.com/api/users')
@@ -2249,7 +2249,7 @@ describe('ordering', () => {
     expect(routes._.pathsOrdering).toEqual(['/', '/users', '/users/:id'])
   })
 
-  it('ordering is preserved after override', () => {
+  it('ordering is preserved after clone', () => {
     const routes = Routes.create({
       home: '/',
       users: '/users',
@@ -2258,7 +2258,7 @@ describe('ordering', () => {
 
     const originalOrdering = routes._.pathsOrdering
 
-    const overridden = routes._.override({ origin: 'https://example.com' })
+    const overridden = routes._.clone({ origin: 'https://example.com' })
 
     expect(overridden._.pathsOrdering).toEqual(originalOrdering)
     expect(overridden._.pathsOrdering).toEqual(['/', '/users', '/users/:id'])
