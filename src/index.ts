@@ -1,3 +1,5 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
+
 // TODO: asterisk
 // TODO: when asterisk then query params will be extended also after extend
 // TODO: optional params
@@ -840,82 +842,213 @@ export class Route0<TDefinition extends string> {
     } as KnownLocation<TDefinition>
   }
 
-  /**
-   * Safe parser for flat input objects.
-   *
-   * Returns structured success/error result instead of throwing.
-   */
-  safeParseFlatInput<TLoose extends boolean = HasLooseSearch<TDefinition>>(
-    input: unknown,
-    loose?: TLoose,
-  ): TLoose extends true ? SafeParseInputLooseResult<TDefinition> : SafeParseInputStrictResult<TDefinition> {
-    loose ??= this.hasLooseSearch as TLoose
+  private _validateParamsInput(input: unknown): StandardSchemaV1.Result<ParamsOutput<TDefinition>> {
     const paramsKeys = this.getParamsKeys()
     if (input === undefined) {
       if (paramsKeys.length) {
         return {
-          success: false,
-          data: undefined,
-          error: new Error(`Missing params: ${paramsKeys.map((k) => `"${k}"`).join(', ')}`),
+          issues: [
+            {
+              message: `Missing params: ${paramsKeys.map((k) => `"${k}"`).join(', ')}`,
+            },
+          ],
         }
       }
       input = {}
     }
     if (typeof input !== 'object' || input === null) {
       return {
-        success: false,
-        data: undefined,
-        error: new Error('Invalid input: expected object'),
+        issues: [{ message: 'Invalid input: expected object' }],
       }
     }
-    const inputKeys = Object.keys(input)
+    const inputObj = input as Record<string, unknown>
+    const inputKeys = Object.keys(inputObj)
     const notDefinedKeys = paramsKeys.filter((k) => !inputKeys.includes(k))
     if (notDefinedKeys.length) {
       return {
-        success: false,
-        data: undefined,
-        error: new Error(`Missing params: ${notDefinedKeys.map((k) => `"${k}"`).join(', ')}`),
+        issues: [
+          {
+            message: `Missing params: ${notDefinedKeys.map((k) => `"${k}"`).join(', ')}`,
+          },
+        ],
       }
     }
     const data: Record<string, string> = {}
-    const filterKeys = !loose ? [...paramsKeys, ...this.getSearchKeys()] : false
-    for (const [k, v] of Object.entries(input)) {
-      if (filterKeys && !filterKeys.includes(k)) {
-        continue
-      }
+    for (const k of paramsKeys) {
+      const v = inputObj[k]
       if (typeof v === 'string') {
         data[k] = v
       } else if (typeof v === 'number') {
         data[k] = String(v)
       } else {
-        const isParamKey = paramsKeys.includes(k)
         return {
-          success: false,
-          data: undefined,
-          error: new Error(
-            `Invalid input: expected string, number,${!isParamKey ? ' or undefined,' : ''} got ${typeof v} for "${k}"`,
-          ),
+          issues: [{ message: `Invalid input: expected string, number, got ${typeof v} for "${k}"` }],
         }
       }
     }
     return {
+      value: data as ParamsOutput<TDefinition>,
+    }
+  }
+
+  private _validateSearchInput<TLoose extends boolean>(
+    input: unknown,
+    loose: TLoose,
+  ): StandardSchemaV1.Result<TLoose extends true ? LooseSearchOutput<TDefinition> : StrictSearchOutput<TDefinition>> {
+    if (input === undefined) {
+      input = {}
+    }
+    if (typeof input !== 'object' || input === null) {
+      return {
+        issues: [{ message: 'Invalid input: expected object' }],
+      }
+    }
+    const inputObj = input as Record<string, unknown>
+    const paramsKeys = this.getParamsKeys()
+    const searchKeys = this.getSearchKeys()
+    const data: Record<string, string> = {}
+    for (const [k, v] of Object.entries(inputObj)) {
+      if (k === 'hash') continue
+      if (paramsKeys.includes(k)) continue
+      if (!loose && !searchKeys.includes(k)) continue
+      if (v === undefined) continue
+      if (typeof v === 'string') {
+        data[k] = v
+      } else if (typeof v === 'number') {
+        data[k] = String(v)
+      } else {
+        return {
+          issues: [{ message: `Invalid input: expected string, number, or undefined, got ${typeof v} for "${k}"` }],
+        }
+      }
+    }
+    return {
+      value: data as TLoose extends true ? LooseSearchOutput<TDefinition> : StrictSearchOutput<TDefinition>,
+    }
+  }
+
+  private _validateFlatInput<TLoose extends boolean>(
+    input: unknown,
+    loose: TLoose,
+  ): StandardSchemaV1.Result<TLoose extends true ? LooseFlatOutput<TDefinition> : StrictFlatOutput<TDefinition>> {
+    const paramsResult = this._validateParamsInput(input)
+    if ('issues' in paramsResult) {
+      return {
+        issues: paramsResult.issues ?? [],
+      }
+    }
+
+    const searchResult = this._validateSearchInput(input, loose)
+    if ('issues' in searchResult) {
+      return {
+        issues: searchResult.issues ?? [],
+      }
+    }
+
+    return {
+      value: {
+        ...(searchResult.value as Record<string, string>),
+        ...(paramsResult.value as Record<string, string>),
+      } as TLoose extends true ? LooseFlatOutput<TDefinition> : StrictFlatOutput<TDefinition>,
+    }
+  }
+
+  private _safeParseSchemaResult<TOutput extends Record<string, unknown>>(
+    result: StandardSchemaV1.Result<TOutput>,
+  ): _SafeParseInputResult<TOutput> {
+    if ('issues' in result) {
+      return {
+        success: false,
+        data: undefined,
+        error: new Error(result.issues?.[0]?.message ?? 'Invalid input'),
+      }
+    }
+    return {
       success: true,
-      data: data as LooseFlatOutputWithHash<TDefinition>,
+      data: result.value,
       error: undefined,
     }
   }
 
-  /** Throwing variant of `safeParseFlatInput()`. */
-  parseFlatInput<TLoose extends boolean = HasLooseSearch<TDefinition>>(
-    input: unknown,
-    loose?: TLoose,
-  ): TLoose extends true ? LooseFlatOutput<TDefinition> : StrictFlatOutput<TDefinition> {
-    loose ??= this.hasLooseSearch as TLoose
-    const result = this.safeParseFlatInput(input, loose)
-    if (result.error) {
-      throw result.error
+  private _parseSchemaResult<TOutput extends Record<string, unknown>>(
+    result: StandardSchemaV1.Result<TOutput>,
+  ): TOutput {
+    const safeResult = this._safeParseSchemaResult(result)
+    if (safeResult.error) {
+      throw safeResult.error
     }
-    return result.data as TLoose extends true ? LooseFlatOutput<TDefinition> : StrictFlatOutput<TDefinition>
+    return safeResult.data
+  }
+
+  /** Standard Schema for route params input. */
+  readonly paramsInputSchema: Route0Schema<ParamsInput<TDefinition> | undefined, ParamsOutput<TDefinition>> = {
+    '~standard': {
+      version: 1,
+      vendor: 'route0',
+      validate: (value) => this._validateParamsInput(value),
+      types: undefined as unknown as StandardSchemaV1.Types<
+        ParamsInput<TDefinition> | undefined,
+        ParamsOutput<TDefinition>
+      >,
+    },
+    parse: (value) => this._parseSchemaResult(this._validateParamsInput(value)),
+    safeParse: (value) => this._safeParseSchemaResult(this._validateParamsInput(value)),
+  }
+
+  /** Standard Schema for strict search input. */
+  readonly strictSearchInputSchema: Route0Schema<
+    StrictSearchInput<TDefinition> | undefined,
+    StrictSearchOutput<TDefinition>
+  > = {
+    '~standard': {
+      version: 1,
+      vendor: 'route0',
+      validate: (value) => this._validateSearchInput(value, false),
+      types: undefined as unknown as StandardSchemaV1.Types<
+        StrictSearchInput<TDefinition> | undefined,
+        StrictSearchOutput<TDefinition>
+      >,
+    },
+    parse: (value) => this._parseSchemaResult(this._validateSearchInput(value, false)),
+    safeParse: (value) => this._safeParseSchemaResult(this._validateSearchInput(value, false)),
+  }
+
+  /** Standard Schema for loose search input. */
+  readonly looseSearchInputSchema: Route0Schema<
+    LooseSearchInput<TDefinition> | undefined,
+    LooseSearchOutput<TDefinition>
+  > = {
+    '~standard': {
+      version: 1,
+      vendor: 'route0',
+      validate: (value) => this._validateSearchInput(value, true),
+      types: undefined as unknown as StandardSchemaV1.Types<
+        LooseSearchInput<TDefinition> | undefined,
+        LooseSearchOutput<TDefinition>
+      >,
+    },
+    parse: (value) => this._parseSchemaResult(this._validateSearchInput(value, true)),
+    safeParse: (value) => this._safeParseSchemaResult(this._validateSearchInput(value, true)),
+  }
+
+  /** Standard Schema for route flat input (uses route default strict/loose mode). */
+  readonly flatInputSchema: Route0Schema<
+    FlatInput<TDefinition, HasLooseSearch<TDefinition>> | undefined,
+    FlatOutput<TDefinition, HasLooseSearch<TDefinition>>
+  > = {
+    '~standard': {
+      version: 1,
+      vendor: 'route0',
+      validate: (value) => this._validateFlatInput(value, this.hasLooseSearch as HasLooseSearch<TDefinition>),
+      types: undefined as unknown as StandardSchemaV1.Types<
+        FlatInput<TDefinition, HasLooseSearch<TDefinition>> | undefined,
+        FlatOutput<TDefinition, HasLooseSearch<TDefinition>>
+      >,
+    },
+    parse: (value) =>
+      this._parseSchemaResult(this._validateFlatInput(value, this.hasLooseSearch as HasLooseSearch<TDefinition>)),
+    safeParse: (value) =>
+      this._safeParseSchemaResult(this._validateFlatInput(value, this.hasLooseSearch as HasLooseSearch<TDefinition>)),
   }
 
   /** True when path structure is equal (param names are ignored). */
@@ -1767,3 +1900,10 @@ export type SafeParseInputStrictResult<TDefinition extends string> = _SafeParseI
   StrictFlatOutput<TDefinition>
 >
 export type SafeParseInputLooseResult<TDefinition extends string> = _SafeParseInputResult<LooseFlatOutput<TDefinition>>
+export type Route0Schema<
+  TInput extends Record<string, unknown> | undefined,
+  TOutput extends Record<string, unknown>,
+> = StandardSchemaV1<TInput, TOutput> & {
+  parse: (input: unknown) => TOutput
+  safeParse: (input: unknown) => _SafeParseInputResult<TOutput>
+}

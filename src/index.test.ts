@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'bun:test'
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type {
   AnyLocation,
   AnyRoute,
@@ -30,8 +31,6 @@ import type {
   ParamsInputStringOnly,
   ParamsOutput,
   RoutesPretty,
-  SafeParseInputLooseResult,
-  SafeParseInputStrictResult,
   StrictFlatInput,
   StrictFlatInputStringOnly,
   StrictFlatInputWithHash,
@@ -1312,187 +1311,140 @@ describe('getLocation', () => {
   })
 })
 
-describe('parseFlatInput', () => {
-  it('no params, no search, undefined input', () => {
-    expect(Route0.create('/').parseFlatInput(undefined, true)).toMatchObject({})
+describe('input schemas', () => {
+  it('flatInputSchema validate (auto loose route)', () => {
+    const route = Route0.create('/:id&a&')
+    const result = route.flatInputSchema['~standard'].validate({ id: 1, a: 2, b: 3, c: 4 })
+    if (result instanceof Promise) {
+      throw new Error('Unexpected async schema result')
+    }
+    expect(result).toMatchObject({
+      value: {
+        id: '1',
+        a: '2',
+        b: '3',
+        c: '4',
+      },
+    })
   })
 
-  it('no params, no search, empty input', () => {
-    expect(Route0.create('/').parseFlatInput({}, true)).toMatchObject({})
+  it('flatInputSchema validate error', () => {
+    const route = Route0.create('/:id&a&b')
+    const result = route.flatInputSchema['~standard'].validate(undefined)
+    if (result instanceof Promise) {
+      throw new Error('Unexpected async schema result')
+    }
+    expect(result).toMatchObject({
+      issues: [{ message: 'Missing params: "id"' }],
+    })
   })
 
-  it('no params, no search, not empty valid input', () => {
-    expect(Route0.create('/').parseFlatInput({ x: '1', y: 2 }, true)).toMatchObject({ x: '1', y: '2' })
-  })
-
-  it('no params, no search, not empty invalid input', () => {
-    expect(() => Route0.create('/').parseFlatInput({ x: '1', y: 2, z: () => ({}), c: null }, true)).toThrow(
-      'Invalid input: expected string, number, or undefined, got function for "z"',
-    )
-  })
-
-  it('with params, no search, undefined input', () => {
-    expect(() => Route0.create('/:id').parseFlatInput(undefined, true)).toThrow('Missing params: "id"')
-  })
-
-  it('with params, no search, empty input', () => {
-    expect(() => Route0.create('/:id').parseFlatInput({}, true)).toThrow('Missing params: "id"')
-  })
-
-  it('with params, no search, exact input', () => {
-    expect(Route0.create('/:id').parseFlatInput({ id: '1' }, true)).toMatchObject({ id: '1' })
-  })
-
-  it('with params, no search, larger input', () => {
-    expect(Route0.create('/:id').parseFlatInput({ id: 1, x: '2' }, true)).toMatchObject({ id: '1', x: '2' })
-  })
-
-  it('with params, no search, smaller input', () => {
-    expect(() => Route0.create('/:id/:sn').parseFlatInput({ id: 1 }, true)).toThrow('Missing params: "sn"')
-  })
-
-  it('with params, no search, invalid input', () => {
-    expect(() => Route0.create('/:id').parseFlatInput({ id: '1', sn: 2, x: () => ({}) }, true)).toThrow(
-      'Invalid input: expected string, number, or undefined, got function for "x"',
-    )
-  })
-
-  it('with params, with search, undefined input', () => {
-    expect(() => Route0.create('/:id&a&b').parseFlatInput(undefined, true)).toThrow('Missing params: "id"')
-  })
-
-  it('with params, with search, empty input', () => {
-    expect(() => Route0.create('/:id&a&b').parseFlatInput({}, true)).toThrow('Missing params: "id"')
-  })
-
-  it('with params, with search, exact input, no search', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1' }, true)).toMatchObject({ id: '1' })
-  })
-
-  it('with params, with search, exact input, smaller search', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, a: '2' }, true)).toMatchObject({ id: '1', a: '2' })
-  })
-
-  it('with params, with search, exact input, exact search', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3' }, true)).toMatchObject({
+  it('flatInputSchema parse and safeParse', () => {
+    const route = Route0.create('/:id&a&')
+    expect(route.flatInputSchema.parse({ id: 1, a: 2, c: 3 })).toMatchObject({
       id: '1',
       a: '2',
-      b: '3',
+      c: '3',
     })
-  })
-
-  it('with params, with search, exact input, larger search', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, a: '2', b: '3', c: 4 }, true)).toMatchObject({
-      id: '1',
-      a: '2',
-      b: '3',
-      c: '4',
-    })
-  })
-
-  it('with params, with search, larger input', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: 1, x: '2', a: 3, b: 4 }, true)).toMatchObject({
-      id: '1',
-      x: '2',
-      a: '3',
-      b: '4',
-    })
-  })
-
-  it('with params, with search, invalid input', () => {
-    expect(() => Route0.create('/:id&a&b').parseFlatInput({ id: '1', sn: 2, a: () => ({}) }, true)).toThrow(
-      'Invalid input: expected string, number, or undefined, got function for "a"',
-    )
-  })
-
-  it('no params, no search, strict', () => {
-    expect(Route0.create('/').parseFlatInput({ id: '1', sn: 2, a: () => ({}) }, false)).toMatchObject({})
-  })
-
-  it('with params, no search, strict', () => {
-    expect(Route0.create('/:id').parseFlatInput({ id: 1, x: 2 }, false)).toMatchObject({ id: '1' })
-  })
-
-  it('no params, with search, strict', () => {
-    expect(Route0.create('/&a&b').parseFlatInput({ a: '1', b: 2, c: 3 }, false)).toMatchObject({ a: '1', b: '2' })
-  })
-
-  it('with params, with search, strict', () => {
-    expect(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, false)).toMatchObject({
-      id: '1',
-      a: '2',
-      b: '3',
-    })
-  })
-
-  it('safe error', () => {
-    expect(Route0.create('/:id&a&b').safeParseFlatInput(undefined, true)).toMatchObject({
-      data: undefined,
-      error: new Error(''),
-      success: false,
-    })
-  })
-
-  it('safe success', () => {
-    expect(Route0.create('/:id&a&b').safeParseFlatInput({ id: '1', a: 2, b: '3' }, true)).toMatchObject({
-      data: { id: '1', a: '2', b: '3' },
-      error: undefined,
+    expect(route.flatInputSchema.safeParse({ id: 1, a: 2, c: 3 })).toMatchObject({
       success: true,
+      data: {
+        id: '1',
+        a: '2',
+        c: '3',
+      },
+      error: undefined,
+    })
+    expect(route.flatInputSchema.safeParse(undefined)).toMatchObject({
+      success: false,
+      data: undefined,
+      error: new Error('Missing params: "id"'),
+    })
+    expect(() => route.flatInputSchema.parse(undefined)).toThrow('Missing params: "id"')
+  })
+
+  it('paramsInputSchema validate', () => {
+    const route = Route0.create('/:id/:sn')
+    const result = route.paramsInputSchema['~standard'].validate({ id: 1, sn: 'x', extra: 'ignored' })
+    if (result instanceof Promise) {
+      throw new Error('Unexpected async schema result')
+    }
+    expect(result).toMatchObject({
+      value: { id: '1', sn: 'x' },
     })
   })
 
-  it('typed correctly', () => {
-    expectTypeOf(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3' }, true)).toEqualTypeOf<
-      LooseFlatOutput<'/:id&a&b'>
-    >()
-    expectTypeOf(Route0.create('/:id&a&b').parseFlatInput({ id: '1', a: 2, b: '3' }, false)).toEqualTypeOf<
-      StrictFlatOutput<'/:id&a&b'>
-    >()
-    const safeResultLoose = Route0.create('/:id&a&b').safeParseFlatInput({ id: '1', a: 2, b: '3' }, true)
-    expectTypeOf(safeResultLoose).toEqualTypeOf<SafeParseInputLooseResult<'/:id&a&b'>>()
-    expectTypeOf(safeResultLoose.success).toEqualTypeOf<boolean>()
-    expectTypeOf(safeResultLoose.data).toEqualTypeOf<LooseFlatOutput<'/:id&a&b'> | undefined>()
-    expectTypeOf(safeResultLoose.error).toEqualTypeOf<Error | undefined>()
-    const safeResultStrict = Route0.create('/:id&a&b').safeParseFlatInput({ id: '1', a: 2, b: '3' }, false)
-    expectTypeOf(safeResultStrict).toEqualTypeOf<SafeParseInputStrictResult<'/:id&a&b'>>()
-    expectTypeOf(safeResultStrict.success).toEqualTypeOf<boolean>()
-    expectTypeOf(safeResultStrict.data).toEqualTypeOf<StrictFlatOutput<'/:id&a&b'> | undefined>()
-    expectTypeOf(safeResultStrict.error).toEqualTypeOf<Error | undefined>()
+  it('strictSearchInputSchema validate', () => {
+    const route = Route0.create('/:id&a&b')
+    const result = route.strictSearchInputSchema['~standard'].validate({ id: '1', a: 2, b: '3', c: 4 })
+    if (result instanceof Promise) {
+      throw new Error('Unexpected async schema result')
+    }
+    expect(result).toMatchObject({
+      value: { a: '2', b: '3' },
+    })
   })
 
-  it('auto loose search', () => {
-    const routeStrict = Route0.create('/:id&a&')
-    expect(routeStrict.parseFlatInput({ id: '1', a: 2, b: '3', c: 4 })).toMatchObject({
-      id: '1',
-      a: '2',
-      b: '3',
-      c: '4',
+  it('looseSearchInputSchema validate', () => {
+    const route = Route0.create('/:id&a&')
+    const result = route.looseSearchInputSchema['~standard'].validate({ id: '1', a: 2, b: '3', hash: 'x' })
+    if (result instanceof Promise) {
+      throw new Error('Unexpected async schema result')
+    }
+    expect(result).toMatchObject({
+      value: { a: '2', b: '3' },
     })
-    expectTypeOf(routeStrict.parseFlatInput({ id: '1', a: 2, b: '3', c: 4 })).toEqualTypeOf<
-      LooseFlatOutput<'/:id&a&'>
-    >()
-    expect(routeStrict.safeParseFlatInput({ id: '1', a: 2, b: '3', c: 4 }).data).toMatchObject({
-      id: '1',
-      a: '2',
-      b: '3',
-      c: '4',
-    })
-    expectTypeOf(routeStrict.safeParseFlatInput({ id: '1', a: 2, b: '3', c: 4 })).toEqualTypeOf<
-      SafeParseInputLooseResult<'/:id&a&'>
-    >()
+  })
 
-    const routeLoose = Route0.create('/:id&a&b')
-    expect(routeLoose.parseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, false)).toMatchObject({ id: '1', a: '2', b: '3' })
-    expectTypeOf(routeLoose.parseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, false)).toEqualTypeOf<
-      StrictFlatOutput<'/:id&a&b'>
-    >()
-    expect(routeLoose.safeParseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, false).data).toMatchObject({
-      id: '1',
+  it('params/search schemas parse and safeParse', () => {
+    const route = Route0.create('/:id&a&b')
+
+    expect(route.paramsInputSchema.parse({ id: 1, x: '2' })).toMatchObject({ id: '1' })
+    expect(route.paramsInputSchema.safeParse(undefined)).toMatchObject({
+      success: false,
+      data: undefined,
+      error: new Error('Missing params: "id"'),
+    })
+
+    expect(route.strictSearchInputSchema.parse({ id: '1', a: 2, b: 3, c: 4 })).toMatchObject({
       a: '2',
       b: '3',
     })
-    expectTypeOf(routeLoose.safeParseFlatInput({ id: '1', a: 2, b: '3', c: 4 }, false)).toEqualTypeOf<
-      SafeParseInputStrictResult<'/:id&a&b'>
+    expect(route.strictSearchInputSchema.safeParse({ a: () => ({}) })).toMatchObject({
+      success: false,
+      data: undefined,
+      error: new Error('Invalid input: expected string, number, or undefined, got function for "a"'),
+    })
+
+    expect(route.looseSearchInputSchema.parse({ id: '1', a: 2, c: 3 })).toMatchObject({
+      a: '2',
+      c: '3',
+    })
+    expect(route.looseSearchInputSchema.safeParse({ a: () => ({}) })).toMatchObject({
+      success: false,
+      data: undefined,
+      error: new Error('Invalid input: expected string, number, or undefined, got function for "a"'),
+    })
+  })
+
+  it('schema types are assignable to StandardSchemaV1', () => {
+    const route = Route0.create('/:id&a&')
+    expectTypeOf(route.paramsInputSchema).toMatchTypeOf<StandardSchemaV1>()
+    expectTypeOf(route.strictSearchInputSchema).toMatchTypeOf<StandardSchemaV1>()
+    expectTypeOf(route.looseSearchInputSchema).toMatchTypeOf<StandardSchemaV1>()
+    expectTypeOf(route.flatInputSchema).toMatchTypeOf<StandardSchemaV1>()
+
+    expectTypeOf(route.paramsInputSchema).toMatchTypeOf<
+      StandardSchemaV1<ParamsInput<'/:id&a&'> | undefined, ParamsOutput<'/:id&a&'>>
+    >()
+    expectTypeOf(route.strictSearchInputSchema).toMatchTypeOf<
+      StandardSchemaV1<StrictSearchInput<'/:id&a&'> | undefined, StrictSearchOutput<'/:id&a&'>>
+    >()
+    expectTypeOf(route.looseSearchInputSchema).toMatchTypeOf<
+      StandardSchemaV1<LooseSearchInput<'/:id&a&'> | undefined, LooseSearchOutput<'/:id&a&'>>
+    >()
+    expectTypeOf(route.flatInputSchema).toMatchTypeOf<
+      StandardSchemaV1<LooseFlatInput<'/:id&a&'> | undefined, LooseFlatOutput<'/:id&a&'>>
     >()
   })
 })
