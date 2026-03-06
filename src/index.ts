@@ -981,31 +981,25 @@ export class Route0<TDefinition extends string> {
   }
 
   /** Standard Schema for route params input. */
-  readonly paramsInputSchema: Route0Schema<ParamsInput<TDefinition> | undefined, ParamsOutput<TDefinition>> = {
+  readonly paramsInputSchema: Route0Schema<ParamsInput<TDefinition>, ParamsOutput<TDefinition>> = {
     '~standard': {
       version: 1,
       vendor: 'route0',
       validate: (value) => this._validateParamsInput(value),
-      types: undefined as unknown as StandardSchemaV1.Types<
-        ParamsInput<TDefinition> | undefined,
-        ParamsOutput<TDefinition>
-      >,
+      types: undefined as unknown as StandardSchemaV1.Types<ParamsInput<TDefinition>, ParamsOutput<TDefinition>>,
     },
     parse: (value) => this._parseSchemaResult(this._validateParamsInput(value)),
     safeParse: (value) => this._safeParseSchemaResult(this._validateParamsInput(value)),
   }
 
   /** Standard Schema for strict search input. */
-  readonly strictSearchInputSchema: Route0Schema<
-    StrictSearchInput<TDefinition> | undefined,
-    StrictSearchOutput<TDefinition>
-  > = {
+  readonly strictSearchInputSchema: Route0Schema<StrictSearchInput<TDefinition>, StrictSearchOutput<TDefinition>> = {
     '~standard': {
       version: 1,
       vendor: 'route0',
       validate: (value) => this._validateSearchInput(value, false),
       types: undefined as unknown as StandardSchemaV1.Types<
-        StrictSearchInput<TDefinition> | undefined,
+        StrictSearchInput<TDefinition>,
         StrictSearchOutput<TDefinition>
       >,
     },
@@ -1014,16 +1008,13 @@ export class Route0<TDefinition extends string> {
   }
 
   /** Standard Schema for loose search input. */
-  readonly looseSearchInputSchema: Route0Schema<
-    LooseSearchInput<TDefinition> | undefined,
-    LooseSearchOutput<TDefinition>
-  > = {
+  readonly looseSearchInputSchema: Route0Schema<LooseSearchInput<TDefinition>, LooseSearchOutput<TDefinition>> = {
     '~standard': {
       version: 1,
       vendor: 'route0',
       validate: (value) => this._validateSearchInput(value, true),
       types: undefined as unknown as StandardSchemaV1.Types<
-        LooseSearchInput<TDefinition> | undefined,
+        LooseSearchInput<TDefinition>,
         LooseSearchOutput<TDefinition>
       >,
     },
@@ -1033,7 +1024,7 @@ export class Route0<TDefinition extends string> {
 
   /** Standard Schema for route flat input (uses route default strict/loose mode). */
   readonly flatInputSchema: Route0Schema<
-    FlatInput<TDefinition, HasLooseSearch<TDefinition>> | undefined,
+    FlatInput<TDefinition, HasLooseSearch<TDefinition>>,
     FlatOutput<TDefinition, HasLooseSearch<TDefinition>>
   > = {
     '~standard': {
@@ -1041,7 +1032,7 @@ export class Route0<TDefinition extends string> {
       vendor: 'route0',
       validate: (value) => this._validateFlatInput(value, this.hasLooseSearch as HasLooseSearch<TDefinition>),
       types: undefined as unknown as StandardSchemaV1.Types<
-        FlatInput<TDefinition, HasLooseSearch<TDefinition>> | undefined,
+        FlatInput<TDefinition, HasLooseSearch<TDefinition>>,
         FlatOutput<TDefinition, HasLooseSearch<TDefinition>>
       >,
     },
@@ -1901,7 +1892,7 @@ export type SafeParseInputStrictResult<TDefinition extends string> = _SafeParseI
 >
 export type SafeParseInputLooseResult<TDefinition extends string> = _SafeParseInputResult<LooseFlatOutput<TDefinition>>
 export type Route0Schema<
-  TInput extends Record<string, unknown> | undefined,
+  TInput extends Record<string, unknown>,
   TOutput extends Record<string, unknown>,
 > = StandardSchemaV1<TInput, TOutput> & {
   parse: (input: unknown) => TOutput

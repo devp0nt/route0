@@ -1435,16 +1435,16 @@ describe('input schemas', () => {
     expectTypeOf(route.flatInputSchema).toMatchTypeOf<StandardSchemaV1>()
 
     expectTypeOf(route.paramsInputSchema).toMatchTypeOf<
-      StandardSchemaV1<ParamsInput<'/:id&a&'> | undefined, ParamsOutput<'/:id&a&'>>
+      StandardSchemaV1<ParamsInput<'/:id&a&'>, ParamsOutput<'/:id&a&'>>
     >()
     expectTypeOf(route.strictSearchInputSchema).toMatchTypeOf<
-      StandardSchemaV1<StrictSearchInput<'/:id&a&'> | undefined, StrictSearchOutput<'/:id&a&'>>
+      StandardSchemaV1<StrictSearchInput<'/:id&a&'>, StrictSearchOutput<'/:id&a&'>>
     >()
     expectTypeOf(route.looseSearchInputSchema).toMatchTypeOf<
-      StandardSchemaV1<LooseSearchInput<'/:id&a&'> | undefined, LooseSearchOutput<'/:id&a&'>>
+      StandardSchemaV1<LooseSearchInput<'/:id&a&'>, LooseSearchOutput<'/:id&a&'>>
     >()
     expectTypeOf(route.flatInputSchema).toMatchTypeOf<
-      StandardSchemaV1<LooseFlatInput<'/:id&a&'> | undefined, LooseFlatOutput<'/:id&a&'>>
+      StandardSchemaV1<LooseFlatInput<'/:id&a&'>, LooseFlatOutput<'/:id&a&'>>
     >()
   })
 })
