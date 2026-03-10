@@ -1413,7 +1413,7 @@ describe('input schemas', () => {
     expect(route.strictSearchInputSchema.safeParse({ a: () => ({}) })).toMatchObject({
       success: false,
       data: undefined,
-      error: new Error('Invalid input: expected string, number, or undefined, got function for "a"'),
+      error: new Error('Invalid search params: expected string, number, or undefined, got function for "a"'),
     })
 
     expect(route.looseSearchInputSchema.parse({ id: '1', a: 2, c: 3 })).toMatchObject({
@@ -1423,7 +1423,7 @@ describe('input schemas', () => {
     expect(route.looseSearchInputSchema.safeParse({ a: () => ({}) })).toMatchObject({
       success: false,
       data: undefined,
-      error: new Error('Invalid input: expected string, number, or undefined, got function for "a"'),
+      error: new Error('Invalid search params: expected string, number, or undefined, got function for "a"'),
     })
   })
 

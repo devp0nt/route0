@@ -240,9 +240,9 @@ export class Route0<TDefinition extends string> {
       WithParamsInput<
         TDefinition,
         {
-          search?: _LooseSearchInput<TDefinition>
-          abs?: boolean | string
-          hash?: string | number
+          search?: _LooseSearchInput<TDefinition> // '?'
+          abs?: boolean | string // → move to second arg
+          hash?: string | number // '#'
         }
       >
     >,
@@ -858,7 +858,7 @@ export class Route0<TDefinition extends string> {
     }
     if (typeof input !== 'object' || input === null) {
       return {
-        issues: [{ message: 'Invalid input: expected object' }],
+        issues: [{ message: 'Invalid route params: expected object' }],
       }
     }
     const inputObj = input as Record<string, unknown>
@@ -882,7 +882,7 @@ export class Route0<TDefinition extends string> {
         data[k] = String(v)
       } else {
         return {
-          issues: [{ message: `Invalid input: expected string, number, got ${typeof v} for "${k}"` }],
+          issues: [{ message: `Invalid route params: expected string, number, got ${typeof v} for "${k}"` }],
         }
       }
     }
@@ -900,7 +900,7 @@ export class Route0<TDefinition extends string> {
     }
     if (typeof input !== 'object' || input === null) {
       return {
-        issues: [{ message: 'Invalid input: expected object' }],
+        issues: [{ message: 'Invalid search params: expected object' }],
       }
     }
     const inputObj = input as Record<string, unknown>
@@ -918,7 +918,9 @@ export class Route0<TDefinition extends string> {
         data[k] = String(v)
       } else {
         return {
-          issues: [{ message: `Invalid input: expected string, number, or undefined, got ${typeof v} for "${k}"` }],
+          issues: [
+            { message: `Invalid search params: expected string, number, or undefined, got ${typeof v} for "${k}"` },
+          ],
         }
       }
     }
