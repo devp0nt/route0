@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 
-type RuntimePathToken =
+export type PathToken =
   | { kind: 'static'; value: string }
   | { kind: 'param'; name: string; optional: boolean }
   | { kind: 'wildcard'; prefix: string; optional: boolean }
@@ -12,9 +12,9 @@ const getPathSegments = (definition: string): string[] => {
   return definition.split('/').filter(Boolean)
 }
 
-const getRuntimePathTokens = (definition: string): RuntimePathToken[] => {
+const getPathTokens = (definition: string): PathToken[] => {
   const segments = getPathSegments(definition)
-  return segments.map((segment): RuntimePathToken => {
+  return segments.map((segment): PathToken => {
     const param = segment.match(/^:([A-Za-z0-9_]+)(\?)?$/)
     if (param) {
       return { kind: 'param', name: param[1], optional: param[2] === '?' }
@@ -31,7 +31,7 @@ const getRuntimePathTokens = (definition: string): RuntimePathToken[] => {
 }
 
 const getPathRegexBaseStrictString = (definition: string): string => {
-  const tokens = getRuntimePathTokens(definition)
+  const tokens = getPathTokens(definition)
   if (tokens.length === 0) return ''
   let pattern = ''
   for (const token of tokens) {
@@ -55,7 +55,7 @@ const getPathRegexBaseStrictString = (definition: string): string => {
 
 const getPathCaptureKeys = (definition: string): string[] => {
   const keys: string[] = []
-  for (const token of getRuntimePathTokens(definition)) {
+  for (const token of getPathTokens(definition)) {
     if (token.kind === 'param') keys.push(token.name)
     if (token.kind === 'wildcard') keys.push('*')
   }
@@ -63,37 +63,30 @@ const getPathCaptureKeys = (definition: string): string[] => {
 }
 
 const getPathParamsDefinition = (definition: string): Record<string, boolean> => {
-  const entries = getRuntimePathTokens(definition)
+  const entries = getPathTokens(definition)
     .filter((t) => t.kind !== 'static')
     .map((t): [string, boolean] => (t.kind === 'param' ? [t.name, !t.optional] : ['*', !t.optional]))
   return Object.fromEntries(entries)
 }
 
-// TODO: asterisk
-// TODO: when asterisk then query params will be extended also after extend
-// TODO: optional params
-// TODO: required search
+const validatePathDefinition = (definition: string): void => {
+  const segments = getPathSegments(definition)
+  const wildcardSegments = segments.filter((segment) => segment.includes('*'))
+  if (wildcardSegments.length === 0) return
+  if (wildcardSegments.length > 1) {
+    throw new Error(`Invalid route definition "${definition}": only one wildcard segment is allowed`)
+  }
+  const wildcardSegmentIndex = segments.findIndex((segment) => segment.includes('*'))
+  const wildcardSegment = segments[wildcardSegmentIndex]
+  if (!wildcardSegment.match(/^(?:\*|\*\?|[^*]+\*|\S+\*\?)$/)) {
+    throw new Error(`Invalid route definition "${definition}": wildcard must be trailing in its segment`)
+  }
+  if (wildcardSegmentIndex !== segments.length - 1) {
+    throw new Error(`Invalid route definition "${definition}": wildcard segment is allowed only at the end`)
+  }
+}
 
-// TODO: .extension('.json') to not add additional / but just add some extension
-// TODO: search input can be boolean, or even object with qs
-// TODO: route0 if ens with "...&" then can be any query, else only provided type of queries
-// TODO: Роут0 три мод, тогда там все ноуты кончаются на .селф
-// TODO: use splats in param definition "*"
-// TODO: ? check extend for search only .extend('&x&z')
-// TODO: .create(route, {useSearch, useParams})
-// TODO: Из пас экзакт, из пасвизквери экзает, из чилдрен, из парент, из экзактОр
-// TODO: isEqual, isDescendant, isAncestor
-// TODO: extractParams, extractSearch
-// TODO: getPathDefinition respecting definitionParamPrefix, definitionSearchPrefix
-// TODO: prepend
-// TODO: ?? Route0.createTree({base:{self: x, children: ...})
-// TODO: ? Routes.create({base:{self: x, children: ...}).attach('section', Routes.create({...}))
-// TODO: overrideTree
-// TODO: .create(route, {origin, useLocation})
-// TODO: ? optional path params as @
-// TODO: prependMany, extendMany, overrideMany, with types
-// TODO: optional route params /x/:id?
-// TODO: fix CallableRoute<CallableRoute<>> in RoutesPretty type, it should be just CallableRoute<>
+const stripTrailingWildcard = (definition: string): string => definition.replace(/\*\??$/, '')
 
 /**
  * Strongly typed route descriptor and URL builder.
@@ -136,6 +129,7 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
   }
 
   private constructor(definition: TDefinition, config: RouteConfigInput = {}) {
+    validatePathDefinition(definition)
     this.definition = definition
     this.params = Route0._getParamsDefinitionByDefinition(definition)
 
@@ -207,7 +201,8 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
   extend<TSuffixDefinition extends string>(
     suffixDefinition: TSuffixDefinition,
   ): CallableRoute<PathExtended<TDefinition, TSuffixDefinition>, TSearch> {
-    const definition = `${this.definition}/${suffixDefinition}`.replace(/\/{2,}/g, '/')
+    const sourceDefinitionWithoutWildcard = stripTrailingWildcard(this.definition)
+    const definition = `${sourceDefinitionWithoutWildcard}/${suffixDefinition}`.replace(/\/{2,}/g, '/')
     return Route0.create<PathExtended<TDefinition, TSuffixDefinition>>(
       definition as PathExtended<TDefinition, TSuffixDefinition>,
       { origin: this._origin },
@@ -337,6 +332,10 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
   /** Returns path param keys extracted from route definition. */
   getParamsKeys(): string[] {
     return Object.keys(this.params)
+  }
+
+  getPathTokens(): PathToken[] {
+    return getPathTokens(this.definition)
   }
 
   /** Clones route with optional config override. */
@@ -701,14 +700,14 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
   /** True when path structure is equal (param names are ignored). */
   isSame(other: AnyRoute): boolean {
     return (
-      getRuntimePathTokens(this.definition)
+      getPathTokens(this.definition)
         .map((t) => {
           if (t.kind === 'static') return `s:${t.value}`
           if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
           return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
         })
         .join('/') ===
-      getRuntimePathTokens(other.definition)
+      getPathTokens(other.definition)
         .map((t) => {
           if (t.kind === 'static') return `s:${t.value}`
           if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
@@ -792,8 +791,8 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
     const thisRegex = this.getRegex()
     const otherRegex = other.getRegex()
     const makeCandidates = (definition: string): string[] => {
-      const tokens = getRuntimePathTokens(definition)
-      const values = (token: RuntimePathToken): string[] => {
+      const tokens = getPathTokens(definition)
+      const values = (token: PathToken): string[] => {
         if (token.kind === 'static') return [token.value]
         if (token.kind === 'param') return token.optional ? ['', 'x'] : ['x']
         if (token.prefix.length > 0) return [token.prefix, `${token.prefix}-x`, `${token.prefix}/x/y`]
@@ -1430,7 +1429,13 @@ export type OnlyIfHasParams<TRoute extends AnyRoute | string, Yes, No = never> =
 export type PathExtended<
   TSourceDefinitionDefinition extends string,
   TSuffixDefinitionDefinition extends string,
-> = `${JoinPath<TSourceDefinitionDefinition, TSuffixDefinitionDefinition>}`
+> = `${JoinPath<StripTrailingWildcard<TSourceDefinitionDefinition>, TSuffixDefinitionDefinition>}`
+
+export type StripTrailingWildcard<TDefinition extends string> = TDefinition extends `${infer TPath}*?`
+  ? TPath
+  : TDefinition extends `${infer TPath}*`
+    ? TPath
+    : TDefinition
 
 export type IsAny<T> = 0 extends 1 & T ? true : false
 

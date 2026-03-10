@@ -175,6 +175,37 @@ describe('Route0', () => {
     expect(segmentWildcard.get({ '*': '/123' })).toBe('/path/x/123')
   })
 
+  it('throws when wildcard is not the final segment', () => {
+    expect(() => Route0.create('/path/*/child')).toThrow(
+      'Invalid route definition "/path/*/child": wildcard segment is allowed only at the end',
+    )
+    expect(() => Route0.create('/path/x*/child')).toThrow(
+      'Invalid route definition "/path/x*/child": wildcard segment is allowed only at the end',
+    )
+  })
+
+  it('throws when route has more than one wildcard segment', () => {
+    expect(() => Route0.create('/path/*/x*')).toThrow(
+      'Invalid route definition "/path/*/x*": only one wildcard segment is allowed',
+    )
+    expect(() => Route0.create('/path/x*/y*')).toThrow(
+      'Invalid route definition "/path/x*/y*": only one wildcard segment is allowed',
+    )
+  })
+
+  it('extend strips trailing wildcard from parent route', () => {
+    const withInlineWildcard = Route0.create('/app*')
+    const withSegmentWildcard = Route0.create('/orders/*?')
+    const childA = withInlineWildcard.extend('/settings')
+    const childB = withSegmentWildcard.extend('completed')
+    expect(childA.definition).toBe('/app/settings')
+    expect(childB.definition).toBe('/orders/completed')
+    expect(childA.get()).toBe('/app/settings')
+    expect(childB.get()).toBe('/orders/completed')
+    expectTypeOf<(typeof childA)['definition']>().toEqualTypeOf<'/app/settings'>()
+    expectTypeOf<(typeof childB)['definition']>().toEqualTypeOf<'/orders/completed'>()
+  })
+
   it('mixed required and optional named params combinations', () => {
     const route = Route0.create('/org/:orgId/user/:userId?/:tab')
     expect(route.get({ orgId: 'acme', tab: 'settings' })).toBe('/org/acme/user/settings')
@@ -201,12 +232,10 @@ describe('Route0', () => {
     }
   })
 
-  it('optional wildcard before required static segment', () => {
-    const route = Route0.create('/orders/*?/details')
-    expect(route.get()).toBe('/orders/details')
-    expect(route.get({ '*': 'completed/list' })).toBe('/orders/completed/list/details')
-    expect(route.getLocation('/orders/details').exact).toBe(true)
-    expect(route.getLocation('/orders/completed/list/details').exact).toBe(true)
+  it('rejects optional wildcard before required static segment', () => {
+    expect(() => Route0.create('/orders/*?/details')).toThrow(
+      'Invalid route definition "/orders/*?/details": wildcard segment is allowed only at the end',
+    )
   })
 
   it('paramsSchema accepts optional-only and mixed params', () => {
@@ -1170,6 +1199,14 @@ describe('getLocation', () => {
       }
       fn(routes)
     })
+
+    it('throws in Routes.create when route has wildcard in middle', () => {
+      expect(() =>
+        Routes.create({
+          invalid: '/a/*/b',
+        }),
+      ).toThrow('Invalid route definition "/a/*/b": wildcard segment is allowed only at the end')
+    })
   })
 })
 
@@ -1688,7 +1725,6 @@ describe('regex', () => {
     const route1 = Route0.create('/api/v1.0')
     const route2 = Route0.create('/path(with)parens')
     const route3 = Route0.create('/path[with]brackets')
-    const route4 = Route0.create('/path*with*asterisks')
     const route5 = Route0.create('/path+with+pluses')
     const route6 = Route0.create('/path?with?question')
     const route7 = Route0.create('/path^with^caret')
@@ -1697,11 +1733,16 @@ describe('regex', () => {
     expect(route1.getRegexString()).toBe('^/api/v1\\.0/?$')
     expect(route2.getRegexString()).toBe('^/path\\(with\\)parens/?$')
     expect(route3.getRegexString()).toBe('^/path\\[with\\]brackets/?$')
-    expect(route4.getRegexString()).toBe('^/path\\*with\\*asterisks/?$')
     expect(route5.getRegexString()).toBe('^/path\\+with\\+pluses/?$')
     expect(route6.getRegexString()).toBe('^/path\\?with\\?question/?$')
     expect(route7.getRegexString()).toBe('^/path\\^with\\^caret/?$')
     expect(route8.getRegexString()).toBe('^/path\\$with\\$dollar/?$')
+  })
+
+  it('asterisk is reserved wildcard token and not treated as literal static', () => {
+    expect(() => Route0.create('/path*with*asterisks')).toThrow(
+      'Invalid route definition "/path*with*asterisks": wildcard must be trailing in its segment',
+    )
   })
 
   it('getRegex: works with escaped special characters', () => {

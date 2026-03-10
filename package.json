@@ -34,7 +34,6 @@
   },
   "files": [
     "dist/**/*",
-    "src/**/*",
     "README.md",
     "LICENSE"
   ],
@@ -115,5 +114,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "peerDependencies": {
+    "@devp0nt/flat0": "^1.1.0"
   }
 }
