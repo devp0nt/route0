@@ -1,21 +1,21 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { parse as parseSearchQuery, stringify as stringifySearchQuery } from '@devp0nt/flat0'
 
-export type PathToken =
+export type RouteToken =
   | { kind: 'static'; value: string }
   | { kind: 'param'; name: string; optional: boolean }
   | { kind: 'wildcard'; prefix: string; optional: boolean }
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-const getPathSegments = (definition: string): string[] => {
+const getRouteSegments = (definition: string): string[] => {
   if (definition === '' || definition === '/') return []
   return definition.split('/').filter(Boolean)
 }
 
-const getPathTokens = (definition: string): PathToken[] => {
-  const segments = getPathSegments(definition)
-  return segments.map((segment): PathToken => {
+const getRouteTokens = (definition: string): RouteToken[] => {
+  const segments = getRouteSegments(definition)
+  return segments.map((segment): RouteToken => {
     const param = segment.match(/^:([A-Za-z0-9_]+)(\?)?$/)
     if (param) {
       return { kind: 'param', name: param[1], optional: param[2] === '?' }
@@ -31,8 +31,8 @@ const getPathTokens = (definition: string): PathToken[] => {
   })
 }
 
-const getPathRegexBaseStrictString = (definition: string): string => {
-  const tokens = getPathTokens(definition)
+const getRouteRegexBaseStrictString = (definition: string): string => {
+  const tokens = getRouteTokens(definition)
   if (tokens.length === 0) return ''
   let pattern = ''
   for (const token of tokens) {
@@ -54,9 +54,9 @@ const getPathRegexBaseStrictString = (definition: string): string => {
   return pattern
 }
 
-const getPathCaptureKeys = (definition: string): string[] => {
+const getRouteCaptureKeys = (definition: string): string[] => {
   const keys: string[] = []
-  for (const token of getPathTokens(definition)) {
+  for (const token of getRouteTokens(definition)) {
     if (token.kind === 'param') keys.push(token.name)
     if (token.kind === 'wildcard') keys.push('*')
   }
@@ -64,14 +64,14 @@ const getPathCaptureKeys = (definition: string): string[] => {
 }
 
 const getPathParamsDefinition = (definition: string): Record<string, boolean> => {
-  const entries = getPathTokens(definition)
+  const entries = getRouteTokens(definition)
     .filter((t) => t.kind !== 'static')
     .map((t): [string, boolean] => (t.kind === 'param' ? [t.name, !t.optional] : ['*', !t.optional]))
   return Object.fromEntries(entries)
 }
 
-const validatePathDefinition = (definition: string): void => {
-  const segments = getPathSegments(definition)
+const validateRouteDefinition = (definition: string): void => {
+  const segments = getRouteSegments(definition)
   const wildcardSegments = segments.filter((segment) => segment.includes('*'))
   if (wildcardSegments.length === 0) return
   if (wildcardSegments.length > 1) {
@@ -130,7 +130,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   }
 
   private constructor(definition: TDefinition, config: RouteConfigInput = {}) {
-    validatePathDefinition(definition)
+    validateRouteDefinition(definition)
     this.definition = definition
     this.params = Route0._getParamsDefinitionByDefinition(definition)
 
@@ -320,8 +320,8 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     return Object.keys(this.params)
   }
 
-  getPathTokens(): PathToken[] {
-    return getPathTokens(this.definition)
+  getTokens(): RouteToken[] {
+    return getRouteTokens(this.definition)
   }
 
   /** Clones route with optional config override. */
@@ -330,7 +330,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   }
 
   getRegexBaseStrictString(): string {
-    return getPathRegexBaseStrictString(this.definition)
+    return getRouteRegexBaseStrictString(this.definition)
   }
 
   getRegexBaseString(): string {
@@ -503,7 +503,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
         ? location.pathname.slice(0, -1)
         : location.pathname
 
-    const paramNames = getPathCaptureKeys(this.definition)
+    const paramNames = getRouteCaptureKeys(this.definition)
     const def =
       this.definition.length > 1 && this.definition.endsWith('/') ? this.definition.slice(0, -1) : this.definition
 
@@ -685,14 +685,14 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   /** True when path structure is equal (param names are ignored). */
   isSame(other: AnyRoute): boolean {
     return (
-      getPathTokens(this.definition)
+      getRouteTokens(this.definition)
         .map((t) => {
           if (t.kind === 'static') return `s:${t.value}`
           if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
           return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
         })
         .join('/') ===
-      getPathTokens(other.definition)
+      getRouteTokens(other.definition)
         .map((t) => {
           if (t.kind === 'static') return `s:${t.value}`
           if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
@@ -776,8 +776,8 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     const thisRegex = this.getRegex()
     const otherRegex = other.getRegex()
     const makeCandidates = (definition: string): string[] => {
-      const tokens = getPathTokens(definition)
-      const values = (token: PathToken): string[] => {
+      const tokens = getRouteTokens(definition)
+      const values = (token: RouteToken): string[] => {
         if (token.kind === 'static') return [token.value]
         if (token.kind === 'param') return token.optional ? ['', 'x'] : ['x']
         if (token.prefix.length > 0) return [token.prefix, `${token.prefix}-x`, `${token.prefix}/x/y`]
