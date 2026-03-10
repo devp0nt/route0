@@ -1423,6 +1423,12 @@ export type GetPathInput<
   '?'?: TSearchInput
   '#'?: string | number
 }
+export type GetPathInputByRoute<TRoute extends AnyRoute | CallableRoute | string> =
+  TRoute extends AnyRoute<any, infer TSearchInput>
+    ? GetPathInput<Definition<TRoute>, TSearchInput>
+    : TRoute extends string
+      ? GetPathInput<TRoute, UnknownSearchInput>
+      : never
 
 export type PathExtended<
   TSourceDefinitionDefinition extends string,

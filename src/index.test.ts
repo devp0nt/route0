@@ -10,6 +10,8 @@ import type {
   Extended,
   ExtractRoute,
   ExtractRoutesKeys,
+  GetPathInput,
+  GetPathInputByRoute,
   HasParams,
   HasWildcard,
   IsAncestor,
@@ -626,6 +628,35 @@ describe('type utilities', () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const route = Route0.create('/path/:id/:name')
     expectTypeOf<ParamsInputStringOnly<typeof route>>().toEqualTypeOf<{ id: string; name: string }>()
+  })
+
+  it('GetPathInputByRoute infers params for route and callable route', () => {
+    expectTypeOf<GetPathInputByRoute<Route0<'/users/:id/:slug?'>>>().toEqualTypeOf<
+      GetPathInput<'/users/:id/:slug?', UnknownSearchInput>
+    >()
+
+    expectTypeOf<GetPathInputByRoute<CallableRoute<'/users/:id/:slug?'>>>().toEqualTypeOf<
+      GetPathInput<'/users/:id/:slug?', UnknownSearchInput>
+    >()
+    expectTypeOf<GetPathInputByRoute<CallableRoute<Route0<'/users/:id/:slug?'>>>>().toEqualTypeOf<
+      GetPathInput<'/users/:id/:slug?', UnknownSearchInput>
+    >()
+
+    expectTypeOf<GetPathInputByRoute<'/users/:id/:slug?'>>().toEqualTypeOf<
+      GetPathInput<'/users/:id/:slug?', UnknownSearchInput>
+    >()
+
+    // // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // const route = Route0.create('/users/:id/:slug?').search<{ q: string }>()
+
+    // type X = GetPathInputByRoute<typeof route>
+
+    // expectTypeOf<X>().toEqualTypeOf<{
+    //   id: string | number
+    //   slug?: string | number
+    //   '?'?: { q: string } | undefined
+    //   '#'?: string | number | undefined
+    // }>()
   })
 
   it('IsParamsOptional', () => {
