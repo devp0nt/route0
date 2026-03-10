@@ -213,22 +213,8 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   get(...args: IsParamsOptional<TDefinition> extends true ? [abs: boolean | string | undefined] : never): string
   get(
     ...args: IsParamsOptional<TDefinition> extends true
-      ? [
-          input?:
-            | (_ParamsInput<TDefinition> & {
-                '?'?: TSearchInput
-                '#'?: string | number
-              })
-            | undefined,
-          abs?: boolean | string | undefined,
-        ]
-      : [
-          input: _ParamsInput<TDefinition> & {
-            '?'?: TSearchInput
-            '#'?: string | number
-          },
-          abs?: boolean | string | undefined,
-        ]
+      ? [input?: GetPathInput<TDefinition, TSearchInput> | undefined, abs?: boolean | string | undefined]
+      : [input: GetPathInput<TDefinition, TSearchInput>, abs?: boolean | string | undefined]
   ): string
 
   // implementation
@@ -1429,6 +1415,14 @@ export type OnlyIfNoParams<TRoute extends AnyRoute | string, Yes, No = never> =
   HasParams<TRoute> extends false ? Yes : No
 export type OnlyIfHasParams<TRoute extends AnyRoute | string, Yes, No = never> =
   HasParams<TRoute> extends true ? Yes : No
+
+export type GetPathInput<
+  TDefinition extends string,
+  TSearchInput extends UnknownSearchInput,
+> = _ParamsInput<TDefinition> & {
+  '?'?: TSearchInput
+  '#'?: string | number
+}
 
 export type PathExtended<
   TSourceDefinitionDefinition extends string,
