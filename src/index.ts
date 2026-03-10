@@ -89,6 +89,29 @@ const validateRouteDefinition = (definition: string): void => {
 
 const stripTrailingWildcard = (definition: string): string => definition.replace(/\*\??$/, '')
 
+const normalizePathname = (pathname: string): string => {
+  if (pathname.length > 1 && pathname.endsWith('/')) {
+    return pathname.slice(0, -1)
+  }
+  return pathname
+}
+
+const getNormalizedPathnameFromInput = (hrefOrHrefRelOrLocation: string | AnyLocation | URL): string => {
+  if (hrefOrHrefRelOrLocation instanceof URL) {
+    return normalizePathname(hrefOrHrefRelOrLocation.pathname)
+  }
+  if (typeof hrefOrHrefRelOrLocation !== 'string') {
+    if (typeof hrefOrHrefRelOrLocation.pathname === 'string') {
+      return normalizePathname(hrefOrHrefRelOrLocation.pathname)
+    }
+    hrefOrHrefRelOrLocation = hrefOrHrefRelOrLocation.href || hrefOrHrefRelOrLocation.hrefRel
+  }
+  const abs = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(hrefOrHrefRelOrLocation)
+  const base = abs ? undefined : 'http://example.com'
+  const url = new URL(hrefOrHrefRelOrLocation, base)
+  return normalizePathname(url.pathname)
+}
+
 /**
  * Strongly typed route descriptor and URL builder.
  *
@@ -105,6 +128,16 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   readonly params: _ParamsDefinition<TDefinition>
   private _origin: string | undefined
   private _callable: CallableRoute<TDefinition, TSearchInput>
+  private _regexBaseStrictString?: string
+  private _regexBaseString?: string
+  private _regexStrictString?: string
+  private _regexString?: string
+  private _regexStrict?: RegExp
+  private _regex?: RegExp
+  private _regexAncestor?: RegExp
+  private _captureKeys?: string[]
+  private _normalizedDefinition?: string
+  private _definitionParts?: string[]
 
   Infer: {
     ParamsDefinition: _ParamsDefinition<TDefinition>
@@ -329,33 +362,86 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     return Route0.create(this.definition, config)
   }
 
-  getRegexBaseStrictString(): string {
-    return getRouteRegexBaseStrictString(this.definition)
+  get regexBaseStrictString(): string {
+    if (this._regexBaseStrictString === undefined) {
+      this._regexBaseStrictString = getRouteRegexBaseStrictString(this.definition)
+    }
+    return this._regexBaseStrictString
   }
 
-  getRegexBaseString(): string {
-    return this.getRegexBaseStrictString().replace(/\/+$/, '') + '/?' // remove trailing slashes and add optional slash
+  get regexBaseString(): string {
+    if (this._regexBaseString === undefined) {
+      this._regexBaseString = this.regexBaseStrictString.replace(/\/+$/, '') + '/?' // remove trailing slashes and add optional slash
+    }
+    return this._regexBaseString
   }
 
-  getRegexStrictString(): string {
-    return `^${this.getRegexBaseStrictString()}$`
+  get regexStrictString(): string {
+    if (this._regexStrictString === undefined) {
+      this._regexStrictString = `^${this.regexBaseStrictString}$`
+    }
+    return this._regexStrictString
   }
 
-  getRegexString(): string {
-    return `^${this.getRegexBaseString()}$`
+  get regexString(): string {
+    if (this._regexString === undefined) {
+      this._regexString = `^${this.regexBaseString}$`
+    }
+    return this._regexString
   }
 
-  getRegexStrict(): RegExp {
-    return new RegExp(this.getRegexStrictString())
+  get regexStrict(): RegExp {
+    if (this._regexStrict === undefined) {
+      this._regexStrict = new RegExp(this.regexStrictString)
+    }
+    return this._regexStrict
   }
 
-  getRegex(): RegExp {
-    return new RegExp(this.getRegexString())
+  get regex(): RegExp {
+    if (this._regex === undefined) {
+      this._regex = new RegExp(this.regexString)
+    }
+    return this._regex
+  }
+
+  get regexAncestor(): RegExp {
+    if (this._regexAncestor === undefined) {
+      this._regexAncestor = new RegExp(`^${this.regexBaseString}(?:/.*)?$`)
+    }
+    return this._regexAncestor
+  }
+
+  private get captureKeys(): string[] {
+    if (this._captureKeys === undefined) {
+      this._captureKeys = getRouteCaptureKeys(this.definition)
+    }
+    return this._captureKeys
+  }
+
+  private get normalizedDefinition(): string {
+    if (this._normalizedDefinition === undefined) {
+      this._normalizedDefinition =
+        this.definition.length > 1 && this.definition.endsWith('/') ? this.definition.slice(0, -1) : this.definition
+    }
+    return this._normalizedDefinition
+  }
+
+  private get definitionParts(): string[] {
+    if (this._definitionParts === undefined) {
+      this._definitionParts =
+        this.normalizedDefinition === '/' ? ['/'] : this.normalizedDefinition.split('/').filter(Boolean)
+    }
+    return this._definitionParts
+  }
+
+  /** Fast pathname check without building a full location object. */
+  isExactPathnameMatch(pathname: string): boolean {
+    return this.regex.test(normalizePathname(pathname))
   }
 
   /** Creates a grouped strict regex pattern string from many routes. */
   static getRegexStrictStringGroup(routes: AnyRoute[]): string {
-    const patterns = routes.map((route) => route.getRegexStrictString()).join('|')
+    const patterns = routes.map((route) => route.regexStrictString).join('|')
     return `(${patterns})`
   }
 
@@ -367,7 +453,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
 
   /** Creates a grouped regex pattern string from many routes. */
   static getRegexStringGroup(routes: AnyRoute[]): string {
-    const patterns = routes.map((route) => route.getRegexString()).join('|')
+    const patterns = routes.map((route) => route.regexString).join('|')
     return `(${patterns})`
   }
 
@@ -498,17 +584,13 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     location.params = {}
 
     // Normalize pathname (no trailing slash except root)
-    const pathname =
-      location.pathname.length > 1 && location.pathname.endsWith('/')
-        ? location.pathname.slice(0, -1)
-        : location.pathname
+    const pathname = normalizePathname(location.pathname)
 
-    const paramNames = getRouteCaptureKeys(this.definition)
-    const def =
-      this.definition.length > 1 && this.definition.endsWith('/') ? this.definition.slice(0, -1) : this.definition
+    const paramNames = this.captureKeys
+    const defParts = this.definitionParts
 
-    const exactRe = new RegExp(`^${this.getRegexBaseString()}$`)
-    const ancestorRe = new RegExp(`^${this.getRegexBaseString()}(?:/.*)?$`) // route matches the beginning of the URL (may have more)
+    const exactRe = this.regex
+    const ancestorRe = this.regexAncestor // route matches the beginning of the URL (may have more)
     const exactMatch = pathname.match(exactRe)
     const ancestorMatch = pathname.match(ancestorRe)
     const exact = !!exactMatch
@@ -530,9 +612,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     }
 
     // "descendant": the URL is a prefix of the route definition (params match any single segment)
-    const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
-    const defParts = getParts(def)
-    const pathParts = getParts(pathname)
+    const pathParts = pathname === '/' ? ['/'] : pathname.split('/').filter(Boolean)
 
     let isPrefix = true
     if (pathParts.length > defParts.length) {
@@ -773,8 +853,8 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   isConflict(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     other = Route0.create(other)
-    const thisRegex = this.getRegex()
-    const otherRegex = other.getRegex()
+    const thisRegex = this.regex
+    const otherRegex = other.regex
     const makeCandidates = (definition: string): string[] => {
       const tokens = getRouteTokens(definition)
       const values = (token: RouteToken): string[] => {
@@ -945,10 +1025,14 @@ export class Routes<const T extends RoutesRecord = any> {
   _getLocation(url: URL): UnknownLocation | ExactLocation
   _getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation
   _getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation {
-    // Find the route that exactly matches the given location
     const input = hrefOrHrefRelOrLocation
+    const pathname = getNormalizedPathnameFromInput(input)
+    // Find exact match using a fast pathname pre-check first.
     for (const route of this._ordered) {
-      const loc = route.getLocation(hrefOrHrefRelOrLocation)
+      if (!route.isExactPathnameMatch(pathname)) {
+        continue
+      }
+      const loc = route.getLocation(input)
       if (loc.exact) {
         return loc
       }
