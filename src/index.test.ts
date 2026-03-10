@@ -11,6 +11,7 @@ import type {
   ExtractRoute,
   ExtractRoutesKeys,
   HasParams,
+  HasWildcard,
   IsAncestor,
   IsDescendant,
   IsSame,
@@ -253,21 +254,21 @@ describe('Route0', () => {
     )
   })
 
-  it('paramsSchema accepts optional-only and mixed params', () => {
+  it('schema accepts optional-only and mixed params', () => {
     const optionalOnly = Route0.create('/x/:id?')
-    expect(optionalOnly.paramsSchema.safeParse(undefined)).toMatchObject({
+    expect(optionalOnly.schema.safeParse(undefined)).toMatchObject({
       success: true,
       data: { id: undefined },
       error: undefined,
     })
 
     const mixed = Route0.create('/x/:id/:slug?')
-    expect(mixed.paramsSchema.safeParse({ id: '1' })).toMatchObject({
+    expect(mixed.schema.safeParse({ id: '1' })).toMatchObject({
       success: true,
       data: { id: '1', slug: undefined },
       error: undefined,
     })
-    expect(mixed.paramsSchema.safeParse({ slug: 'x' }).success).toBe(false)
+    expect(mixed.schema.safeParse({ slug: 'x' }).success).toBe(false)
   })
 
   it('simple extend', () => {
@@ -585,6 +586,17 @@ describe('type utilities', () => {
 
     expectTypeOf<HasParams<Route0<'/path'>>>().toEqualTypeOf<false>()
     expectTypeOf<HasParams<Route0<'/path/:id'>>>().toEqualTypeOf<true>()
+  })
+
+  it('HasWildcard', () => {
+    expectTypeOf<HasWildcard<'/path'>>().toEqualTypeOf<false>()
+    expectTypeOf<HasWildcard<'/path*'>>().toEqualTypeOf<true>()
+    expectTypeOf<HasWildcard<'/path/*?'>>().toEqualTypeOf<true>()
+    expectTypeOf<HasWildcard<'/path/:id'>>().toEqualTypeOf<false>()
+
+    expectTypeOf<HasWildcard<Route0<'/path'>>>().toEqualTypeOf<false>()
+    expectTypeOf<HasWildcard<Route0<'/path*'>>>().toEqualTypeOf<true>()
+    expectTypeOf<HasWildcard<Route0<'/orders/*?'>>>().toEqualTypeOf<true>()
   })
 
   it('ParamsInput', () => {
@@ -1243,9 +1255,9 @@ describe('getLocation', () => {
 })
 
 describe('params schema', () => {
-  it('paramsSchema validate', () => {
+  it('validate', () => {
     const route = Route0.create('/:id/:sn')
-    const result = route.paramsSchema['~standard'].validate({ id: 1, sn: 'x', extra: 'ignored' })
+    const result = route.schema['~standard'].validate({ id: 1, sn: 'x', extra: 'ignored' })
     if (result instanceof Promise) {
       throw new Error('Unexpected async schema result')
     }
@@ -1254,10 +1266,10 @@ describe('params schema', () => {
     })
   })
 
-  it('paramsSchema parse and safeParse', () => {
+  it('parse and safeParse', () => {
     const route = Route0.create('/:id')
-    expect(route.paramsSchema.parse({ id: 1, x: '2' })).toMatchObject({ id: '1' })
-    expect(route.paramsSchema.safeParse(undefined)).toMatchObject({
+    expect(route.schema.parse({ id: 1, x: '2' })).toMatchObject({ id: '1' })
+    expect(route.schema.safeParse(undefined)).toMatchObject({
       success: false,
       data: undefined,
       error: new Error('Missing params: "id"'),
@@ -1266,8 +1278,8 @@ describe('params schema', () => {
 
   it('schema types are assignable to StandardSchemaV1', () => {
     const route = Route0.create('/:id')
-    expectTypeOf(route.paramsSchema).toExtend<StandardSchemaV1>()
-    expectTypeOf(route.paramsSchema).toExtend<StandardSchemaV1<ParamsInput<'/:id'>, ParamsOutput<'/:id'>>>()
+    expectTypeOf(route.schema).toExtend<StandardSchemaV1>()
+    expectTypeOf(route.schema).toExtend<StandardSchemaV1<ParamsInput<'/:id'>, ParamsOutput<'/:id'>>>()
   })
 })
 

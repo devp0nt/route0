@@ -685,7 +685,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   }
 
   /** Standard Schema for route params input. */
-  readonly paramsSchema: SchemaRoute0<ParamsInput<TDefinition>, ParamsOutput<TDefinition>> = {
+  readonly schema: SchemaRoute0<ParamsInput<TDefinition>, ParamsOutput<TDefinition>> = {
     '~standard': {
       version: 1,
       vendor: 'route0',
@@ -1115,6 +1115,7 @@ export type IsSameParams<T1 extends AnyRoute | string, T2 extends AnyRoute | str
 >
 
 export type HasParams<T extends AnyRoute | string> = keyof _ParamsDefinition<Definition<T>> extends never ? false : true
+export type HasWildcard<T extends AnyRoute | string> = Definition<T> extends `${string}*${string}` ? true : false
 export type HasRequiredParams<T extends AnyRoute | string> =
   _RequiredParamKeys<Definition<T>> extends never ? false : true
 
