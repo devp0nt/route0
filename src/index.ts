@@ -1,5 +1,74 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 
+type RuntimePathToken =
+  | { kind: 'static'; value: string }
+  | { kind: 'param'; name: string; optional: boolean }
+  | { kind: 'wildcard'; prefix: string; optional: boolean }
+
+const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+const getPathSegments = (definition: string): string[] => {
+  if (definition === '' || definition === '/') return []
+  return definition.split('/').filter(Boolean)
+}
+
+const getRuntimePathTokens = (definition: string): RuntimePathToken[] => {
+  const segments = getPathSegments(definition)
+  return segments.map((segment): RuntimePathToken => {
+    const param = segment.match(/^:([A-Za-z0-9_]+)(\?)?$/)
+    if (param) {
+      return { kind: 'param', name: param[1], optional: param[2] === '?' }
+    }
+    if (segment === '*' || segment === '*?') {
+      return { kind: 'wildcard', prefix: '', optional: segment.endsWith('?') }
+    }
+    const wildcard = segment.match(/^(.*)\*(\?)?$/)
+    if (wildcard && !segment.includes('\\*')) {
+      return { kind: 'wildcard', prefix: wildcard[1], optional: wildcard[2] === '?' }
+    }
+    return { kind: 'static', value: segment }
+  })
+}
+
+const getPathRegexBaseStrictString = (definition: string): string => {
+  const tokens = getRuntimePathTokens(definition)
+  if (tokens.length === 0) return ''
+  let pattern = ''
+  for (const token of tokens) {
+    if (token.kind === 'static') {
+      pattern += `/${escapeRegex(token.value)}`
+      continue
+    }
+    if (token.kind === 'param') {
+      pattern += token.optional ? '(?:/([^/]+))?' : '/([^/]+)'
+      continue
+    }
+    if (token.prefix.length > 0) {
+      pattern += `/${escapeRegex(token.prefix)}(.*)`
+    } else {
+      // Wouter-compatible splat: /orders/* matches /orders and /orders/...
+      pattern += '(?:/(.*))?'
+    }
+  }
+  return pattern
+}
+
+const getPathCaptureKeys = (definition: string): string[] => {
+  const keys: string[] = []
+  for (const token of getRuntimePathTokens(definition)) {
+    if (token.kind === 'param') keys.push(token.name)
+    if (token.kind === 'wildcard') keys.push('*')
+  }
+  return keys
+}
+
+const getPathParamsDefinition = (definition: string): Record<string, boolean> => {
+  const entries = getRuntimePathTokens(definition)
+    .filter((t) => t.kind !== 'static')
+    .map((t): [string, boolean] => (t.kind === 'param' ? [t.name, !t.optional] : ['*', !t.optional]))
+  return Object.fromEntries(entries)
+}
+
 // TODO: asterisk
 // TODO: when asterisk then query params will be extended also after extend
 // TODO: optional params
@@ -46,6 +115,7 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
   Infer: {
     ParamsDefinition: _ParamsDefinition<TDefinition>
     ParamsInput: _ParamsInput<TDefinition>
+    ParamsInputStringOnly: _ParamsInputStringOnly<TDefinition>
     ParamsOutput: ParamsOutput<TDefinition>
     SearchInput: TSearch
   } = null as never
@@ -126,9 +196,7 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
   private static _getParamsDefinitionByDefinition<TDefinition extends string>(
     definition: TDefinition,
   ): _ParamsDefinition<TDefinition> {
-    const matches = Array.from(definition.matchAll(/:([A-Za-z0-9_]+)/g))
-    const paramsDefinition = Object.fromEntries(matches.map((m) => [m[1], true]))
-    return paramsDefinition as _ParamsDefinition<TDefinition>
+    return getPathParamsDefinition(definition) as _ParamsDefinition<TDefinition>
   }
 
   search<TNewSearch extends UnknownSearch>(): CallableRoute<TDefinition, TNewSearch> {
@@ -171,7 +239,7 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
   get(...args: unknown[]): string {
     const { searchInput, paramsInput, absInput, absOriginInput, hashInput } = ((): {
       searchInput: Record<string, unknown>
-      paramsInput: Record<string, string>
+      paramsInput: Record<string, string | undefined>
       absInput: boolean
       absOriginInput: string | undefined
       hashInput: string | undefined
@@ -202,7 +270,7 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
       })()
       let searchInput: Record<string, unknown> = {}
       let hashInput: string | undefined = undefined
-      const paramsInput: Record<string, string> = {}
+      const paramsInput: Record<string, string | undefined> = {}
       for (const [key, value] of Object.entries(input)) {
         if (key === '?' && typeof value === 'object' && value !== null) {
           searchInput = value as Record<string, unknown>
@@ -225,9 +293,31 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
     // create url
 
     let url = this.definition as string
-    // replace params
+    // optional named params like /:id?
+    url = url.replace(/\/:([A-Za-z0-9_]+)\?/g, (_m, k) => {
+      const value = paramsInput[k]
+      if (value === undefined) return ''
+      return `/${encodeURIComponent(String(value))}`
+    })
+    // required named params
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    url = url.replace(/:([A-Za-z0-9_]+)/g, (_m, k) => encodeURIComponent(String(paramsInput?.[k] ?? 'undefined')))
+    url = url.replace(/:([A-Za-z0-9_]+)(?!\?)/g, (_m, k) => encodeURIComponent(String(paramsInput?.[k] ?? 'undefined')))
+    // optional wildcard segment (/*?)
+    url = url.replace(/\/\*\?/g, () => {
+      const value = paramsInput['*']
+      if (value === undefined) return ''
+      const stringValue = String(value)
+      return stringValue.startsWith('/') ? stringValue : `/${stringValue}`
+    })
+    // required wildcard segment (/*)
+    url = url.replace(/\/\*/g, () => {
+      const value = String(paramsInput['*'] ?? '')
+      return value.startsWith('/') ? value : `/${value}`
+    })
+    // optional wildcard inline (e.g. /app*?)
+    url = url.replace(/\*\?/g, () => String(paramsInput['*'] ?? ''))
+    // required wildcard inline (e.g. /app*)
+    url = url.replace(/\*/g, () => String(paramsInput['*'] ?? ''))
     // search params
     const searchInputStringified = Object.fromEntries(Object.entries(searchInput).map(([k, v]) => [k, String(v)]))
     // TODO: add here flat0
@@ -255,10 +345,7 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
   }
 
   getRegexBaseStrictString(): string {
-    return this.definition
-      .replace(/:(\w+)/g, '___PARAM___') // temporarily replace params with placeholder
-      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // escape regex special chars
-      .replace(/___PARAM___/g, '([^/]+)')
+    return getPathRegexBaseStrictString(this.definition)
   }
 
   getRegexBaseString(): string {
@@ -432,14 +519,9 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
         ? location.pathname.slice(0, -1)
         : location.pathname
 
-    // Extract param names from the definition
-    const paramNames: string[] = []
+    const paramNames = getPathCaptureKeys(this.definition)
     const def =
       this.definition.length > 1 && this.definition.endsWith('/') ? this.definition.slice(0, -1) : this.definition
-    def.replace(/:([A-Za-z0-9_]+)/g, (_m: string, name: string) => {
-      paramNames.push(String(name))
-      return ''
-    })
 
     const exactRe = new RegExp(`^${this.getRegexBaseString()}$`)
     const ancestorRe = new RegExp(`^${this.getRegexBaseString()}(?:/.*)?$`) // route matches the beginning of the URL (may have more)
@@ -452,7 +534,12 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
     const paramsMatch = exactMatch || (ancestor ? ancestorMatch : null)
     if (paramsMatch) {
       const values = paramsMatch.slice(1, 1 + paramNames.length)
-      const params = Object.fromEntries(paramNames.map((n, i) => [n, decodeURIComponent(values[i] ?? '')]))
+      const params = Object.fromEntries(
+        paramNames.map((n, i) => {
+          const value = values[i] as string | undefined
+          return [n, value === undefined ? undefined : decodeURIComponent(value)]
+        }),
+      )
       location.params = params
     } else {
       location.params = {}
@@ -475,6 +562,12 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
           break
         }
         if (defPart.startsWith(':')) continue
+        if (defPart.includes('*')) {
+          const prefix = defPart.replace(/\*\??$/, '')
+          if (pathPart.startsWith(prefix)) continue
+          isPrefix = false
+          break
+        }
         if (defPart !== pathPart) {
           isPrefix = false
           break
@@ -493,7 +586,9 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
         const pathPart = pathParts[i]
         if (!defPart || !pathPart) continue
         if (defPart.startsWith(':')) {
-          descendantParams[defPart.slice(1)] = decodeURIComponent(pathPart)
+          descendantParams[defPart.replace(/^:/, '').replace(/\?$/, '')] = decodeURIComponent(pathPart)
+        } else if (defPart.includes('*')) {
+          descendantParams['*'] = decodeURIComponent(pathPart)
         }
       }
       location.params = descendantParams
@@ -510,13 +605,16 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
   }
 
   private _validateParamsInput(input: unknown): StandardSchemaV1.Result<ParamsOutput<TDefinition>> {
-    const paramsKeys = this.getParamsKeys()
+    const paramsEntries = Object.entries(this.params) as Array<[string, boolean]>
+    const paramsMap = this.params as Record<string, boolean>
+    const requiredParamsKeys = paramsEntries.filter(([, required]) => required).map(([k]) => k)
+    const paramsKeys = paramsEntries.map(([k]) => k)
     if (input === undefined) {
-      if (paramsKeys.length) {
+      if (requiredParamsKeys.length) {
         return {
           issues: [
             {
-              message: `Missing params: ${paramsKeys.map((k) => `"${k}"`).join(', ')}`,
+              message: `Missing params: ${requiredParamsKeys.map((k) => `"${k}"`).join(', ')}`,
             },
           ],
         }
@@ -530,7 +628,7 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
     }
     const inputObj = input as Record<string, unknown>
     const inputKeys = Object.keys(inputObj)
-    const notDefinedKeys = paramsKeys.filter((k) => !inputKeys.includes(k))
+    const notDefinedKeys = requiredParamsKeys.filter((k) => !inputKeys.includes(k))
     if (notDefinedKeys.length) {
       return {
         issues: [
@@ -540,10 +638,13 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
         ],
       }
     }
-    const data: Record<string, string> = {}
+    const data: Record<string, string | undefined> = {}
     for (const k of paramsKeys) {
       const v = inputObj[k]
-      if (typeof v === 'string') {
+      const required = paramsMap[k]
+      if (v === undefined && !required) {
+        data[k] = undefined as never
+      } else if (typeof v === 'string') {
         data[k] = v
       } else if (typeof v === 'number') {
         data[k] = String(v)
@@ -600,8 +701,20 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
   /** True when path structure is equal (param names are ignored). */
   isSame(other: AnyRoute): boolean {
     return (
-      this.definition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__') ===
-      other.definition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__')
+      getRuntimePathTokens(this.definition)
+        .map((t) => {
+          if (t.kind === 'static') return `s:${t.value}`
+          if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
+          return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
+        })
+        .join('/') ===
+      getRuntimePathTokens(other.definition)
+        .map((t) => {
+          if (t.kind === 'static') return `s:${t.value}`
+          if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
+          return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
+        })
+        .join('/')
     )
   }
   /** Static convenience wrapper for `isSame`. */
@@ -676,67 +789,71 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
   isConflict(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     other = Route0.create(other)
-    const getParts = (path: string) => {
-      if (path === '/') return ['/']
-      return path.split('/').filter(Boolean)
-    }
-
-    const thisParts = getParts(this.definition)
-    const otherParts = getParts(other.definition)
-
-    // Different lengths = no conflict (one is deeper than the other)
-    if (thisParts.length !== otherParts.length) {
-      return false
-    }
-
-    // Check if all segments could match
-    for (let i = 0; i < thisParts.length; i++) {
-      const thisPart = thisParts[i]
-      const otherPart = otherParts[i]
-
-      // Both params = always match
-      if (thisPart.startsWith(':') && otherPart.startsWith(':')) {
-        continue
+    const thisRegex = this.getRegex()
+    const otherRegex = other.getRegex()
+    const makeCandidates = (definition: string): string[] => {
+      const tokens = getRuntimePathTokens(definition)
+      const values = (token: RuntimePathToken): string[] => {
+        if (token.kind === 'static') return [token.value]
+        if (token.kind === 'param') return token.optional ? ['', 'x'] : ['x']
+        if (token.prefix.length > 0) return [token.prefix, `${token.prefix}-x`, `${token.prefix}/x/y`]
+        return ['', 'x', 'x/y']
       }
-
-      // One is param = can match
-      if (thisPart.startsWith(':') || otherPart.startsWith(':')) {
-        continue
+      let acc: string[] = ['']
+      for (const token of tokens) {
+        const next: string[] = []
+        for (const base of acc) {
+          for (const value of values(token)) {
+            if (value === '') {
+              next.push(base)
+            } else if (value.startsWith('/')) {
+              next.push(`${base}${value}`)
+            } else {
+              next.push(`${base}/${value}`)
+            }
+          }
+        }
+        acc = next
       }
-
-      // Both static = must be same
-      if (thisPart !== otherPart) {
-        return false
-      }
+      if (acc.length === 0) return ['/']
+      return Array.from(new Set(acc.map((x) => (x === '' ? '/' : x.replace(/\/{2,}/g, '/')))))
     }
+    const thisCandidates = makeCandidates(this.definition)
+    const otherCandidates = makeCandidates(other.definition)
+    if (thisCandidates.some((path) => otherRegex.test(path))) return true
+    if (otherCandidates.some((path) => thisRegex.test(path))) return true
+    return false
+  }
 
-    return true
+  /** True when paths are same or can overlap when optional parts are omitted. */
+  isMayBeSame(other: AnyRoute | string | undefined): boolean {
+    if (!other) return false
+    other = Route0.create(other)
+    return this.isSame(other) || this.isConflict(other)
   }
 
   /** Specificity comparator used for deterministic route ordering. */
   isMoreSpecificThan(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     other = Route0.create(other)
-    // More specific = should come earlier when conflicted
-    // Static segments beat param segments at the same position
     const getParts = (path: string) => {
       if (path === '/') return ['/']
       return path.split('/').filter(Boolean)
     }
-
+    const rank = (part: string): number => {
+      if (part.includes('*')) return -1
+      if (part.startsWith(':') && part.endsWith('?')) return 0
+      if (part.startsWith(':')) return 1
+      return 2
+    }
     const thisParts = getParts(this.definition)
     const otherParts = getParts(other.definition)
-
-    // Compare segment by segment
     for (let i = 0; i < Math.min(thisParts.length, otherParts.length); i++) {
-      const thisIsStatic = !thisParts[i].startsWith(':')
-      const otherIsStatic = !otherParts[i].startsWith(':')
-
-      if (thisIsStatic && !otherIsStatic) return true
-      if (!thisIsStatic && otherIsStatic) return false
+      const thisRank = rank(thisParts[i])
+      const otherRank = rank(otherParts[i])
+      if (thisRank > otherRank) return true
+      if (thisRank < otherRank) return false
     }
-
-    // All equal, use lexicographic
     return this.definition < other.definition
   }
 }
@@ -868,24 +985,23 @@ export class Routes<const T extends RoutesRecord = any> {
       return path.split('/').filter(Boolean)
     }
 
-    // Sort: shorter paths first, then by specificity, then alphabetically
+    // Sort: overlapping routes by specificity first, otherwise by path depth and alphabetically.
     entries.sort(([_keyA, routeA], [_keyB, routeB]) => {
       const partsA = getParts(routeA.definition)
       const partsB = getParts(routeB.definition)
 
-      // 1. Shorter paths first (by segment count)
-      if (partsA.length !== partsB.length) {
-        return partsA.length - partsB.length
-      }
-
-      // 2. Same length: check if they conflict
-      if (routeA.isConflict(routeB)) {
-        // Conflicting routes: more specific first
+      // 1. Overlapping routes: more specific first
+      if (routeA.isMayBeSame(routeB)) {
         if (routeA.isMoreSpecificThan(routeB)) return -1
         if (routeB.isMoreSpecificThan(routeA)) return 1
       }
 
-      // 3. Same length, not conflicting or equal specificity: alphabetically
+      // 2. Different non-overlapping depth: shorter first
+      if (partsA.length !== partsB.length) {
+        return partsA.length - partsB.length
+      }
+
+      // 3. Fallback: alphabetically for deterministic ordering
       return routeA.definition.localeCompare(routeB.definition)
     })
 
@@ -1001,20 +1117,23 @@ export type IsSameParams<T1 extends AnyRoute | string, T2 extends AnyRoute | str
   ParamsDefinition<T2>
 >
 
-export type HasParams<T extends AnyRoute | string> =
-  ExtractPathParams<Definition<T>> extends infer U ? ([U] extends [never] ? false : true) : false
+export type HasParams<T extends AnyRoute | string> = keyof _ParamsDefinition<Definition<T>> extends never ? false : true
+export type HasRequiredParams<T extends AnyRoute | string> =
+  _RequiredParamKeys<Definition<T>> extends never ? false : true
 
 export type ParamsOutput<T extends AnyRoute | string> = {
-  [K in keyof ParamsDefinition<T>]: string
+  [K in keyof ParamsDefinition<T>]: ParamsDefinition<T>[K] extends true ? string : string | undefined
 }
 export type ParamsInput<T extends AnyRoute | string = string> = _ParamsInput<Definition<T>>
-export type IsParamsOptional<T extends AnyRoute | string> = HasParams<Definition<T>> extends true ? false : true
+export type IsParamsOptional<T extends AnyRoute | string> = HasRequiredParams<Definition<T>> extends true ? false : true
 export type ParamsInputStringOnly<T extends AnyRoute | string = string> = _ParamsInputStringOnly<Definition<T>>
 
 // location
 
 export type LocationParams<TDefinition extends string> = {
-  [K in keyof _ParamsDefinition<TDefinition>]: string
+  [K in keyof _ParamsDefinition<TDefinition>]: _ParamsDefinition<TDefinition>[K] extends true
+    ? string
+    : string | undefined
 }
 
 /**
@@ -1200,32 +1319,81 @@ export type AnyLocation<TRoute extends AnyRoute | string = AnyRoute | string> = 
 
 // internal utils
 
-export type _ParamsDefinition<TDefinition extends string> =
-  ExtractPathParams<Definition<TDefinition>> extends infer U
-    ? [U] extends [never]
-      ? Record<never, never>
-      : { [K in Extract<U, string>]: true }
-    : Record<never, never>
+export type _ParamsDefinition<TDefinition extends string> = _ExtractParamsDefinitionBySegments<
+  _SplitPathSegments<Definition<TDefinition>>
+>
+
+export type _Simplify<T> = { [K in keyof T]: T[K] } & {}
+export type _IfNoKeys<T extends object, TYes, TNo> = keyof T extends never ? TYes : TNo
 
 export type _ParamsInput<TDefinition extends string> =
-  _ParamsDefinition<TDefinition> extends undefined
-    ? Record<never, never>
-    : {
-        [K in keyof _ParamsDefinition<TDefinition>]: string | number
-      }
+  _ParamsDefinition<TDefinition> extends infer TDef extends Record<string, boolean>
+    ? _IfNoKeys<
+        TDef,
+        Record<never, never>,
+        _Simplify<
+          {
+            [K in keyof TDef as TDef[K] extends true ? K : never]: string | number
+          } & {
+            [K in keyof TDef as TDef[K] extends false ? K : never]?: string | number | undefined
+          }
+        >
+      >
+    : Record<never, never>
 
 export type _ParamsInputStringOnly<TDefinition extends string> =
-  _ParamsDefinition<TDefinition> extends undefined
-    ? Record<never, never>
-    : {
-        [K in keyof _ParamsDefinition<TDefinition>]: string
-      }
+  _ParamsDefinition<TDefinition> extends infer TDef extends Record<string, boolean>
+    ? _IfNoKeys<
+        TDef,
+        Record<never, never>,
+        _Simplify<
+          {
+            [K in keyof TDef as TDef[K] extends true ? K : never]: string
+          } & {
+            [K in keyof TDef as TDef[K] extends false ? K : never]?: string | undefined
+          }
+        >
+      >
+    : Record<never, never>
 
-export type ExtractPathParams<S extends string> = S extends `${string}:${infer After}`
-  ? After extends `${infer Name}/${infer Rest}`
-    ? Name | ExtractPathParams<`/${Rest}`>
-    : After
-  : never
+export type _SplitPathSegments<TPath extends string> = TPath extends ''
+  ? []
+  : TPath extends '/'
+    ? []
+    : TPath extends `/${infer Rest}`
+      ? _SplitPathSegments<Rest>
+      : TPath extends `${infer Segment}/${infer Rest}`
+        ? Segment extends ''
+          ? _SplitPathSegments<Rest>
+          : [Segment, ..._SplitPathSegments<Rest>]
+        : TPath extends ''
+          ? []
+          : [TPath]
+
+export type _ParamDefinitionFromSegment<TSegment extends string> = TSegment extends `:${infer Name}?`
+  ? { [K in Name]: false }
+  : TSegment extends `:${infer Name}`
+    ? { [K in Name]: true }
+    : TSegment extends `${string}*?`
+      ? { '*': false }
+      : TSegment extends `${string}*`
+        ? { '*': true }
+        : Record<never, never>
+
+export type _MergeParamDefinitions<A extends Record<string, boolean>, B extends Record<string, boolean>> = {
+  [K in keyof A | keyof B]: K extends keyof B ? B[K] : K extends keyof A ? A[K] : never
+}
+
+export type _ExtractParamsDefinitionBySegments<TSegments extends string[]> = TSegments extends [
+  infer Segment extends string,
+  ...infer Rest extends string[],
+]
+  ? _MergeParamDefinitions<_ParamDefinitionFromSegment<Segment>, _ExtractParamsDefinitionBySegments<Rest>>
+  : Record<never, never>
+
+export type _RequiredParamKeys<TDefinition extends string> = {
+  [K in keyof _ParamsDefinition<TDefinition>]: _ParamsDefinition<TDefinition>[K] extends true ? K : never
+}[keyof _ParamsDefinition<TDefinition>]
 export type ReplacePathParams<S extends string> = S extends `${infer Head}:${infer Tail}`
   ? // eslint-disable-next-line @typescript-eslint/no-unused-vars
     Tail extends `${infer _Param}/${infer Rest}`

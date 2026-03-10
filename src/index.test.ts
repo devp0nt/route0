@@ -108,6 +108,124 @@ describe('Route0', () => {
     expect(route0({ x: '1', y: 2, z: '3', '?': { q: '1' }, '#': 'zxc' })).toBe(pathHash)
   })
 
+  it('optional named params', () => {
+    const route0 = Route0.create('/prefix/:x?/:y')
+    expect(route0.get({ y: '2' })).toBe('/prefix/2')
+    expect(route0.get({ x: '1', y: '2' })).toBe('/prefix/1/2')
+    expectTypeOf<(typeof route0)['Infer']['ParamsDefinition']>().toEqualTypeOf<{ x: false; y: true }>()
+    expectTypeOf<(typeof route0)['Infer']['ParamsInput']>().toEqualTypeOf<{
+      y: string | number
+      x?: string | number | undefined
+    }>()
+    expectTypeOf<(typeof route0)['Infer']['ParamsOutput']>().toEqualTypeOf<{
+      y: string
+      x: string | undefined
+    }>()
+  })
+
+  it('wildcards and optional wildcards', () => {
+    const routeWildcard = Route0.create('/app*')
+    const routeOptionalWildcard = Route0.create('/orders/*?')
+    expect(routeWildcard.get({ '*': '' })).toBe('/app')
+    expect(routeWildcard.get({ '*': '/home' })).toBe('/app/home')
+    expect(routeWildcard.get({ '*': '-1' })).toBe('/app-1')
+    expect(routeWildcard.getLocation('/app').exact).toBe(true)
+    expect(routeWildcard.getLocation('/app/home').exact).toBe(true)
+    expect(routeOptionalWildcard.get()).toBe('/orders')
+    expect(routeOptionalWildcard.get({ '*': 'completed/list' })).toBe('/orders/completed/list')
+    expect(routeOptionalWildcard.getLocation('/orders').exact).toBe(true)
+    expect(routeOptionalWildcard.getLocation('/orders/').exact).toBe(true)
+    expect(routeOptionalWildcard.getLocation('/orders/completed/list').exact).toBe(true)
+    expectTypeOf<(typeof routeWildcard)['Infer']['ParamsDefinition']>().toEqualTypeOf<{ '*': true }>()
+    expectTypeOf<(typeof routeOptionalWildcard)['Infer']['ParamsDefinition']>().toEqualTypeOf<{ '*': false }>()
+    expectTypeOf<(typeof routeWildcard)['Infer']['ParamsOutput']>().toEqualTypeOf<{ '*': string }>()
+    expectTypeOf<(typeof routeOptionalWildcard)['Infer']['ParamsOutput']>().toEqualTypeOf<{ '*': string | undefined }>()
+  })
+
+  it('difference: /path/x* vs /path/x/* matching', () => {
+    const inlineWildcard = Route0.create('/path/x*')
+    const segmentWildcard = Route0.create('/path/x/*')
+
+    // /path/x*:
+    // - matches '/path/x'
+    // - matches '/path/x123' (same segment continuation)
+    // - matches '/path/x/123' (slash continuation)
+    expect(inlineWildcard.getLocation('/path/x').exact).toBe(true)
+    expect(inlineWildcard.getLocation('/path/x123').exact).toBe(true)
+    expect(inlineWildcard.getLocation('/path/x/123').exact).toBe(true)
+
+    // /path/x/*:
+    // - matches '/path/x' and '/path/x/...'
+    // - does NOT match '/path/x123' (because 'x' is a full segment here)
+    expect(segmentWildcard.getLocation('/path/x').exact).toBe(true)
+    expect(segmentWildcard.getLocation('/path/x/123').exact).toBe(true)
+    expect(segmentWildcard.getLocation('/path/x123').exact).toBe(false)
+  })
+
+  it('difference: /path/x* vs /path/x/* URL building', () => {
+    const inlineWildcard = Route0.create('/path/x*')
+    const segmentWildcard = Route0.create('/path/x/*')
+
+    // Inline wildcard appends directly to the "x" prefix.
+    expect(inlineWildcard.get({ '*': '123' })).toBe('/path/x123')
+    expect(inlineWildcard.get({ '*': '/123' })).toBe('/path/x/123')
+
+    // Segment wildcard appends as a new segment after '/path/x/'.
+    expect(segmentWildcard.get({ '*': '123' })).toBe('/path/x/123')
+    expect(segmentWildcard.get({ '*': '/123' })).toBe('/path/x/123')
+  })
+
+  it('mixed required and optional named params combinations', () => {
+    const route = Route0.create('/org/:orgId/user/:userId?/:tab')
+    expect(route.get({ orgId: 'acme', tab: 'settings' })).toBe('/org/acme/user/settings')
+    expect(route.get({ orgId: 'acme', userId: '42', tab: 'settings' })).toBe('/org/acme/user/42/settings')
+
+    const locNoOptional = route.getLocation('/org/acme/user/settings')
+    expect(locNoOptional.exact).toBe(true)
+    if (locNoOptional.exact) {
+      expect(locNoOptional.params).toMatchObject({
+        orgId: 'acme',
+        userId: undefined,
+        tab: 'settings',
+      })
+    }
+
+    const locWithOptional = route.getLocation('/org/acme/user/42/settings')
+    expect(locWithOptional.exact).toBe(true)
+    if (locWithOptional.exact) {
+      expect(locWithOptional.params).toMatchObject({
+        orgId: 'acme',
+        userId: '42',
+        tab: 'settings',
+      })
+    }
+  })
+
+  it('optional wildcard before required static segment', () => {
+    const route = Route0.create('/orders/*?/details')
+    expect(route.get()).toBe('/orders/details')
+    expect(route.get({ '*': 'completed/list' })).toBe('/orders/completed/list/details')
+    expect(route.getLocation('/orders/details').exact).toBe(true)
+    expect(route.getLocation('/orders/completed/list/details').exact).toBe(true)
+  })
+
+  it('paramsSchema accepts optional-only and mixed params', () => {
+    const optionalOnly = Route0.create('/x/:id?')
+    expect(optionalOnly.paramsSchema.safeParse(undefined)).toMatchObject({
+      success: true,
+      data: { id: undefined },
+      error: undefined,
+    })
+
+    const mixed = Route0.create('/x/:id/:slug?')
+    expect(mixed.paramsSchema.safeParse({ id: '1' })).toMatchObject({
+      success: true,
+      data: { id: '1', slug: undefined },
+      error: undefined,
+    })
+    expect(mixed.paramsSchema.safeParse({ slug: 'x' }).success).toBe(false)
+  })
+
   it('simple extend', () => {
     const route0 = Route0.create('/prefix')
     const route1 = route0.extend('/suffix')
@@ -463,6 +581,12 @@ describe('type utilities', () => {
     expectTypeOf<T3>().toEqualTypeOf<true>()
     type T4 = IsParamsOptional<'/path/:id'>
     expectTypeOf<T4>().toEqualTypeOf<false>()
+    type T5 = IsParamsOptional<'/path/:id?'>
+    expectTypeOf<T5>().toEqualTypeOf<true>()
+    type T6 = IsParamsOptional<'/path*'>
+    expectTypeOf<T6>().toEqualTypeOf<false>()
+    type T7 = IsParamsOptional<'/path*?'>
+    expectTypeOf<T7>().toEqualTypeOf<true>()
   })
 
   it('IsAncestor', () => {
@@ -938,6 +1062,87 @@ describe('getLocation', () => {
       }
     })
 
+    it('resolves overlaps: static > required param > optional > wildcard', () => {
+      const routes = Routes.create({
+        usersStatic: '/users/new',
+        usersRequired: '/users/:id',
+        usersOptional: '/users/:id?',
+        usersWildcard: '/users/*?',
+      })
+
+      const locStatic = routes._.getLocation('/users/new')
+      expect(locStatic.exact).toBe(true)
+      if (locStatic.exact) {
+        expect(locStatic.route).toBe('/users/new')
+      }
+
+      const locRequired = routes._.getLocation('/users/123')
+      expect(locRequired.exact).toBe(true)
+      if (locRequired.exact) {
+        expect(locRequired.route).toBe('/users/:id')
+        expect(locRequired.params).toMatchObject({ id: '123' })
+      }
+
+      const locOptional = routes._.getLocation('/users')
+      expect(locOptional.exact).toBe(true)
+      if (locOptional.exact) {
+        expect(locOptional.route).toBe('/users/:id?')
+      }
+
+      const locWildcard = routes._.getLocation('/users/a/b/c')
+      expect(locWildcard.exact).toBe(true)
+      if (locWildcard.exact) {
+        expect(locWildcard.route).toBe('/users/*?')
+      }
+    })
+
+    it('resolves app wildcard compatibility cases like wouter', () => {
+      const routes = Routes.create({
+        appRoot: '/app',
+        appHome: '/app/home',
+        appId: '/app/:id',
+        appSplat: '/app*',
+      })
+
+      const m1 = routes._.getLocation('/app')
+      expect(m1.exact).toBe(true)
+      if (m1.exact) expect(m1.route).toBe('/app')
+
+      const m2 = routes._.getLocation('/app/home')
+      expect(m2.exact).toBe(true)
+      if (m2.exact) expect(m2.route).toBe('/app/home')
+
+      const m3 = routes._.getLocation('/app/123')
+      expect(m3.exact).toBe(true)
+      if (m3.exact) expect(m3.route).toBe('/app/:id')
+
+      const m4 = routes._.getLocation('/app-1')
+      expect(m4.exact).toBe(true)
+      if (m4.exact) expect(m4.route).toBe('/app*')
+    })
+
+    it('resolves /path/x* and /path/x/* differently in Routes', () => {
+      const routes = Routes.create({
+        inlineWildcard: '/path/x*',
+        segmentWildcard: '/path/x/*',
+      })
+
+      // '/path/x123' only matches inline wildcard.
+      const a = routes._.getLocation('/path/x123')
+      expect(a.exact).toBe(true)
+      if (a.exact) expect(a.route).toBe('/path/x*')
+
+      // '/path/x/123' matches both, but '/path/x/*' should win as more specific.
+      const b = routes._.getLocation('/path/x/123')
+      expect(b.exact).toBe(true)
+      if (b.exact) expect(b.route).toBe('/path/x/*')
+
+      // '/path/x' also matches both; segment wildcard remains preferred.
+      const c = routes._.getLocation('/path/x')
+      expect(c.exact).toBe(true)
+      if (c.exact) expect(c.route).toBe('/path/x/*')
+    })
+
     it('get location for extedned routes', () => {
       const a = Route0.create('/')
       const b = a.extend('/b')
@@ -1296,6 +1501,19 @@ describe('specificity', () => {
 
     // Same depth but different static segments
     expect(route1.isConflict(route2)).toBe(false)
+  })
+
+  it('isMayBeSame: optional params can overlap static', () => {
+    const optional = Route0.create('/users/:id?')
+    const staticUsers = Route0.create('/users')
+    expect(optional.isSame(staticUsers)).toBe(false)
+    expect(optional.isMayBeSame(staticUsers)).toBe(true)
+  })
+
+  it('isConflict: wildcard overlaps deeper static routes', () => {
+    const wildcard = Route0.create('/app*')
+    const staticRoute = Route0.create('/app/home')
+    expect(wildcard.isConflict(staticRoute)).toBe(true)
   })
 })
 
@@ -1698,6 +1916,29 @@ describe('ordering', () => {
     // All have same depth and don't conflict
     // Ordered alphabetically
     expect(ordering).toEqual(['/about', '/contact', '/home'])
+  })
+
+  it('_makeOrdering: keeps concrete routes before wildcard overlaps', () => {
+    const routes = {
+      appWildcard: '/app*',
+      appHome: '/app/home',
+      app: '/app',
+    }
+    const { pathsOrdering: ordering } = Routes._.makeOrdering(routes)
+    expect(ordering).toEqual(['/app', '/app/home', '/app*'])
+  })
+
+  it('_makeOrdering: mixed optional and required params are deterministic', () => {
+    const routes = {
+      usersOptional: '/users/:id?',
+      usersRequired: '/users/:id',
+      usersStatic: '/users/new',
+      usersWildcard: '/users/*?',
+    }
+    const { pathsOrdering: ordering } = Routes._.makeOrdering(routes)
+    expect(ordering.indexOf('/users/new')).toBeLessThan(ordering.indexOf('/users/:id'))
+    expect(ordering.indexOf('/users/:id')).toBeLessThan(ordering.indexOf('/users/:id?'))
+    expect(ordering.indexOf('/users/:id?')).toBeLessThan(ordering.indexOf('/users/*?'))
   })
 
   it('_makeOrdering: complex nested structure', () => {
