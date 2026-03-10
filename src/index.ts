@@ -37,12 +37,9 @@ import type { StandardSchemaV1 } from '@standard-schema/spec'
  * Instances are callable (same as `.get()`), so `route(input)` and
  * `route.get(input)` are equivalent.
  */
-export class Route0<TDefinition extends string> {
+export class Route0<TDefinition extends string, TSearch extends UnknownSearch = UnknownSearch> {
   readonly definition: TDefinition
-  readonly pathDefinition: _PathDefinition<TDefinition>
-  readonly paramsDefinition: _ParamsDefinition<TDefinition>
-  readonly searchDefinition: _SearchDefinition<TDefinition>
-  readonly hasLooseSearch: HasLooseSearch<TDefinition>
+  readonly params: _ParamsDefinition<TDefinition>
   private _origin: string | undefined
 
   /** Base URL used when generating absolute URLs (`abs: true`). */
@@ -62,10 +59,7 @@ export class Route0<TDefinition extends string> {
 
   private constructor(definition: TDefinition, config: RouteConfigInput = {}) {
     this.definition = definition
-    this.pathDefinition = Route0._getPathDefinitionBydefinition(definition)
-    this.paramsDefinition = Route0._getParamsDefinitionBydefinition(definition)
-    this.searchDefinition = Route0._getSearchDefinitionBydefinition(definition)
-    this.hasLooseSearch = Route0._hasLooseSearch(definition)
+    this.params = Route0._getParamsDefinitionByDefinition(definition)
 
     const { origin } = config
     if (origin && typeof origin === 'string' && origin.length) {
@@ -89,10 +83,7 @@ export class Route0<TDefinition extends string> {
     definition: TDefinition | AnyRoute<TDefinition> | CallableRoute<TDefinition>,
     config?: RouteConfigInput,
   ): CallableRoute<TDefinition> {
-    if (typeof definition === 'function') {
-      return definition.clone(config) as CallableRoute<TDefinition>
-    }
-    if (typeof definition === 'object') {
+    if (typeof definition === 'function' || typeof definition === 'object') {
       return definition.clone(config) as CallableRoute<TDefinition>
     }
     const original = new Route0<TDefinition>(definition, config)
@@ -124,182 +115,95 @@ export class Route0<TDefinition extends string> {
     return callable as never
   }
 
-  private static _splitPathDefinitionAndSearchTailDefinition(definition: string) {
-    const i = definition.indexOf('&')
-    if (i === -1) return { pathDefinition: definition, searchTailDefinition: '' }
-    return {
-      pathDefinition: definition.slice(0, i),
-      searchTailDefinition: definition.slice(i),
-    }
+  private static _getAbsPath(origin: string, url: string) {
+    return new URL(url, origin).toString().replace(/\/$/, '')
   }
 
-  private static _getAbsPath(origin: string, pathWithSearch: string) {
-    return new URL(pathWithSearch, origin).toString().replace(/\/$/, '')
-  }
-
-  private static _getPathDefinitionBydefinition<TDefinition extends string>(definition: TDefinition) {
-    const { pathDefinition } = Route0._splitPathDefinitionAndSearchTailDefinition(definition)
-    return pathDefinition as _PathDefinition<TDefinition>
-  }
-
-  private static _getParamsDefinitionBydefinition<TDefinition extends string>(
+  private static _getParamsDefinitionByDefinition<TDefinition extends string>(
     definition: TDefinition,
   ): _ParamsDefinition<TDefinition> {
-    const { pathDefinition } = Route0._splitPathDefinitionAndSearchTailDefinition(definition)
-    const matches = Array.from(pathDefinition.matchAll(/:([A-Za-z0-9_]+)/g))
+    const matches = Array.from(definition.matchAll(/:([A-Za-z0-9_]+)/g))
     const paramsDefinition = Object.fromEntries(matches.map((m) => [m[1], true]))
-    const keysCount = Object.keys(paramsDefinition).length
-    if (keysCount === 0) {
-      return undefined as _ParamsDefinition<TDefinition>
-    }
     return paramsDefinition as _ParamsDefinition<TDefinition>
-  }
-
-  private static _getSearchDefinitionBydefinition<TDefinition extends string>(
-    definition: TDefinition,
-  ): _SearchDefinition<TDefinition> {
-    const { searchTailDefinition } = Route0._splitPathDefinitionAndSearchTailDefinition(definition)
-    if (!searchTailDefinition) {
-      return undefined as _SearchDefinition<TDefinition>
-    }
-    const keys = searchTailDefinition.split('&').filter(Boolean)
-    const searchDefinition = Object.fromEntries(keys.map((k) => [k, true]))
-    const keysCount = Object.keys(searchDefinition).length
-    if (keysCount === 0) {
-      return undefined as _SearchDefinition<TDefinition>
-    }
-    return searchDefinition as _SearchDefinition<TDefinition>
-  }
-
-  private static _hasLooseSearch<TDefinition extends string>(definition: TDefinition): HasLooseSearch<TDefinition> {
-    // ends with &
-    return definition.endsWith('&') as HasLooseSearch<TDefinition>
   }
 
   /** Extends the current route definition by appending a suffix route. */
   extend<TSuffixDefinition extends string>(
     suffixDefinition: TSuffixDefinition,
   ): CallableRoute<PathExtended<TDefinition, TSuffixDefinition>> {
-    const { pathDefinition: parentPathDefinition } = Route0._splitPathDefinitionAndSearchTailDefinition(this.definition)
-    const { pathDefinition: suffixPathDefinition, searchTailDefinition: suffixSearchTailDefinition } =
-      Route0._splitPathDefinitionAndSearchTailDefinition(suffixDefinition)
-    const pathDefinition = `${parentPathDefinition}/${suffixPathDefinition}`.replace(/\/{2,}/g, '/')
-    const definition = `${pathDefinition}${suffixSearchTailDefinition}` as PathExtended<TDefinition, TSuffixDefinition>
-    return Route0.create<PathExtended<TDefinition, TSuffixDefinition>>(definition, { origin: this._origin })
+    const definition = `${this.definition}/${suffixDefinition}`.replace(/\/{2,}/g, '/')
+    return Route0.create<PathExtended<TDefinition, TSuffixDefinition>>(
+      definition as PathExtended<TDefinition, TSuffixDefinition>,
+      { origin: this._origin },
+    )
   }
 
-  // has params
   // get(
   //   input: OnlyIfHasParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search?: undefined; abs?: false; hash?: string | number }>
+  //     TDefinition,
+  //     _ParamsInput<TDefinition> & {
+  //       '?'?: TSearch
+  //       '#'?: string | number
+  //     }
   //   >,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, PathOnlyRouteValue<TDefinition>>
+  //   abs?: boolean | string,
+  // ): OnlyIfHasParams<TDefinition, string>
+  // get(...args: OnlyIfNoParams<TDefinition, [], [never]>): string
   // get(
-  //   input: OnlyIfHasParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search: _SearchInput<TDefinition>; abs?: false; hash?: string | number }>
+  //   input: OnlyIfNoParams<
+  //     TDefinition,
+  //     {
+  //       '?'?: TSearch
+  //       '#'?: string | number
+  //     }
   //   >,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, WithSearchRouteValue<TDefinition>>
-  // get(
-  //   input: OnlyIfHasParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search?: undefined; abs: true; hash?: string | number }>
-  //   >,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsolutePathOnlyRouteValue<TDefinition>>
-  // get(
-  //   input: OnlyIfHasParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search: _SearchInput<TDefinition>; abs: true; hash?: string | number }>
-  //   >,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsoluteWithSearchRouteValue<TDefinition>>
+  //   abs?: boolean | string,
+  // ): OnlyIfNoParams<TDefinition, string>
 
-  // get(
-  //   input: OnlyIfHasParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search?: _SearchInput<TDefinition>; abs?: false; hash?: string | number }>
-  //   >,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, PathRouteValue<TDefinition>>
-  // get(
-  //   input: OnlyIfHasParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, { search: _SearchInput<TDefinition>; abs: true; hash?: string | number }>
-  //   >,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
-
-  /**
-   * Builds a URL string from typed params/search input.
-   *
-   * - `abs: true` returns absolute URL using `origin`
-   * - `hash` appends URL fragment
-   * - `search` accepts named/loose search input based on definition
-   */
   get(
-    input: OnlyIfHasParams<
-      TDefinition,
-      WithParamsInput<
-        TDefinition,
-        {
-          search?: _LooseSearchInput<TDefinition> // '?'
-          abs?: boolean | string // → move to second arg
-          hash?: string | number // '#'
-        }
-      >
-    >,
-  ): OnlyIfHasParams<TDefinition, string>
-
-  // no params
-  // get(...args: OnlyIfNoParams<_ParamsDefinition<TDefinition>, [], [never]>): PathOnlyRouteValue<TDefinition>
-  // get(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { search?: undefined; abs?: false; hash?: string | number }>,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, PathOnlyRouteValue<TDefinition>>
-  // get(
-  //   input: OnlyIfNoParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     { search: _SearchInput<TDefinition>; abs?: false; hash?: string | number }
-  //   >,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, WithSearchRouteValue<TDefinition>>
-  // get(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { search?: undefined; abs: true; hash?: string | number }>,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsolutePathOnlyRouteValue<TDefinition>>
-  // get(
-  //   input: OnlyIfNoParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     { search: _SearchInput<TDefinition>; abs: true; hash?: string | number }
-  //   >,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsoluteWithSearchRouteValue<TDefinition>>
-
-  // get(...args: OnlyIfNoParams<_ParamsDefinition<TDefinition>, [], [never]>): PathRouteValue<TDefinition>
-  // get(
-  //   input: OnlyIfNoParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     { search?: _SearchInput<TDefinition>; abs?: false; hash?: string | number }
-  //   >,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, PathRouteValue<TDefinition>>
-  // get(
-  //   input: OnlyIfNoParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     { search?: _SearchInput<TDefinition>; abs: true; hash?: string | number }
-  //   >,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
-
-  get(...args: OnlyIfNoParams<TDefinition, [], [never]>): string
+    ...args: IsParamsOptional<TDefinition> extends true
+      ? [
+          input?:
+            | (_ParamsInput<TDefinition> & {
+                '?'?: TSearch
+                '#'?: string | number
+              })
+            | undefined,
+          abs?: boolean | string | undefined,
+        ]
+      : [
+          input: _ParamsInput<TDefinition> & {
+            '?'?: TSearch
+            '#'?: string | number
+          },
+          abs?: boolean | string | undefined,
+        ]
+  ): string
   get(
-    input: OnlyIfNoParams<
-      TDefinition,
-      {
-        search?: _LooseSearchInput<TDefinition>
-        abs?: boolean | string
-        hash?: string | number
-      }
-    >,
-  ): OnlyIfNoParams<TDefinition, string>
+    ...args: IsParamsOptional<TDefinition> extends true
+      ? [
+          abs: boolean | string | undefined,
+          input?:
+            | (_ParamsInput<TDefinition> & {
+                '?'?: TSearch
+                '#'?: string | number
+              })
+            | undefined,
+        ]
+      : [
+          abs: boolean | string | undefined,
+          input: _ParamsInput<TDefinition> & {
+            '?'?: TSearch
+            '#'?: string | number
+          },
+        ]
+  ): string
 
   // implementation
   get(...args: unknown[]): string {
     const { searchInput, paramsInput, absInput, absOriginInput, hashInput } = ((): {
-      searchInput: Record<string, string | number>
-      paramsInput: Record<string, string | number>
+      searchInput: Record<string, unknown>
+      paramsInput: Record<string, string>
       absInput: boolean
       absOriginInput: string | undefined
       hashInput: string | undefined
@@ -313,51 +217,52 @@ export class Route0<TDefinition extends string> {
           hashInput: undefined,
         }
       }
-      const input = args[0]
-      if (typeof input !== 'object' || input === null) {
-        // throw new Error("Invalid get route input: expected object")
-        return {
-          searchInput: {},
-          paramsInput: {},
-          absInput: false,
-          absOriginInput: undefined,
-          hashInput: undefined,
+      const [input, abs] = ((): [Record<string, unknown>, boolean | string | undefined] => {
+        if (typeof args[0] === 'object' && args[0] !== null) {
+          return [args[0], args[1]] as [Record<string, unknown>, boolean | string | undefined]
         }
-      }
-      const { search, abs, hash, ...params } = input as Record<string, string | number> & {
-        search: Record<string, string | number>
-        abs: boolean | string
-        hash: string | undefined
-        [key: string]: unknown
+        if (typeof args[1] === 'object' && args[1] !== null) {
+          return [args[1], args[0]] as [Record<string, unknown>, boolean | string | undefined]
+        }
+        if (typeof args[0] === 'boolean' || typeof args[0] === 'string') {
+          return [{}, args[0]]
+        }
+        if (typeof args[1] === 'boolean' || typeof args[1] === 'string') {
+          return [{}, args[1]]
+        }
+        return [{}, undefined]
+      })()
+      let searchInput: Record<string, unknown> = {}
+      let hashInput: string | undefined = undefined
+      const paramsInput: Record<string, string> = {}
+      for (const [key, value] of Object.entries(input)) {
+        if (key === '?' && typeof value === 'object' && value !== null) {
+          searchInput = value as Record<string, unknown>
+        } else if (key === '#' && (typeof value === 'string' || typeof value === 'number')) {
+          hashInput = String(value)
+        } else if (key in this.params && (typeof value === 'string' || typeof value === 'number')) {
+          Object.assign(paramsInput, { [key]: String(value) })
+        }
       }
       const absOriginInput = typeof abs === 'string' && abs.length > 0 ? abs : undefined
       return {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        searchInput: search || {},
-        paramsInput: params,
+        searchInput,
+        paramsInput,
         absInput: absOriginInput !== undefined || abs === true,
         absOriginInput,
-        hashInput: hash,
+        hashInput,
       }
     })()
 
-    // validate params
-    const neededParamsKeys = this.paramsDefinition ? Object.keys(this.paramsDefinition) : []
-    const providedParamsKeys = Object.keys(paramsInput)
-    const notProvidedKeys = neededParamsKeys.filter((k) => !providedParamsKeys.includes(k))
-    if (notProvidedKeys.length) {
-      // throw new Error(`Missing params: not defined keys ${notProvidedKeys.map((k) => `"${k}"`).join(", ")}.`)
-      Object.assign(paramsInput, Object.fromEntries(notProvidedKeys.map((k) => [k, 'undefined'])))
-    }
-
     // create url
 
-    let url = this.pathDefinition as string
+    let url = this.definition as string
     // replace params
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    url = url.replace(/:([A-Za-z0-9_]+)/g, (_m, k) => encodeURIComponent(String(paramsInput?.[k] ?? '')))
+    url = url.replace(/:([A-Za-z0-9_]+)/g, (_m, k) => encodeURIComponent(String(paramsInput?.[k] ?? 'undefined')))
     // search params
     const searchInputStringified = Object.fromEntries(Object.entries(searchInput).map(([k, v]) => [k, String(v)]))
+    // TODO: add here flat0
     url = [url, new URLSearchParams(searchInputStringified).toString()].filter(Boolean).join('?')
     // dedupe slashes
     url = url.replace(/\/{2,}/g, '/')
@@ -371,214 +276,9 @@ export class Route0<TDefinition extends string> {
     return url
   }
 
-  // has params
-  // flat(
-  //   input: OnlyIfHasParams<_ParamsDefinition<TDefinition>, WithParamsInput<TDefinition, { hash?: string | number }>>,
-  //   abs?: false,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, PathOnlyRouteValue<TDefinition>>
-  // flat(
-  //   input: OnlyIfHasParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string | number }>
-  //   >,
-  //   abs?: false,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, WithSearchRouteValue<TDefinition>>
-  // flat(
-  //   input: OnlyIfHasParams<_ParamsDefinition<TDefinition>, WithParamsInput<TDefinition, { hash?: string | number }>>,
-  //   abs: true,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsolutePathOnlyRouteValue<TDefinition>>
-  // flat(
-  //   input: OnlyIfHasParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string | number }>
-  //   >,
-  //   abs: true,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsoluteWithSearchRouteValue<TDefinition>>
-
-  // flat(
-  //   input: OnlyIfHasParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string | number }>
-  //   >,
-  //   abs?: false,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, PathRouteValue<TDefinition>>
-  // flat(
-  //   input: OnlyIfHasParams<
-  //     _ParamsDefinition<TDefinition>,
-  //     WithParamsInput<TDefinition, _SearchInput<TDefinition> & { hash?: string | number }>
-  //   >,
-  //   abs: true,
-  // ): OnlyIfHasParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
-
-  /**
-   * Flat input variant of `get()`, where path params + search keys
-   * are provided in a single object.
-   */
-  flat<TLoose extends boolean = HasLooseSearch<TDefinition>>(
-    input: OnlyIfHasParams<
-      TDefinition,
-      WithParamsInput<TDefinition, FlatInput<TDefinition, TLoose> & { hash?: string | number }>
-    >,
-    abs?: boolean | string,
-    loose?: TLoose,
-  ): OnlyIfHasParams<TDefinition, string>
-
-  // no params
-  // flat(...args: OnlyIfNoParams<_ParamsDefinition<TDefinition>, [], [never]>): PathOnlyRouteValue<TDefinition>
-  // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { hash?: string | number }>,
-  //   abs?: false,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, PathOnlyRouteValue<TDefinition>>
-  // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string | number }>,
-  //   abs?: false,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, WithSearchRouteValue<TDefinition>>
-  // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, { hash?: string | number }>,
-  //   abs: true,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsolutePathOnlyRouteValue<TDefinition>>
-  // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string | number }>,
-  //   abs: true,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsoluteWithSearchRouteValue<TDefinition>>
-
-  // flat(...args: OnlyIfNoParams<_ParamsDefinition<TDefinition>, [], [never]>): PathRouteValue<TDefinition>
-  // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string | number }>,
-  //   abs?: false,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, PathRouteValue<TDefinition>>
-  // flat(
-  //   input: OnlyIfNoParams<_ParamsDefinition<TDefinition>, _SearchInput<TDefinition> & { hash?: string | number }>,
-  //   abs: true,
-  // ): OnlyIfNoParams<_ParamsDefinition<TDefinition>, AbsolutePathRouteValue<TDefinition>>
-
-  flat(...args: OnlyIfNoParams<TDefinition, [], [never]>): string
-  flat<TLoose extends boolean = HasLooseSearch<TDefinition>>(
-    input: OnlyIfNoParams<TDefinition, FlatInput<TDefinition, TLoose> & { hash?: string | number }>,
-    abs?: boolean | string,
-    loose?: TLoose,
-  ): OnlyIfNoParams<TDefinition, string>
-
-  // implementation
-  flat(...args: unknown[]): string {
-    const { searchInput, paramsInput, absInput, hashInput } = ((): {
-      searchInput: Record<string, string | number>
-      paramsInput: Record<string, string | number>
-      absInput: boolean | string
-      hashInput: string | undefined
-    } => {
-      if (args.length === 0) {
-        return {
-          searchInput: {},
-          paramsInput: {},
-          absInput: false,
-          hashInput: undefined,
-        }
-      }
-      const input = args[0] as Record<string, string | number> | undefined
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (typeof input !== 'object' || input === null) {
-        // throw new Error("Invalid get route input: expected object")
-        return {
-          searchInput: {},
-          paramsInput: {},
-          absInput: (args[1] as boolean | string | undefined) ?? false,
-          hashInput: undefined,
-        }
-      }
-      const loose = (args[2] as boolean | undefined) ?? this.hasLooseSearch
-      const paramsKeys = this.getParamsKeys()
-      const paramsInput = paramsKeys.reduce<Record<string, string | number>>((acc, key) => {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (input[key] !== undefined) {
-          acc[key] = input[key]
-        }
-        return acc
-      }, {})
-      const searchKeys = this.getSearchKeys()
-      const searchInput = Object.keys(input)
-        .filter((k) => {
-          if (k === 'hash') {
-            return false
-          }
-          if (searchKeys.includes(k)) {
-            return true
-          }
-          if (paramsKeys.includes(k)) {
-            return false
-          }
-          return loose
-        })
-        .reduce<Record<string, string | number>>((acc, key) => {
-          acc[key] = input[key]
-          return acc
-        }, {})
-      const hashInput = input.hash
-      return {
-        searchInput,
-        paramsInput,
-        absInput: (args[1] as boolean | string | undefined) ?? false,
-        hashInput: hashInput as string | undefined,
-      }
-    })()
-
-    return this.get({
-      ...paramsInput,
-      search: searchInput,
-      abs: absInput,
-      hash: hashInput,
-    } as never)
-  }
-
-  /** Same as `flat()`, but always accepts loose search keys. */
-  flatLoose(
-    input: OnlyIfHasParams<
-      TDefinition,
-      WithParamsInput<TDefinition, LooseFlatInput<TDefinition> & { hash?: string | number }>
-    >,
-    abs?: boolean | string,
-  ): OnlyIfHasParams<TDefinition, string>
-  flatLoose(...args: OnlyIfNoParams<TDefinition, [], [never]>): string
-  flatLoose(
-    input: OnlyIfNoParams<TDefinition, LooseFlatInput<TDefinition> & { hash?: string | number }>,
-    abs?: boolean | string,
-  ): OnlyIfNoParams<TDefinition, string>
-  flatLoose(...args: unknown[]): string {
-    return this.flat(args[0] as never, args[1] as never, true)
-  }
-
-  /** Same as `flat()`, but only allows declared search keys. */
-  flatStrict(
-    input: OnlyIfHasParams<
-      TDefinition,
-      WithParamsInput<TDefinition, StrictFlatInput<TDefinition> & { hash?: string | number }>
-    >,
-    abs?: boolean | string,
-  ): OnlyIfHasParams<TDefinition, string>
-  flatStrict(...args: OnlyIfNoParams<TDefinition, [], [never]>): string
-  flatStrict(
-    input: OnlyIfNoParams<TDefinition, StrictFlatInput<TDefinition> & { hash?: string | number }>,
-    abs?: boolean | string,
-  ): OnlyIfNoParams<TDefinition, string>
-  flatStrict(...args: unknown[]): string {
-    return this.flat(args[0] as never, args[1] as never, false)
-  }
-
   /** Returns path param keys extracted from route definition. */
   getParamsKeys(): string[] {
-    return Object.keys(this.paramsDefinition || {})
-  }
-  /** Returns named search keys extracted from route definition. */
-  getSearchKeys(): string[] {
-    return Object.keys(this.searchDefinition || {})
-  }
-  /** Returns all flat input keys (`search + params`). */
-  getFlatKeys(): string[] {
-    return [...this.getSearchKeys(), ...this.getParamsKeys()]
-  }
-
-  getDefinition(): string {
-    return this.pathDefinition
+    return Object.keys(this.params)
   }
 
   /** Clones route with optional config override. */
@@ -587,7 +287,7 @@ export class Route0<TDefinition extends string> {
   }
 
   getRegexBaseStrictString(): string {
-    return this.pathDefinition
+    return this.definition
       .replace(/:(\w+)/g, '___PARAM___') // temporarily replace params with placeholder
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // escape regex special chars
       .replace(/___PARAM___/g, '([^/]+)')
@@ -691,6 +391,7 @@ export class Route0<TDefinition extends string> {
     const url = new URL(hrefOrHrefRelOrLocation, base)
 
     // Extract search params
+    // TODO: add here flat0
     const searchParams = Object.fromEntries(url.searchParams.entries())
 
     // Normalize pathname (remove trailing slash except for root)
@@ -766,9 +467,7 @@ export class Route0<TDefinition extends string> {
     // Extract param names from the definition
     const paramNames: string[] = []
     const def =
-      this.pathDefinition.length > 1 && this.pathDefinition.endsWith('/')
-        ? this.pathDefinition.slice(0, -1)
-        : this.pathDefinition
+      this.definition.length > 1 && this.definition.endsWith('/') ? this.definition.slice(0, -1) : this.definition
     def.replace(/:([A-Za-z0-9_]+)/g, (_m: string, name: string) => {
       paramNames.push(String(name))
       return ''
@@ -891,70 +590,6 @@ export class Route0<TDefinition extends string> {
     }
   }
 
-  private _validateSearchInput<TLoose extends boolean>(
-    input: unknown,
-    loose: TLoose,
-  ): StandardSchemaV1.Result<TLoose extends true ? LooseSearchOutput<TDefinition> : StrictSearchOutput<TDefinition>> {
-    if (input === undefined) {
-      input = {}
-    }
-    if (typeof input !== 'object' || input === null) {
-      return {
-        issues: [{ message: 'Invalid search params: expected object' }],
-      }
-    }
-    const inputObj = input as Record<string, unknown>
-    const paramsKeys = this.getParamsKeys()
-    const searchKeys = this.getSearchKeys()
-    const data: Record<string, string> = {}
-    for (const [k, v] of Object.entries(inputObj)) {
-      if (k === 'hash') continue
-      if (paramsKeys.includes(k)) continue
-      if (!loose && !searchKeys.includes(k)) continue
-      if (v === undefined) continue
-      if (typeof v === 'string') {
-        data[k] = v
-      } else if (typeof v === 'number') {
-        data[k] = String(v)
-      } else {
-        return {
-          issues: [
-            { message: `Invalid search params: expected string, number, or undefined, got ${typeof v} for "${k}"` },
-          ],
-        }
-      }
-    }
-    return {
-      value: data as TLoose extends true ? LooseSearchOutput<TDefinition> : StrictSearchOutput<TDefinition>,
-    }
-  }
-
-  private _validateFlatInput<TLoose extends boolean>(
-    input: unknown,
-    loose: TLoose,
-  ): StandardSchemaV1.Result<TLoose extends true ? LooseFlatOutput<TDefinition> : StrictFlatOutput<TDefinition>> {
-    const paramsResult = this._validateParamsInput(input)
-    if ('issues' in paramsResult) {
-      return {
-        issues: paramsResult.issues ?? [],
-      }
-    }
-
-    const searchResult = this._validateSearchInput(input, loose)
-    if ('issues' in searchResult) {
-      return {
-        issues: searchResult.issues ?? [],
-      }
-    }
-
-    return {
-      value: {
-        ...(searchResult.value as Record<string, string>),
-        ...(paramsResult.value as Record<string, string>),
-      } as TLoose extends true ? LooseFlatOutput<TDefinition> : StrictFlatOutput<TDefinition>,
-    }
-  }
-
   private _safeParseSchemaResult<TOutput extends Record<string, unknown>>(
     result: StandardSchemaV1.Result<TOutput>,
   ): _SafeParseInputResult<TOutput> {
@@ -983,7 +618,7 @@ export class Route0<TDefinition extends string> {
   }
 
   /** Standard Schema for route params input. */
-  readonly paramsInputSchema: Route0Schema<ParamsInput<TDefinition>, ParamsOutput<TDefinition>> = {
+  readonly paramsSchema: SchemaRoute0<ParamsInput<TDefinition>, ParamsOutput<TDefinition>> = {
     '~standard': {
       version: 1,
       vendor: 'route0',
@@ -994,61 +629,11 @@ export class Route0<TDefinition extends string> {
     safeParse: (value) => this._safeParseSchemaResult(this._validateParamsInput(value)),
   }
 
-  /** Standard Schema for strict search input. */
-  readonly strictSearchInputSchema: Route0Schema<StrictSearchInput<TDefinition>, StrictSearchOutput<TDefinition>> = {
-    '~standard': {
-      version: 1,
-      vendor: 'route0',
-      validate: (value) => this._validateSearchInput(value, false),
-      types: undefined as unknown as StandardSchemaV1.Types<
-        StrictSearchInput<TDefinition>,
-        StrictSearchOutput<TDefinition>
-      >,
-    },
-    parse: (value) => this._parseSchemaResult(this._validateSearchInput(value, false)),
-    safeParse: (value) => this._safeParseSchemaResult(this._validateSearchInput(value, false)),
-  }
-
-  /** Standard Schema for loose search input. */
-  readonly looseSearchInputSchema: Route0Schema<LooseSearchInput<TDefinition>, LooseSearchOutput<TDefinition>> = {
-    '~standard': {
-      version: 1,
-      vendor: 'route0',
-      validate: (value) => this._validateSearchInput(value, true),
-      types: undefined as unknown as StandardSchemaV1.Types<
-        LooseSearchInput<TDefinition>,
-        LooseSearchOutput<TDefinition>
-      >,
-    },
-    parse: (value) => this._parseSchemaResult(this._validateSearchInput(value, true)),
-    safeParse: (value) => this._safeParseSchemaResult(this._validateSearchInput(value, true)),
-  }
-
-  /** Standard Schema for route flat input (uses route default strict/loose mode). */
-  readonly flatInputSchema: Route0Schema<
-    FlatInput<TDefinition, HasLooseSearch<TDefinition>>,
-    FlatOutput<TDefinition, HasLooseSearch<TDefinition>>
-  > = {
-    '~standard': {
-      version: 1,
-      vendor: 'route0',
-      validate: (value) => this._validateFlatInput(value, this.hasLooseSearch as HasLooseSearch<TDefinition>),
-      types: undefined as unknown as StandardSchemaV1.Types<
-        FlatInput<TDefinition, HasLooseSearch<TDefinition>>,
-        FlatOutput<TDefinition, HasLooseSearch<TDefinition>>
-      >,
-    },
-    parse: (value) =>
-      this._parseSchemaResult(this._validateFlatInput(value, this.hasLooseSearch as HasLooseSearch<TDefinition>)),
-    safeParse: (value) =>
-      this._safeParseSchemaResult(this._validateFlatInput(value, this.hasLooseSearch as HasLooseSearch<TDefinition>)),
-  }
-
   /** True when path structure is equal (param names are ignored). */
   isSame(other: AnyRoute): boolean {
     return (
-      this.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__') ===
-      other.pathDefinition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__')
+      this.definition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__') ===
+      other.definition.replace(/:([A-Za-z0-9_]+)/g, '__PARAM__')
     )
   }
   /** Static convenience wrapper for `isSame`. */
@@ -1072,11 +657,11 @@ export class Route0<TDefinition extends string> {
     // - other's path is a prefix of this path, matching params as wildcards
     const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
     // Root is ancestor of any non-root; thus any non-root is a descendant of root
-    if (other.pathDefinition === '/' && this.pathDefinition !== '/') {
+    if (other.definition === '/' && this.definition !== '/') {
       return true
     }
-    const thisParts = getParts(this.pathDefinition)
-    const otherParts = getParts(other.pathDefinition)
+    const thisParts = getParts(this.definition)
+    const otherParts = getParts(other.definition)
 
     // A descendant must be deeper
     if (thisParts.length <= otherParts.length) return false
@@ -1100,11 +685,11 @@ export class Route0<TDefinition extends string> {
     // - this path is a prefix of other path, matching params as wildcards
     const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
     // Root is ancestor of any non-root path
-    if (this.pathDefinition === '/' && other.pathDefinition !== '/') {
+    if (this.definition === '/' && other.definition !== '/') {
       return true
     }
-    const thisParts = getParts(this.pathDefinition)
-    const otherParts = getParts(other.pathDefinition)
+    const thisParts = getParts(this.definition)
+    const otherParts = getParts(other.definition)
 
     // An ancestor must be shallower
     if (thisParts.length >= otherParts.length) return false
@@ -1128,8 +713,8 @@ export class Route0<TDefinition extends string> {
       return path.split('/').filter(Boolean)
     }
 
-    const thisParts = getParts(this.pathDefinition)
-    const otherParts = getParts(other.pathDefinition)
+    const thisParts = getParts(this.definition)
+    const otherParts = getParts(other.definition)
 
     // Different lengths = no conflict (one is deeper than the other)
     if (thisParts.length !== otherParts.length) {
@@ -1171,8 +756,8 @@ export class Route0<TDefinition extends string> {
       return path.split('/').filter(Boolean)
     }
 
-    const thisParts = getParts(this.pathDefinition)
-    const otherParts = getParts(other.pathDefinition)
+    const thisParts = getParts(this.definition)
+    const otherParts = getParts(other.definition)
 
     // Compare segment by segment
     for (let i = 0; i < Math.min(thisParts.length, otherParts.length); i++) {
@@ -1184,7 +769,7 @@ export class Route0<TDefinition extends string> {
     }
 
     // All equal, use lexicographic
-    return this.pathDefinition < other.pathDefinition
+    return this.definition < other.definition
   }
 }
 
@@ -1317,8 +902,8 @@ export class Routes<const T extends RoutesRecord = any> {
 
     // Sort: shorter paths first, then by specificity, then alphabetically
     entries.sort(([_keyA, routeA], [_keyB, routeB]) => {
-      const partsA = getParts(routeA.pathDefinition)
-      const partsB = getParts(routeB.pathDefinition)
+      const partsA = getParts(routeA.definition)
+      const partsB = getParts(routeB.definition)
 
       // 1. Shorter paths first (by segment count)
       if (partsA.length !== partsB.length) {
@@ -1333,7 +918,7 @@ export class Routes<const T extends RoutesRecord = any> {
       }
 
       // 3. Same length, not conflicting or equal specificity: alphabetically
-      return routeA.pathDefinition.localeCompare(routeB.pathDefinition)
+      return routeA.definition.localeCompare(routeB.definition)
     })
 
     const pathsOrdering = entries.map(([_key, route]) => route.definition)
@@ -1407,20 +992,10 @@ export type Definition<T extends AnyRoute | string> = T extends AnyRoute
   : T extends string
     ? T
     : never
-export type PathDefinition<T extends AnyRoute | string> = T extends AnyRoute
-  ? T['pathDefinition']
-  : T extends string
-    ? _PathDefinition<T>
-    : never
 export type ParamsDefinition<T extends AnyRoute | string> = T extends AnyRoute
-  ? T['paramsDefinition']
+  ? T['params']
   : T extends string
     ? _ParamsDefinition<T>
-    : undefined
-export type SearchDefinition<T extends AnyRoute | string> = T extends AnyRoute
-  ? T['searchDefinition']
-  : T extends string
-    ? _SearchDefinition<T>
     : undefined
 
 export type Extended<T extends AnyRoute | string | undefined, TSuffixDefinition extends string> = T extends AnyRoute
@@ -1432,16 +1007,16 @@ export type Extended<T extends AnyRoute | string | undefined, TSuffixDefinition 
       : never
 
 export type IsAncestor<T extends AnyRoute | string, TAncestor extends AnyRoute | string> = _IsAncestor<
-  PathDefinition<T>,
-  PathDefinition<TAncestor>
+  Definition<T>,
+  Definition<TAncestor>
 >
 export type IsDescendant<T extends AnyRoute | string, TDescendant extends AnyRoute | string> = _IsDescendant<
-  PathDefinition<T>,
-  PathDefinition<TDescendant>
+  Definition<T>,
+  Definition<TDescendant>
 >
 export type IsSame<T extends AnyRoute | string, TExact extends AnyRoute | string> = _IsSame<
-  PathDefinition<T>,
-  PathDefinition<TExact>
+  Definition<T>,
+  Definition<TExact>
 >
 export type IsSameParams<T1 extends AnyRoute | string, T2 extends AnyRoute | string> = _IsSameParams<
   ParamsDefinition<T1>,
@@ -1449,78 +1024,20 @@ export type IsSameParams<T1 extends AnyRoute | string, T2 extends AnyRoute | str
 >
 
 export type HasParams<T extends AnyRoute | string> =
-  ExtractPathParams<PathDefinition<T>> extends infer U ? ([U] extends [never] ? false : true) : false
-export type HasSearch<T extends AnyRoute | string> = Definition<T> extends `${string}&${string}` ? true : false
-export type HasNamedSearch<T extends AnyRoute | string> = // Definition<T> extends `${string}&${string}` ? true : false
-  SearchTailDefinitionWithoutFirstAndLastAmp<Definition<T>> extends '' ? false : true
-export type HasLooseSearch<T extends AnyRoute | string> = Definition<T> extends `${string}&` ? true : false
+  ExtractPathParams<Definition<T>> extends infer U ? ([U] extends [never] ? false : true) : false
 
 export type ParamsOutput<T extends AnyRoute | string> = {
   [K in keyof ParamsDefinition<T>]: string
 }
-export type LooseSearchOutput<T extends AnyRoute | string = string> = Partial<
-  {
-    [K in keyof SearchDefinition<T>]?: string
-  } & Record<string, string | undefined>
->
-export type StrictSearchOutput<T extends AnyRoute | string> = Partial<{
-  [K in keyof SearchDefinition<T>]?: string | undefined
-}>
-export type LooseFlatOutput<T extends AnyRoute | string = string> =
-  HasParams<Definition<T>> extends true ? ParamsOutput<T> & LooseSearchOutput<T> : LooseSearchOutput<T>
-export type StrictFlatOutput<T extends AnyRoute | string> =
-  HasParams<Definition<T>> extends true ? ParamsOutput<T> & StrictSearchOutput<T> : StrictSearchOutput<T>
-export type FlatOutput<T extends AnyRoute | string, TLoose extends boolean = HasLooseSearch<T>> = TLoose extends true
-  ? LooseFlatOutput<T>
-  : StrictFlatOutput<T>
-export type LooseFlatOutputWithHash<T extends AnyRoute | string = string> = LooseFlatOutput<T> & {
-  hash?: string | undefined
-}
-export type StrictFlatOutputWithHash<T extends AnyRoute | string> = StrictFlatOutput<T> & { hash?: string | undefined }
-export type FlatOutputWithHash<T extends AnyRoute | string, TLoose extends boolean = HasLooseSearch<T>> = FlatOutput<
-  T,
-  TLoose
-> & { hash?: string | undefined }
-export type ParamsInput<T extends AnyRoute | string = string> = _ParamsInput<PathDefinition<T>>
-export type LooseSearchInput<T extends AnyRoute | string = string> = _LooseSearchInput<Definition<T>>
-export type StrictSearchInput<T extends AnyRoute | string> = _StrictSearchInput<Definition<T>>
-export type LooseFlatInput<T extends AnyRoute | string> = _LooseFlatInput<Definition<T>>
-export type StrictFlatInput<T extends AnyRoute | string> = _StrictFlatInput<Definition<T>>
-export type FlatInput<T extends AnyRoute | string, TLoose extends boolean = HasLooseSearch<T>> = TLoose extends true
-  ? LooseFlatInput<T>
-  : StrictFlatInput<T>
-export type LooseFlatInputWithHash<T extends AnyRoute | string> = LooseFlatInput<T> & {
-  hash?: string | number
-}
-export type StrictFlatInputWithHash<T extends AnyRoute | string> = StrictFlatInput<T> & {
-  hash?: string | number
-}
-export type FlatInputWithHash<T extends AnyRoute | string, TLoose extends boolean = HasLooseSearch<T>> = FlatInput<
-  T,
-  TLoose
-> & { hash?: string | number }
-export type CanInputBeEmpty<T extends AnyRoute | string> = HasParams<Definition<T>> extends true ? false : true
-
-export type ParamsInputStringOnly<T extends AnyRoute | string = string> = _ParamsInputStringOnly<PathDefinition<T>>
-export type LooseSearchInputStringOnly<T extends AnyRoute | string = string> = _LooseSearchInputStringOnly<
-  Definition<T>
->
-export type StrictSearchInputStringOnly<T extends AnyRoute | string> = _StrictSearchInputStringOnly<Definition<T>>
-export type LooseFlatInputStringOnly<T extends AnyRoute | string> = _LooseFlatInputStringOnly<Definition<T>>
-export type StrictFlatInputStringOnly<T extends AnyRoute | string> = _StrictFlatInputStringOnly<Definition<T>>
-export type FlatInputStringOnly<
-  T extends AnyRoute | string,
-  TLoose extends boolean = HasLooseSearch<T>,
-> = TLoose extends true ? LooseFlatInputStringOnly<T> : StrictFlatInputStringOnly<T>
+export type ParamsInput<T extends AnyRoute | string = string> = _ParamsInput<Definition<T>>
+export type IsParamsOptional<T extends AnyRoute | string> = HasParams<Definition<T>> extends true ? false : true
+export type ParamsInputStringOnly<T extends AnyRoute | string = string> = _ParamsInputStringOnly<Definition<T>>
 
 // location
 
 export type LocationParams<TDefinition extends string> = {
   [K in keyof _ParamsDefinition<TDefinition>]: string
 }
-export type LocationSearch<TDefinition extends string = string> = {
-  [K in keyof _SearchDefinition<TDefinition>]: string | undefined
-} & Record<string, string | undefined>
 
 /**
  * URL location primitives independent from route-matching state.
@@ -1542,6 +1059,7 @@ export type _GeneralLocation = {
    * Example:
    * - `?tab=posts&sort=desc`
    */
+  // TODO: add flat0, and search is TSearch. searchParams remove, add searchString
   search: string
   /**
    * Parsed query map (first value per key).
@@ -1600,7 +1118,7 @@ export type UnknownLocationState = {
   known: false
   route: undefined
   params: undefined
-  searchParams: LooseSearchOutput
+  searchParams: UnknownSearch
   exact: false
   ancestor: false
   descendant: false
@@ -1627,7 +1145,7 @@ export type ExactLocationState<TRoute extends AnyRoute | string = AnyRoute | str
   known: true
   route: Definition<TRoute>
   params: ParamsOutput<TRoute>
-  searchParams: LooseSearchOutput<TRoute>
+  searchParams: UnknownSearch
   exact: true
   ancestor: false
   descendant: false
@@ -1641,7 +1159,7 @@ export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | 
   known: true
   route: Definition<TRoute>
   params: ParamsOutput<TRoute>
-  searchParams: LooseSearchOutput<TRoute>
+  searchParams: UnknownSearch
   exact: false
   ancestor: true
   descendant: false
@@ -1655,7 +1173,7 @@ export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRout
   known: true
   route: Definition<TRoute>
   params: ParamsOutput<TRoute>
-  searchParams: LooseSearchOutput<TRoute>
+  searchParams: UnknownSearch
   exact: false
   ancestor: true
   descendant: false
@@ -1669,7 +1187,7 @@ export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute 
   known: true
   route: Definition<TRoute>
   params: Partial<ParamsOutput<TRoute>>
-  searchParams: LooseSearchOutput<TRoute>
+  searchParams: UnknownSearch
   exact: false
   ancestor: false
   descendant: true
@@ -1678,12 +1196,14 @@ export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute 
 export type DescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
   DescendantLocationState<TRoute>
 
+export type UnknownSearch = Record<string, unknown>
+
 /** It is when route not match at all, but params partially match. */
 export type WeakDescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
   route: Definition<TRoute>
   params: Partial<ParamsOutput<TRoute>>
-  searchParams: LooseSearchOutput<TRoute>
+  searchParams: UnknownSearch
   exact: false
   ancestor: false
   descendant: true
@@ -1702,21 +1222,12 @@ export type AnyLocation<TRoute extends AnyRoute | string = AnyRoute | string> = 
 
 // internal utils
 
-export type _PathDefinition<T extends string> = T extends string ? TrimSearchTailDefinition<T> : never
 export type _ParamsDefinition<TDefinition extends string> =
-  ExtractPathParams<PathDefinition<TDefinition>> extends infer U
+  ExtractPathParams<Definition<TDefinition>> extends infer U
     ? [U] extends [never]
-      ? undefined
+      ? Record<never, never>
       : { [K in Extract<U, string>]: true }
-    : undefined
-export type _SearchDefinition<TDefinition extends string> =
-  NonEmpty<SearchTailDefinitionWithoutFirstAndLastAmp<TDefinition>> extends infer Tail extends string
-    ? AmpSplit<Tail> extends infer U
-      ? [U] extends [never]
-        ? undefined
-        : { [K in Extract<U, string>]: true }
-      : undefined
-    : undefined
+    : Record<never, never>
 
 export type _ParamsInput<TDefinition extends string> =
   _ParamsDefinition<TDefinition> extends undefined
@@ -1724,28 +1235,6 @@ export type _ParamsInput<TDefinition extends string> =
     : {
         [K in keyof _ParamsDefinition<TDefinition>]: string | number
       }
-export type _LooseSearchInput<TDefinition extends string> =
-  _SearchDefinition<TDefinition> extends undefined
-    ? Record<string, string | number>
-    : Partial<{
-        [K in keyof _SearchDefinition<TDefinition>]: string | number
-      }> &
-        Record<string, string | number>
-export type _StrictSearchInput<TDefinition extends string> = Partial<{
-  [K in keyof _SearchDefinition<TDefinition>]: string | number
-}>
-export type _LooseFlatInput<TDefinition extends string> =
-  HasParams<TDefinition> extends true
-    ? _ParamsInput<TDefinition> & _LooseSearchInput<TDefinition>
-    : _LooseSearchInput<TDefinition>
-export type _StrictFlatInput<TDefinition extends string> =
-  HasParams<TDefinition> extends true
-    ? HasNamedSearch<TDefinition> extends true
-      ? _StrictSearchInput<TDefinition> & _ParamsInput<TDefinition>
-      : _ParamsInput<TDefinition>
-    : HasNamedSearch<TDefinition> extends true
-      ? _StrictSearchInput<TDefinition>
-      : Record<never, never>
 
 export type _ParamsInputStringOnly<TDefinition extends string> =
   _ParamsDefinition<TDefinition> extends undefined
@@ -1753,39 +1242,7 @@ export type _ParamsInputStringOnly<TDefinition extends string> =
     : {
         [K in keyof _ParamsDefinition<TDefinition>]: string
       }
-export type _LooseSearchInputStringOnly<TDefinition extends string> =
-  _SearchDefinition<TDefinition> extends undefined
-    ? Record<string, string>
-    : Partial<{
-        [K in keyof _SearchDefinition<TDefinition>]: string
-      }> &
-        Record<string, string>
-export type _StrictSearchInputStringOnly<TDefinition extends string> = Partial<{
-  [K in keyof _SearchDefinition<TDefinition>]: string
-}>
-export type _LooseFlatInputStringOnly<TDefinition extends string> =
-  HasParams<TDefinition> extends true
-    ? _ParamsInputStringOnly<TDefinition> & _LooseSearchInputStringOnly<TDefinition>
-    : _LooseSearchInputStringOnly<TDefinition>
-export type _StrictFlatInputStringOnly<TDefinition extends string> =
-  HasParams<TDefinition> extends true
-    ? HasNamedSearch<TDefinition> extends true
-      ? _StrictSearchInputStringOnly<TDefinition> & _ParamsInputStringOnly<TDefinition>
-      : _ParamsInputStringOnly<TDefinition>
-    : HasNamedSearch<TDefinition> extends true
-      ? _StrictSearchInputStringOnly<TDefinition>
-      : Record<never, never>
 
-export type TrimSearchTailDefinition<S extends string> = S extends `${infer P}&${string}` ? P : S
-export type SearchTailDefinitionWithoutFirstAmp<S extends string> = S extends `${string}&${infer T}` ? T : ''
-export type SearchTailDefinitionWithoutFirstAndLastAmp<S extends string> = S extends `${string}&${infer T}&`
-  ? T
-  : S extends `${string}&${infer T}`
-    ? T
-    : ''
-export type SearchTailDefinitionWithFirstAmp<S extends string> = S extends `${string}&${infer T}` ? `&${T}` : ''
-export type AmpSplit<S extends string> = S extends `${infer A}&${infer B}` ? A | AmpSplit<B> : S
-export type NonEmpty<T> = [T] extends ['' | never] ? never : T
 export type ExtractPathParams<S extends string> = S extends `${string}:${infer After}`
   ? After extends `${infer Name}/${infer Rest}`
     ? Name | ExtractPathParams<`/${Rest}`>
@@ -1800,8 +1257,8 @@ export type ReplacePathParams<S extends string> = S extends `${infer Head}:${inf
 export type DedupeSlashes<S extends string> = S extends `${infer A}//${infer B}` ? DedupeSlashes<`${A}/${B}`> : S
 export type EmptyRecord = Record<never, never>
 export type JoinPath<Parent extends string, Suffix extends string> = DedupeSlashes<
-  PathDefinition<Parent> extends infer A extends string
-    ? PathDefinition<Suffix> extends infer B extends string
+  Definition<Parent> extends infer A extends string
+    ? Definition<Suffix> extends infer B extends string
       ? A extends ''
         ? B extends ''
           ? ''
@@ -1824,31 +1281,12 @@ export type OnlyIfNoParams<TRoute extends AnyRoute | string, Yes, No = never> =
 export type OnlyIfHasParams<TRoute extends AnyRoute | string, Yes, No = never> =
   HasParams<TRoute> extends true ? Yes : No
 
-// export type PathRouteValue<TDefinition extends string> = `${ReplacePathParams<PathDefinition<TDefinition>>}`
-// export type PathOnlyRouteValue<TDefinition extends string> = `${ReplacePathParams<PathDefinition<TDefinition>>}`
-// export type WithSearchRouteValue<TDefinition extends string> =
-//   `${ReplacePathParams<PathDefinition<TDefinition>>}?${string}`
-// export type AbsolutePathRouteValue<TDefinition extends string> =
-//   PathRouteValue<TDefinition> extends '/' ? string : `${string}${PathRouteValue<TDefinition>}`
-// export type AbsolutePathOnlyRouteValue<TDefinition extends string> =
-//   PathOnlyRouteValue<TDefinition> extends '/' ? string : `${string}${PathOnlyRouteValue<TDefinition>}`
-// export type AbsoluteWithSearchRouteValue<TDefinition extends string> = `${string}${WithSearchRouteValue<TDefinition>}`
-
 export type PathExtended<
-  TSourcedefinitionDefinition extends string,
-  TSuffixdefinitionDefinition extends string,
-> = `${JoinPath<TSourcedefinitionDefinition, TSuffixdefinitionDefinition>}${SearchTailDefinitionWithFirstAmp<TSuffixdefinitionDefinition>}`
+  TSourceDefinitionDefinition extends string,
+  TSuffixDefinitionDefinition extends string,
+> = `${JoinPath<TSourceDefinitionDefinition, TSuffixDefinitionDefinition>}`
 
-export type WithParamsInput<
-  TDefinition extends string,
-  T extends
-    | {
-        search?: _LooseSearchInput<any>
-        abs?: boolean | string
-        hash?: string | number
-      }
-    | undefined = undefined,
-> = _ParamsInput<TDefinition> & (T extends undefined ? Record<never, never> : T)
+export type IsAny<T> = 0 extends 1 & T ? true : false
 
 export type _IsSameParams<T1 extends object | undefined, T2 extends object | undefined> = T1 extends undefined
   ? T2 extends undefined
@@ -1889,11 +1327,8 @@ export type _SafeParseInputResult<TInputParsed extends Record<string, unknown>> 
       data: undefined
       error: Error
     }
-export type SafeParseInputStrictResult<TDefinition extends string> = _SafeParseInputResult<
-  StrictFlatOutput<TDefinition>
->
-export type SafeParseInputLooseResult<TDefinition extends string> = _SafeParseInputResult<LooseFlatOutput<TDefinition>>
-export type Route0Schema<
+
+export type SchemaRoute0<
   TInput extends Record<string, unknown>,
   TOutput extends Record<string, unknown>,
 > = StandardSchemaV1<TInput, TOutput> & {
