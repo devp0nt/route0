@@ -1,4 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
+import { parse as parseSearchQuery, stringify as stringifySearchQuery } from '@devp0nt/flat0'
 
 export type PathToken =
   | { kind: 'static'; value: string }
@@ -314,9 +315,8 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
     // required wildcard inline (e.g. /app*)
     url = url.replace(/\*/g, () => String(paramsInput['*'] ?? ''))
     // search params
-    const searchInputStringified = Object.fromEntries(Object.entries(searchInput).map(([k, v]) => [k, String(v)]))
-    // TODO: add here flat0
-    url = [url, new URLSearchParams(searchInputStringified).toString()].filter(Boolean).join('?')
+    const searchString = stringifySearchQuery(searchInput)
+    url = [url, searchString].filter(Boolean).join('?')
     // dedupe slashes
     url = url.replace(/\/{2,}/g, '/')
     // absolute
@@ -444,9 +444,8 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
     const base = abs ? undefined : 'http://example.com'
     const url = new URL(hrefOrHrefRelOrLocation, base)
 
-    // Extract search params
-    // TODO: add here flat0
-    const searchParams = Object.fromEntries(url.searchParams.entries())
+    // Parse search query to object form
+    const search = parseSearchQuery(url.search)
 
     // Normalize pathname (remove trailing slash except for root)
     let pathname = url.pathname
@@ -460,7 +459,8 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
     // Build the location object consistent with _GeneralLocation
     const location: UnknownLocation = {
       pathname,
-      search: url.search,
+      search,
+      searchString: url.search,
       hash: url.hash,
       origin: abs ? url.origin : undefined,
       href: abs ? url.href : undefined,
@@ -473,7 +473,6 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
       port: abs ? url.port || undefined : undefined,
 
       // specific to UnknownLocation
-      searchParams,
       params: undefined,
       route: undefined,
       known: false,
@@ -1086,7 +1085,6 @@ export type ParamsDefinition<T extends AnyRoute | string> = T extends AnyRoute
   : T extends string
     ? _ParamsDefinition<T>
     : undefined
-
 export type Extended<
   T extends AnyRoute | string | undefined,
   TSuffixDefinition extends string,
@@ -1150,21 +1148,19 @@ export type _GeneralLocation = {
    */
   pathname: string
   /**
+   * Parsed query object.
+   *
+   * Example:
+   * - `{ tab: "posts", sort: "desc" }`
+   */
+  search: UnknownSearch
+  /**
    * Raw query string with leading `?`, if present.
    *
    * Example:
    * - `?tab=posts&sort=desc`
    */
-  // TODO: add flat0, and search is TSearch. searchParams remove, add searchString
-  search: string
-  /**
-   * Parsed query map (first value per key).
-   *
-   * Example:
-   * - search: `?tab=posts&sort=desc`
-   * - searchParams: `{ tab: 'posts', sort: 'desc' }`
-   */
-  searchParams: Record<string, string | undefined>
+  searchString: string
   /**
    * Raw hash with leading `#`, if present.
    *
@@ -1214,7 +1210,6 @@ export type UnknownLocationState = {
   known: false
   route: undefined
   params: undefined
-  searchParams: UnknownSearch
   exact: false
   ancestor: false
   descendant: false
@@ -1227,7 +1222,6 @@ export type UnmatchedLocationState<TRoute extends AnyRoute | string = AnyRoute |
   known: true
   route: Definition<TRoute>
   params: Record<never, never>
-  searchParams: Record<string, string | undefined>
   exact: false
   ancestor: false
   descendant: false
@@ -1241,7 +1235,6 @@ export type ExactLocationState<TRoute extends AnyRoute | string = AnyRoute | str
   known: true
   route: Definition<TRoute>
   params: ParamsOutput<TRoute>
-  searchParams: UnknownSearch
   exact: true
   ancestor: false
   descendant: false
@@ -1255,7 +1248,6 @@ export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | 
   known: true
   route: Definition<TRoute>
   params: ParamsOutput<TRoute>
-  searchParams: UnknownSearch
   exact: false
   ancestor: true
   descendant: false
@@ -1269,7 +1261,6 @@ export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRout
   known: true
   route: Definition<TRoute>
   params: ParamsOutput<TRoute>
-  searchParams: UnknownSearch
   exact: false
   ancestor: true
   descendant: false
@@ -1283,7 +1274,6 @@ export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute 
   known: true
   route: Definition<TRoute>
   params: Partial<ParamsOutput<TRoute>>
-  searchParams: UnknownSearch
   exact: false
   ancestor: false
   descendant: true
@@ -1299,7 +1289,6 @@ export type WeakDescendantLocationState<TRoute extends AnyRoute | string = AnyRo
   known: true
   route: Definition<TRoute>
   params: Partial<ParamsOutput<TRoute>>
-  searchParams: UnknownSearch
   exact: false
   ancestor: false
   descendant: true

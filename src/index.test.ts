@@ -57,6 +57,20 @@ describe('Route0', () => {
     expectTypeOf<(typeof route0)['Infer']['SearchInput']>().toEqualTypeOf<Record<string, unknown>>()
   })
 
+  it('search deep object and array', () => {
+    const route0 = Route0.create('/')
+    const path = route0.get({
+      '?': {
+        filter: {
+          status: 'open',
+          meta: { page: 2 },
+        },
+        tags: ['a', 'b'],
+      },
+    })
+    expect(path).toBe('/?filter%5Bstatus%5D=open&filter%5Bmeta%5D%5Bpage%5D=2&tags%5B0%5D=a&tags%5B1%5D=b')
+  })
+
   it('typed search input', () => {
     const route0 = Route0.create('/').search<{ q: string }>()
     const path = route0.get({ '?': { q: '1' } })
@@ -689,8 +703,8 @@ describe('getLocation', () => {
         origin: undefined,
         params: undefined,
         pathname: '/prefix/some/suffix',
-        searchParams: {},
-        search: '',
+        search: {},
+        searchString: '',
       })
       loc = Route0.getLocation('/prefix/some/suffix?x=1&z=2')
       expect(loc).toMatchObject({
@@ -701,8 +715,8 @@ describe('getLocation', () => {
         origin: undefined,
         params: undefined,
         pathname: '/prefix/some/suffix',
-        searchParams: { x: '1', z: '2' },
-        search: '?x=1&z=2',
+        search: { x: '1', z: '2' },
+        searchString: '?x=1&z=2',
       })
       loc = Route0.getLocation('https://example.com/prefix/some/suffix?x=1&z=2')
       expect(loc).toMatchObject({
@@ -713,8 +727,25 @@ describe('getLocation', () => {
         origin: 'https://example.com',
         params: undefined,
         pathname: '/prefix/some/suffix',
-        searchParams: { x: '1', z: '2' },
-        search: '?x=1&z=2',
+        search: { x: '1', z: '2' },
+        searchString: '?x=1&z=2',
+      })
+    })
+
+    it('.getLocation parses deep search object and array', () => {
+      const loc = Route0.getLocation(
+        '/search?filter%5Bstatus%5D=open&filter%5Bmeta%5D%5Bpage%5D=2&tags%5B0%5D=a&tags%5B1%5D=b',
+      )
+      expect(loc).toMatchObject({
+        pathname: '/search',
+        searchString: '?filter%5Bstatus%5D=open&filter%5Bmeta%5D%5Bpage%5D=2&tags%5B0%5D=a&tags%5B1%5D=b',
+        search: {
+          filter: {
+            status: 'open',
+            meta: { page: '2' },
+          },
+          tags: ['a', 'b'],
+        },
       })
     })
 
@@ -728,8 +759,8 @@ describe('getLocation', () => {
         origin: undefined,
         params: undefined,
         pathname: '/prefix/some/suffix',
-        searchParams: { x: '1', z: '2' },
-        search: '?x=1&z=2',
+        search: { x: '1', z: '2' },
+        searchString: '?x=1&z=2',
       })
       const sameLoc = Route0.toRelLocation(loc)
       expect(sameLoc).toMatchObject(loc)
@@ -746,8 +777,8 @@ describe('getLocation', () => {
         origin: 'https://example2.com',
         params: undefined,
         pathname: '/prefix/some/suffix',
-        searchParams: { x: '1', z: '2' },
-        search: '?x=1&z=2',
+        search: { x: '1', z: '2' },
+        searchString: '?x=1&z=2',
       })
       const sameLoc = Route0.toRelLocation(loc)
       expect(sameLoc).toMatchObject(loc)
@@ -856,8 +887,8 @@ describe('getLocation', () => {
         abs: true,
         origin: 'https://example.com',
         pathname: '/prefix/some/suffix',
-        searchParams: { x: '1', z: '2' },
-        search: '?x=1&z=2',
+        search: { x: '1', z: '2' },
+        searchString: '?x=1&z=2',
       })
     })
 
@@ -871,8 +902,8 @@ describe('getLocation', () => {
         abs: true,
         origin: 'https://example.com',
         pathname: '/prefix/some/suffix',
-        searchParams: { x: '1', z: '2' },
-        search: '?x=1&z=2',
+        search: { x: '1', z: '2' },
+        searchString: '?x=1&z=2',
       })
     })
   })
@@ -998,8 +1029,8 @@ describe('getLocation', () => {
       const loc = routes._.getLocation('/search?q=test&filter=all')
       expect(loc.exact).toBe(true)
       expect(loc.pathname).toBe('/search')
-      expect(loc.search).toBe('?q=test&filter=all')
-      expect(loc.searchParams).toMatchObject({ q: 'test', filter: 'all' })
+      expect(loc.searchString).toBe('?q=test&filter=all')
+      expect(loc.search).toMatchObject({ q: 'test', filter: 'all' })
     })
 
     it('with absolute URL', () => {
@@ -1081,7 +1112,7 @@ describe('getLocation', () => {
       const loc = routes._.getLocation('/api/v1/users/42/posts?sort=date&filter=published&extra=value')
       expect(loc.exact).toBe(true)
       expect(loc.pathname).toBe('/api/v1/users/42/posts')
-      expect(loc.searchParams).toMatchObject({
+      expect(loc.search).toMatchObject({
         sort: 'date',
         filter: 'published',
         extra: 'value',
