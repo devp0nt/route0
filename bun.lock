@@ -7,6 +7,7 @@
       "devDependencies": {
         "@commitlint/cli": "^19.8.1",
         "@commitlint/config-conventional": "^19.8.1",
+        "@devp0nt/flat0": "^1.1.1",
         "@semantic-release/changelog": "^6.0.3",
         "@semantic-release/git": "^10.0.1",
         "@semantic-release/github": "^12.0.2",
@@ -31,7 +32,7 @@
         "typescript-eslint": "^8.56.0",
       },
       "peerDependencies": {
-        "@devp0nt/flat0": "^1.1.0",
+        "@devp0nt/flat0": "^1.1.1",
       },
     },
   },
@@ -84,7 +85,7 @@
 
     "@commitlint/types": ["@commitlint/types@19.8.1", "", { "dependencies": { "@types/conventional-commits-parser": "^5.0.0", "chalk": "^5.3.0" } }, "sha512-/yCrWGCoA1SVKOks25EGadP9Pnj0oAIHGpl2wH2M2Y46dPM2ueb8wyCVOD7O3WCTkaJ0IkKvzhl1JY7+uCT2Dw=="],
 
-    "@devp0nt/flat0": ["@devp0nt/flat0@1.1.0", "", {}, "sha512-UnEl9dV8bKU0ZSjLwA1gDFV3Vd9NJHgPWE87OLnz9Ss+FG5mm3aNChOyu/9kyWMHmCMA3n+2r4l3hLWZb8wKFQ=="],
+    "@devp0nt/flat0": ["@devp0nt/flat0@1.1.1", "", {}, "sha512-PZgoTXt4jgtzyYz9r6vWD/3hK8ai1n/1+uEOgwfaoJx6xRR3PSPc5PXmaRVDA3hNvipQEWi+9uS1pDVsine9oA=="],
 
     "@epic-web/invariant": ["@epic-web/invariant@1.0.0", "", {}, "sha512-lrTPqgvfFQtR/eY/qkIzp98OGdNJu0m5ji3q/nJI8v3SXkRKEnWiOxMmbvcSoAIzv/cGiuvRy57k4suKQSAdwA=="],
 

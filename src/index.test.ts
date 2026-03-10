@@ -23,6 +23,7 @@ import type {
   UnknownLocation,
   WeakAncestorLocation,
   WeakDescendantLocation,
+  UnknownSearchInput,
 } from './index.js'
 import { Route0, Routes } from './index.js'
 
@@ -54,7 +55,7 @@ describe('Route0', () => {
     expect(pathHash).toBe('/?q=1#zxc')
     expect(route0({ '?': { q: '1' } })).toBe(path)
     expect(route0({ '?': { q: '1' }, '#': 'zxc' })).toBe(pathHash)
-    expectTypeOf<(typeof route0)['Infer']['SearchInput']>().toEqualTypeOf<Record<string, unknown>>()
+    expectTypeOf<(typeof route0)['Infer']['SearchInput']>().toEqualTypeOf<UnknownSearchInput>()
   })
 
   it('search deep object and array', () => {

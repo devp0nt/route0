@@ -100,18 +100,18 @@ const stripTrailingWildcard = (definition: string): string => definition.replace
  * Instances are callable (same as `.get()`), so `route(input)` and
  * `route.get(input)` are equivalent.
  */
-export class Route0<TDefinition extends string, TSearch extends UnknownSearch = UnknownSearch> {
+export class Route0<TDefinition extends string, TSearchInput extends UnknownSearchInput = UnknownSearchInput> {
   readonly definition: TDefinition
   readonly params: _ParamsDefinition<TDefinition>
   private _origin: string | undefined
-  private _callable: CallableRoute<TDefinition, TSearch>
+  private _callable: CallableRoute<TDefinition, TSearchInput>
 
   Infer: {
     ParamsDefinition: _ParamsDefinition<TDefinition>
     ParamsInput: _ParamsInput<TDefinition>
     ParamsInputStringOnly: _ParamsInputStringOnly<TDefinition>
     ParamsOutput: ParamsOutput<TDefinition>
-    SearchInput: TSearch
+    SearchInput: TSearchInput
   } = null as never
 
   /** Base URL used when generating absolute URLs (`abs: true`). */
@@ -150,7 +150,7 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
     Object.defineProperty(callable, Symbol.toStringTag, {
       value: this.definition,
     })
-    this._callable = callable as CallableRoute<TDefinition, TSearch>
+    this._callable = callable as CallableRoute<TDefinition, TSearchInput>
   }
 
   /**
@@ -174,14 +174,14 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
    *
    * Unlike `create`, passing a callable route returns the same instance.
    */
-  static from<TDefinition extends string, TSearch extends UnknownSearch>(
-    definition: TDefinition | AnyRoute<TDefinition, TSearch> | CallableRoute<TDefinition, TSearch>,
-  ): CallableRoute<TDefinition, TSearch> {
+  static from<TDefinition extends string, TSearchInput extends UnknownSearchInput>(
+    definition: TDefinition | AnyRoute<TDefinition, TSearchInput> | CallableRoute<TDefinition, TSearchInput>,
+  ): CallableRoute<TDefinition, TSearchInput> {
     if (typeof definition === 'function') {
       return definition
     }
     const original = typeof definition === 'object' ? definition : new Route0<TDefinition>(definition)
-    return original._callable as CallableRoute<TDefinition, TSearch>
+    return original._callable as CallableRoute<TDefinition, TSearchInput>
   }
 
   private static _getAbsPath(origin: string, url: string) {
@@ -194,14 +194,14 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
     return getPathParamsDefinition(definition) as _ParamsDefinition<TDefinition>
   }
 
-  search<TNewSearch extends UnknownSearch>(): CallableRoute<TDefinition, TNewSearch> {
-    return this._callable as CallableRoute<TDefinition, TNewSearch>
+  search<TNewSearchInput extends UnknownSearchInput>(): CallableRoute<TDefinition, TNewSearchInput> {
+    return this._callable as CallableRoute<TDefinition, TNewSearchInput>
   }
 
   /** Extends the current route definition by appending a suffix route. */
   extend<TSuffixDefinition extends string>(
     suffixDefinition: TSuffixDefinition,
-  ): CallableRoute<PathExtended<TDefinition, TSuffixDefinition>, TSearch> {
+  ): CallableRoute<PathExtended<TDefinition, TSuffixDefinition>, TSearchInput> {
     const sourceDefinitionWithoutWildcard = stripTrailingWildcard(this.definition)
     const definition = `${sourceDefinitionWithoutWildcard}/${suffixDefinition}`.replace(/\/{2,}/g, '/')
     return Route0.create<PathExtended<TDefinition, TSuffixDefinition>>(
@@ -216,7 +216,7 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
       ? [
           input?:
             | (_ParamsInput<TDefinition> & {
-                '?'?: TSearch
+                '?'?: TSearchInput
                 '#'?: string | number
               })
             | undefined,
@@ -224,7 +224,7 @@ export class Route0<TDefinition extends string, TSearch extends UnknownSearch = 
         ]
       : [
           input: _ParamsInput<TDefinition> & {
-            '?'?: TSearch
+            '?'?: TSearchInput
             '#'?: string | number
           },
           abs?: boolean | string | undefined,
@@ -1038,12 +1038,12 @@ export class Routes<const T extends RoutesRecord = any> {
 /** Any route instance shape, preserving literal path type when known. */
 export type AnyRoute<
   T extends Route0<string> | string = string,
-  TSearch extends UnknownSearch = UnknownSearch,
+  TSearch extends UnknownSearchInput = UnknownSearchInput,
 > = T extends string ? Route0<T, TSearch> : T
 /** Callable route (`route(input)`) plus route instance methods/properties. */
 export type CallableRoute<
   T extends Route0<string> | string = string,
-  TSearch extends UnknownSearch = UnknownSearch,
+  TSearch extends UnknownSearchInput = UnknownSearchInput,
 > = AnyRoute<T, TSearch> & AnyRoute<T, TSearch>['get']
 /** Route input accepted by most APIs: definition string or route object/callable. */
 export type AnyRouteOrDefinition<T extends string = string> = AnyRoute<T> | CallableRoute<T> | T
@@ -1088,13 +1088,13 @@ export type ParamsDefinition<T extends AnyRoute | string> = T extends AnyRoute
 export type Extended<
   T extends AnyRoute | string | undefined,
   TSuffixDefinition extends string,
-  TSearch extends UnknownSearch = UnknownSearch,
+  TSearchInput extends UnknownSearchInput = UnknownSearchInput,
 > = T extends AnyRoute
-  ? Route0<PathExtended<T['definition'], TSuffixDefinition>, TSearch>
+  ? Route0<PathExtended<T['definition'], TSuffixDefinition>, TSearchInput>
   : T extends string
-    ? Route0<PathExtended<T, TSuffixDefinition>, TSearch>
+    ? Route0<PathExtended<T, TSuffixDefinition>, TSearchInput>
     : T extends undefined
-      ? Route0<TSuffixDefinition, TSearch>
+      ? Route0<TSuffixDefinition, TSearchInput>
       : never
 
 export type IsAncestor<T extends AnyRoute | string, TAncestor extends AnyRoute | string> = _IsAncestor<
@@ -1153,7 +1153,7 @@ export type _GeneralLocation = {
    * Example:
    * - `{ tab: "posts", sort: "desc" }`
    */
-  search: UnknownSearch
+  search: UnknownSearchParsed
   /**
    * Raw query string with leading `?`, if present.
    *
@@ -1282,7 +1282,21 @@ export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute 
 export type DescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
   DescendantLocationState<TRoute>
 
-export type UnknownSearch = Record<string, unknown>
+export type UnknownSearchParsedValue = string | UnknownSearchParsed | Array<UnknownSearchParsedValue>
+export interface UnknownSearchParsed {
+  [key: string]: UnknownSearchParsedValue
+}
+
+export type UnknownSearchInputValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | UnknownSearchInput
+  | Array<UnknownSearchInputValue>
+export interface UnknownSearchInput {
+  [key: string]: UnknownSearchInputValue
+}
 
 /** It is when route not match at all, but params partially match. */
 export type WeakDescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {

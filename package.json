@@ -106,7 +106,8 @@
     "tsc-watch": "^7.1.1",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
-    "typescript-eslint": "^8.56.0"
+    "typescript-eslint": "^8.56.0",
+    "@devp0nt/flat0": "^1.1.1"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -116,6 +117,6 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@devp0nt/flat0": "^1.1.0"
+    "@devp0nt/flat0": "^1.1.1"
   }
 }
