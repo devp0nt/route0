@@ -1358,16 +1358,7 @@ export interface UnknownSearchParsed {
   [key: string]: UnknownSearchParsedValue
 }
 
-export type UnknownSearchInputValue =
-  | string
-  | number
-  | boolean
-  | undefined
-  | UnknownSearchInput
-  | Array<UnknownSearchInputValue>
-export interface UnknownSearchInput {
-  [key: string]: UnknownSearchInputValue
-}
+export type UnknownSearchInput = Record<string, unknown>
 
 /** It is when route not match at all, but params partially match. */
 export type WeakDescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
