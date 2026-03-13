@@ -434,9 +434,15 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     return this._definitionParts
   }
 
-  /** Fast pathname check without building a full location object. */
+  /** Fast pathname exact match check without building a full location object. */
   isExactPathnameMatch(pathname: string): boolean {
     return this.regex.test(normalizePathname(pathname))
+  }
+
+  /** Fast pathname exact or ancestor match check without building a full location object. */
+  isExactOrAncestorPathnameMatch(pathname: string): boolean {
+    const normalizedPathname = normalizePathname(pathname)
+    return this.regex.test(normalizedPathname) || this.regexAncestor.test(normalizedPathname)
   }
 
   /** Creates a grouped strict regex pattern string from many routes. */
@@ -520,10 +526,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     const search = parseSearchQuery(url.search)
 
     // Normalize pathname (remove trailing slash except for root)
-    let pathname = url.pathname
-    if (pathname.length > 1 && pathname.endsWith('/')) {
-      pathname = pathname.slice(0, -1)
-    }
+    const pathname = normalizePathname(url.pathname)
 
     // Common derived values
     const hrefRel = pathname + url.search + url.hash
