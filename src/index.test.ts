@@ -50,6 +50,17 @@ describe('Route0', () => {
     expect(pathHash).toBe('/#zxc')
   })
 
+  it('cerate no slash', () => {
+    const route0 = Route0.create('home')
+    const path = route0()
+    const pathHash = route0({ '#': 'zxc' })
+    expect(route0.definition).toBe('/home')
+    expect(path).toBe('/home')
+    expect(pathHash).toBe('/home#zxc')
+    expect(route0()).toBe(path)
+    expect(route0({ '#': 'zxc' })).toBe(pathHash)
+  })
+
   it('search', () => {
     const route0 = Route0.create('/')
     const path = route0.get({ '?': { q: '1' } })
