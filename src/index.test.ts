@@ -1684,7 +1684,7 @@ describe('specificity', () => {
     expect(root.isMoreSpecificThan(param)).toBe(true)
   })
 
-  it('isConflict: checks if routes overlap', () => {
+  it('isOverlap: checks if routes overlap', () => {
     const routeA = Route0.create('/a/:x')
     const routeB = Route0.create('/a/b')
     const routeC = Route0.create('/a/:c')
@@ -1692,48 +1692,77 @@ describe('specificity', () => {
     const routeE = Route0.create('/a/b/c')
 
     // Same depth, can match
-    expect(routeA.isConflict(routeB)).toBe(true)
-    expect(routeA.isConflict(routeC)).toBe(true)
-    expect(routeA.isConflict(routeD)).toBe(true)
-    expect(routeB.isConflict(routeC)).toBe(true)
+    expect(routeA.isOverlap(routeB)).toBe(true)
+    expect(routeA.isOverlap(routeC)).toBe(true)
+    expect(routeA.isOverlap(routeD)).toBe(true)
+    expect(routeB.isOverlap(routeC)).toBe(true)
 
     // Different depth, no conflict
-    expect(routeA.isConflict(routeE)).toBe(false)
-    expect(routeB.isConflict(routeE)).toBe(false)
+    expect(routeA.isOverlap(routeE)).toBe(false)
+    expect(routeB.isOverlap(routeE)).toBe(false)
   })
 
-  it('isConflict: identical routes conflict', () => {
-    const route = Route0.create('/users/:id')
-    expect(route.isConflict('/users/:id')).toBe(true)
-  })
-
-  it('isConflict: optional params overlap omitted and provided cases', () => {
+  it('isOverlap: optional params overlap omitted and provided cases', () => {
     const optional = Route0.create('/users/:id?')
-    expect(optional.isConflict('/users')).toBe(true)
-    expect(optional.isConflict('/users/:name')).toBe(true)
+    expect(optional.isOverlap('/users')).toBe(true)
+    expect(optional.isOverlap('/users/:name')).toBe(true)
   })
 
-  it('isConflict: optional params may not overlap deeper routes', () => {
+  it('isOverlap: optional params may not overlap deeper routes', () => {
     const optional = Route0.create('/users/:id?')
-    expect(optional.isConflict('/users/:id/posts')).toBe(false)
+    expect(optional.isOverlap('/users/:id/posts')).toBe(false)
   })
 
-  it('isConflict: wildcard overlaps static, prefixed, and nested routes', () => {
+  it('isOverlap: wildcard overlaps static, prefixed, and nested routes', () => {
     const wildcard = Route0.create('/app*')
-    expect(wildcard.isConflict('/app')).toBe(true)
-    expect(wildcard.isConflict('/app/home')).toBe(true)
-    expect(wildcard.isConflict('/app-home')).toBe(true)
+    expect(wildcard.isOverlap('/app')).toBe(true)
+    expect(wildcard.isOverlap('/app/home')).toBe(true)
+    expect(wildcard.isOverlap('/app-home')).toBe(true)
   })
 
-  it('isConflict: optional segment wildcard overlaps base and nested routes', () => {
+  it('isOverlap: optional segment wildcard overlaps base and nested routes', () => {
     const wildcard = Route0.create('/orders/*?')
-    expect(wildcard.isConflict('/orders')).toBe(true)
-    expect(wildcard.isConflict('/orders/history/2024')).toBe(true)
+    expect(wildcard.isOverlap('/orders')).toBe(true)
+    expect(wildcard.isOverlap('/orders/history/2024')).toBe(true)
   })
 
-  it('isConflict: non-overlapping static and wildcard prefixes return false', () => {
+  it('isOverlap: non-overlapping static and wildcard prefixes return false', () => {
+    expect(Route0.create('/users').isOverlap('/posts')).toBe(false)
+    expect(Route0.create('/api*').isOverlap('/app/:id')).toBe(false)
+  })
+
+  it('isOverlap: undefined returns false', () => {
+    expect(Route0.create('/users').isOverlap(undefined)).toBe(false)
+  })
+
+  it('isConflict: same-language routes conflict', () => {
+    expect(Route0.create('/x/:id').isConflict('/x/:sn')).toBe(true)
+    expect(Route0.create('/users/:id?').isConflict('/users/:name?')).toBe(true)
+  })
+
+  it('isConflict: strict-subset overlap is not conflict', () => {
+    expect(Route0.create('/x/:id').isConflict('/x/y')).toBe(false)
+    expect(Route0.create('/users/*?').isConflict('/users/:id')).toBe(false)
+  })
+
+  it('isConflict: wildcard and param overlap is not conflict', () => {
+    expect(Route0.create('/x/:id').isConflict('/x/*')).toBe(false)
+    const routes = Routes.create({
+      x: '/x/:id',
+      y: '/x/*',
+    })
+    const ordered = routes._.ordered
+    expect(ordered.length).toBe(2)
+    expect(ordered[0].definition).toBe('/x/:id')
+    expect(ordered[1].definition).toBe('/x/*')
+  })
+
+  it('isConflict: partial overlap is unresolvable conflict', () => {
+    expect(Route0.create('/:x/:id').isConflict('/x/:sn?')).toBe(true)
+  })
+
+  it('isConflict: non-overlapping routes are not conflict', () => {
     expect(Route0.create('/users').isConflict('/posts')).toBe(false)
-    expect(Route0.create('/api*').isConflict('/app/:id')).toBe(false)
   })
 
   it('isConflict: undefined returns false', () => {

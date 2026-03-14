@@ -31,6 +31,35 @@ const getRouteTokens = (definition: string): RouteToken[] => {
   })
 }
 
+const getRoutePatternCandidates = (definition: string): string[] => {
+  const tokens = getRouteTokens(definition)
+  const values = (token: RouteToken): string[] => {
+    if (token.kind === 'static') return [token.value]
+    if (token.kind === 'param') return token.optional ? ['', 'x', 'y'] : ['x', 'y']
+    if (token.prefix.length > 0) return [token.prefix, `${token.prefix}-x`, `${token.prefix}/x`, `${token.prefix}/y/z`]
+    return ['', 'x', 'y', 'x/y']
+  }
+  let acc: string[] = ['']
+  for (const token of tokens) {
+    const next: string[] = []
+    for (const base of acc) {
+      for (const value of values(token)) {
+        if (value === '') {
+          next.push(base)
+        } else if (value.startsWith('/')) {
+          next.push(`${base}${value}`)
+        } else {
+          next.push(`${base}/${value}`)
+        }
+      }
+    }
+    // Keep candidate space bounded for large route definitions.
+    acc = next.length > 512 ? next.slice(0, 512) : next
+  }
+  if (acc.length === 0) return ['/']
+  return Array.from(new Set(acc.map((x) => (x === '' ? '/' : x.replace(/\/{2,}/g, '/')))))
+}
+
 const getRouteRegexBaseString = (definition: string): string => {
   const tokens = getRouteTokens(definition)
   if (tokens.length === 0) return ''
@@ -856,43 +885,38 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   }
 
   /** True when two route patterns can match the same concrete URL. */
-  isConflict(other: AnyRoute | string | undefined): boolean {
+  isOverlap(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     other = Route0.create(other)
     const thisRegex = this.regex
     const otherRegex = other.regex
-    const makeCandidates = (definition: string): string[] => {
-      const tokens = getRouteTokens(definition)
-      const values = (token: RouteToken): string[] => {
-        if (token.kind === 'static') return [token.value]
-        if (token.kind === 'param') return token.optional ? ['', 'x'] : ['x']
-        if (token.prefix.length > 0) return [token.prefix, `${token.prefix}-x`, `${token.prefix}/x/y`]
-        return ['', 'x', 'x/y']
-      }
-      let acc: string[] = ['']
-      for (const token of tokens) {
-        const next: string[] = []
-        for (const base of acc) {
-          for (const value of values(token)) {
-            if (value === '') {
-              next.push(base)
-            } else if (value.startsWith('/')) {
-              next.push(`${base}${value}`)
-            } else {
-              next.push(`${base}/${value}`)
-            }
-          }
-        }
-        acc = next
-      }
-      if (acc.length === 0) return ['/']
-      return Array.from(new Set(acc.map((x) => (x === '' ? '/' : x.replace(/\/{2,}/g, '/')))))
-    }
-    const thisCandidates = makeCandidates(this.definition)
-    const otherCandidates = makeCandidates(other.definition)
+    const thisCandidates = getRoutePatternCandidates(this.definition)
+    const otherCandidates = getRoutePatternCandidates(other.definition)
     if (thisCandidates.some((path) => otherRegex.test(path))) return true
     if (otherCandidates.some((path) => thisRegex.test(path))) return true
     return false
+  }
+
+  /**
+   * True when overlap is not resolvable by route ordering inside one route set.
+   *
+   * Non-conflicting overlap means one route is a strict subset of another
+   * (e.g. `/x/y` is a strict subset of `/x/:id`) and can be safely ordered first.
+   */
+  isConflict(other: AnyRoute | string | undefined): boolean {
+    if (!other) return false
+    other = Route0.create(other)
+    if (!this.isOverlap(other)) return false
+    const thisRegex = this.regex
+    const otherRegex = other.regex
+    const thisCandidates = getRoutePatternCandidates(this.definition)
+    const otherCandidates = getRoutePatternCandidates(other.definition)
+    const thisExclusive = thisCandidates.some((path) => thisRegex.test(path) && !otherRegex.test(path))
+    const otherExclusive = otherCandidates.some((path) => otherRegex.test(path) && !thisRegex.test(path))
+    // Exactly one side has exclusive matches => strict subset => resolvable by ordering.
+    if (thisExclusive !== otherExclusive) return false
+    // Both exclusive (partial overlap) OR none exclusive (equal languages) => real conflict.
+    return true
   }
 
   /** Specificity comparator used for deterministic route ordering. */
@@ -1058,7 +1082,7 @@ export class Routes<const T extends RoutesRecord = any> {
       const partsB = getParts(routeB.definition)
 
       // 1. Overlapping routes: more specific first
-      if (routeA.isConflict(routeB)) {
+      if (routeA.isOverlap(routeB)) {
         if (routeA.isMoreSpecificThan(routeB)) return -1
         if (routeB.isMoreSpecificThan(routeA)) return 1
       }
