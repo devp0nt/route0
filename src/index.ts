@@ -8,145 +8,6 @@ export type RouteToken =
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-const getRouteSegments = (definition: string): string[] => {
-  if (definition === '' || definition === '/') return []
-  return definition.split('/').filter(Boolean)
-}
-
-const getRouteTokens = (definition: string): RouteToken[] => {
-  const segments = getRouteSegments(definition)
-  return segments.map((segment): RouteToken => {
-    const param = segment.match(/^:([A-Za-z0-9_]+)(\?)?$/)
-    if (param) {
-      return { kind: 'param', name: param[1], optional: param[2] === '?' }
-    }
-    if (segment === '*' || segment === '*?') {
-      return { kind: 'wildcard', prefix: '', optional: segment.endsWith('?') }
-    }
-    const wildcard = segment.match(/^(.*)\*(\?)?$/)
-    if (wildcard && !segment.includes('\\*')) {
-      return { kind: 'wildcard', prefix: wildcard[1], optional: wildcard[2] === '?' }
-    }
-    return { kind: 'static', value: segment }
-  })
-}
-
-const getRoutePatternCandidates = (definition: string): string[] => {
-  const tokens = getRouteTokens(definition)
-  const values = (token: RouteToken): string[] => {
-    if (token.kind === 'static') return [token.value]
-    if (token.kind === 'param') return token.optional ? ['', 'x', 'y'] : ['x', 'y']
-    if (token.prefix.length > 0) return [token.prefix, `${token.prefix}-x`, `${token.prefix}/x`, `${token.prefix}/y/z`]
-    return ['', 'x', 'y', 'x/y']
-  }
-  let acc: string[] = ['']
-  for (const token of tokens) {
-    const next: string[] = []
-    for (const base of acc) {
-      for (const value of values(token)) {
-        if (value === '') {
-          next.push(base)
-        } else if (value.startsWith('/')) {
-          next.push(`${base}${value}`)
-        } else {
-          next.push(`${base}/${value}`)
-        }
-      }
-    }
-    // Keep candidate space bounded for large route definitions.
-    acc = next.length > 512 ? next.slice(0, 512) : next
-  }
-  if (acc.length === 0) return ['/']
-  return Array.from(new Set(acc.map((x) => (x === '' ? '/' : x.replace(/\/{2,}/g, '/')))))
-}
-
-const getRouteRegexBaseString = (definition: string): string => {
-  const tokens = getRouteTokens(definition)
-  if (tokens.length === 0) return ''
-  let pattern = ''
-  for (const token of tokens) {
-    if (token.kind === 'static') {
-      pattern += `/${escapeRegex(token.value)}`
-      continue
-    }
-    if (token.kind === 'param') {
-      pattern += token.optional ? '(?:/([^/]+))?' : '/([^/]+)'
-      continue
-    }
-    if (token.prefix.length > 0) {
-      pattern += `/${escapeRegex(token.prefix)}(.*)`
-    } else {
-      // Wouter-compatible splat: /orders/* matches /orders and /orders/...
-      pattern += '(?:/(.*))?'
-    }
-  }
-  return pattern
-}
-
-const getRouteCaptureKeys = (definition: string): string[] => {
-  const keys: string[] = []
-  for (const token of getRouteTokens(definition)) {
-    if (token.kind === 'param') keys.push(token.name)
-    if (token.kind === 'wildcard') keys.push('*')
-  }
-  return keys
-}
-
-const getPathParamsDefinition = (definition: string): Record<string, boolean> => {
-  const entries = getRouteTokens(definition)
-    .filter((t) => t.kind !== 'static')
-    .map((t): [string, boolean] => (t.kind === 'param' ? [t.name, !t.optional] : ['*', !t.optional]))
-  return Object.fromEntries(entries)
-}
-
-const validateRouteDefinition = (definition: string): void => {
-  const segments = getRouteSegments(definition)
-  const wildcardSegments = segments.filter((segment) => segment.includes('*'))
-  if (wildcardSegments.length === 0) return
-  if (wildcardSegments.length > 1) {
-    throw new Error(`Invalid route definition "${definition}": only one wildcard segment is allowed`)
-  }
-  const wildcardSegmentIndex = segments.findIndex((segment) => segment.includes('*'))
-  const wildcardSegment = segments[wildcardSegmentIndex]
-  if (!wildcardSegment.match(/^(?:\*|\*\?|[^*]+\*|\S+\*\?)$/)) {
-    throw new Error(`Invalid route definition "${definition}": wildcard must be trailing in its segment`)
-  }
-  if (wildcardSegmentIndex !== segments.length - 1) {
-    throw new Error(`Invalid route definition "${definition}": wildcard segment is allowed only at the end`)
-  }
-}
-
-const stripTrailingWildcard = (definition: string): string => definition.replace(/\*\??$/, '')
-
-const normalizeRouteDefinition = (definition: string): string => {
-  const value = definition.replace(/\/{2,}/g, '/')
-  if (value === '' || value === '/') return '/'
-  const withLeadingSlash = value.startsWith('/') ? value : `/${value}`
-  return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
-    ? withLeadingSlash.slice(0, -1)
-    : withLeadingSlash
-}
-
-const normalizePathname = (pathname: string): string => {
-  return normalizeRouteDefinition(pathname)
-}
-
-const getNormalizedPathnameFromInput = (hrefOrHrefRelOrLocation: string | AnyLocation | URL): string => {
-  if (hrefOrHrefRelOrLocation instanceof URL) {
-    return normalizePathname(hrefOrHrefRelOrLocation.pathname)
-  }
-  if (typeof hrefOrHrefRelOrLocation !== 'string') {
-    if (typeof hrefOrHrefRelOrLocation.pathname === 'string') {
-      return normalizePathname(hrefOrHrefRelOrLocation.pathname)
-    }
-    hrefOrHrefRelOrLocation = hrefOrHrefRelOrLocation.href || hrefOrHrefRelOrLocation.hrefRel
-  }
-  const abs = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(hrefOrHrefRelOrLocation)
-  const base = abs ? undefined : 'http://example.com'
-  const url = new URL(hrefOrHrefRelOrLocation, base)
-  return normalizePathname(url.pathname)
-}
-
 /**
  * Strongly typed route descriptor and URL builder.
  *
@@ -163,13 +24,55 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   readonly params: _ParamsDefinition<TDefinition>
   private _origin: string | undefined
   private _callable: CallableRoute<TDefinition, TSearchInput>
+  private _routeSegments?: string[]
+  private _routeTokens?: RouteToken[]
+  private _routePatternCandidates?: string[]
+  private _pathParamsDefinition?: Record<string, boolean>
+  private _definitionWithoutTrailingWildcard?: string
+  private _routeRegexBaseStringRaw?: string
   private _regexBaseString?: string
   private _regexString?: string
   private _regex?: RegExp
   private _regexAncestor?: RegExp
+  private _regexDescendantMatchers?: Array<{ regex: RegExp; captureKeys: string[] }>
   private _captureKeys?: string[]
   private _normalizedDefinition?: string
   private _definitionParts?: string[]
+
+  private static _getRouteSegments(definition: string): string[] {
+    if (definition === '' || definition === '/') return []
+    return definition.split('/').filter(Boolean)
+  }
+
+  private static _normalizeRouteDefinition(definition: string): string {
+    const value = definition.replace(/\/{2,}/g, '/')
+    if (value === '' || value === '/') return '/'
+    const withLeadingSlash = value.startsWith('/') ? value : `/${value}`
+    return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
+      ? withLeadingSlash.slice(0, -1)
+      : withLeadingSlash
+  }
+
+  private static _normalizePathname(pathname: string): string {
+    return Route0._normalizeRouteDefinition(pathname)
+  }
+
+  private static _validateRouteDefinition(definition: string): void {
+    const segments = Route0._getRouteSegments(definition)
+    const wildcardSegments = segments.filter((segment) => segment.includes('*'))
+    if (wildcardSegments.length === 0) return
+    if (wildcardSegments.length > 1) {
+      throw new Error(`Invalid route definition "${definition}": only one wildcard segment is allowed`)
+    }
+    const wildcardSegmentIndex = segments.findIndex((segment) => segment.includes('*'))
+    const wildcardSegment = segments[wildcardSegmentIndex]
+    if (!wildcardSegment.match(/^(?:\*|\*\?|[^*]+\*|\S+\*\?)$/)) {
+      throw new Error(`Invalid route definition "${definition}": wildcard must be trailing in its segment`)
+    }
+    if (wildcardSegmentIndex !== segments.length - 1) {
+      throw new Error(`Invalid route definition "${definition}": wildcard segment is allowed only at the end`)
+    }
+  }
 
   Infer: {
     ParamsDefinition: _ParamsDefinition<TDefinition>
@@ -195,10 +98,10 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   }
 
   private constructor(definition: TDefinition, config: RouteConfigInput = {}) {
-    const normalizedDefinition = normalizeRouteDefinition(definition) as TDefinition
-    validateRouteDefinition(normalizedDefinition)
+    const normalizedDefinition = Route0._normalizeRouteDefinition(definition) as TDefinition
+    Route0._validateRouteDefinition(normalizedDefinition)
     this.definition = normalizedDefinition
-    this.params = Route0._getParamsDefinitionByDefinition(normalizedDefinition)
+    this.params = this.pathParamsDefinition as _ParamsDefinition<TDefinition>
 
     const { origin } = config
     if (origin && typeof origin === 'string' && origin.length) {
@@ -232,7 +135,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
       return definition.clone(config) as CallableRoute<NormalizeRouteDefinition<TDefinition>>
     }
     const original = new Route0<NormalizeRouteDefinition<TDefinition>>(
-      normalizeRouteDefinition(definition) as NormalizeRouteDefinition<TDefinition>,
+      Route0._normalizeRouteDefinition(definition) as NormalizeRouteDefinition<TDefinition>,
       config,
     )
     return original._callable as CallableRoute<NormalizeRouteDefinition<TDefinition>>
@@ -253,19 +156,13 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
       typeof definition === 'object'
         ? definition
         : new Route0<NormalizeRouteDefinition<TDefinition>>(
-            normalizeRouteDefinition(definition) as NormalizeRouteDefinition<TDefinition>,
+            Route0._normalizeRouteDefinition(definition) as NormalizeRouteDefinition<TDefinition>,
           )
     return original._callable as CallableRoute<NormalizeRouteDefinition<TDefinition>, TSearchInput>
   }
 
   private static _getAbsPath(origin: string, url: string) {
     return new URL(url, origin).toString().replace(/\/$/, '')
-  }
-
-  private static _getParamsDefinitionByDefinition<TDefinition extends string>(
-    definition: TDefinition,
-  ): _ParamsDefinition<TDefinition> {
-    return getPathParamsDefinition(definition) as _ParamsDefinition<TDefinition>
   }
 
   search<TNewSearchInput extends UnknownSearchInput>(): CallableRoute<TDefinition, TNewSearchInput> {
@@ -276,8 +173,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   extend<TSuffixDefinition extends string>(
     suffixDefinition: TSuffixDefinition,
   ): CallableRoute<PathExtended<TDefinition, TSuffixDefinition>, TSearchInput> {
-    const sourceDefinitionWithoutWildcard = stripTrailingWildcard(this.definition)
-    const definition = normalizeRouteDefinition(`${sourceDefinitionWithoutWildcard}/${suffixDefinition}`)
+    const definition = Route0._normalizeRouteDefinition(`${this.definitionWithoutTrailingWildcard}/${suffixDefinition}`)
     return Route0.create<PathExtended<TDefinition, TSuffixDefinition>>(
       definition as PathExtended<TDefinition, TSuffixDefinition>,
       {
@@ -397,7 +293,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   }
 
   getTokens(): RouteToken[] {
-    return getRouteTokens(this.definition)
+    return this.routeTokens.map((token): RouteToken => ({ ...token }))
   }
 
   /** Clones route with optional config override. */
@@ -407,7 +303,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
 
   get regexBaseString(): string {
     if (this._regexBaseString === undefined) {
-      this._regexBaseString = getRouteRegexBaseString(this.definition).replace(/\/+$/, '') + '/?' // remove trailing slashes and add optional slash
+      this._regexBaseString = this.routeRegexBaseStringRaw.replace(/\/+$/, '') + '/?' // remove trailing slashes and add optional slash
     }
     return this._regexBaseString
   }
@@ -433,11 +329,145 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     return this._regexAncestor
   }
 
+  private get regexDescendantMatchers(): Array<{ regex: RegExp; captureKeys: string[] }> {
+    if (this._regexDescendantMatchers === undefined) {
+      const matchers: Array<{ regex: RegExp; captureKeys: string[] }> = []
+      if (this.definitionParts[0] !== '/') {
+        let pattern = ''
+        const captureKeys: string[] = []
+        for (const part of this.definitionParts) {
+          if (part.startsWith(':')) {
+            pattern += '/([^/]+)'
+            captureKeys.push(part.replace(/^:/, '').replace(/\?$/, ''))
+          } else if (part.includes('*')) {
+            const prefix = part.replace(/\*\??$/, '')
+            pattern += `/${escapeRegex(prefix)}[^/]*`
+            captureKeys.push('*')
+          } else {
+            pattern += `/${escapeRegex(part)}`
+          }
+          matchers.push({
+            regex: new RegExp(`^${pattern}/?$`),
+            captureKeys: [...captureKeys],
+          })
+        }
+      }
+      this._regexDescendantMatchers = matchers
+    }
+    return this._regexDescendantMatchers
+  }
+
   private get captureKeys(): string[] {
     if (this._captureKeys === undefined) {
-      this._captureKeys = getRouteCaptureKeys(this.definition)
+      this._captureKeys = this.routeTokens
+        .filter((token): token is Extract<RouteToken, { kind: 'param' | 'wildcard' }> => token.kind !== 'static')
+        .map((token) => (token.kind === 'param' ? token.name : '*'))
     }
     return this._captureKeys
+  }
+
+  private get routeSegments(): string[] {
+    if (this._routeSegments === undefined) {
+      this._routeSegments = Route0._getRouteSegments(this.definition)
+    }
+    return this._routeSegments
+  }
+
+  private get routeTokens(): RouteToken[] {
+    if (this._routeTokens === undefined) {
+      this._routeTokens = this.routeSegments.map((segment): RouteToken => {
+        const param = segment.match(/^:([A-Za-z0-9_]+)(\?)?$/)
+        if (param) {
+          return { kind: 'param', name: param[1], optional: param[2] === '?' }
+        }
+        if (segment === '*' || segment === '*?') {
+          return { kind: 'wildcard', prefix: '', optional: segment.endsWith('?') }
+        }
+        const wildcard = segment.match(/^(.*)\*(\?)?$/)
+        if (wildcard && !segment.includes('\\*')) {
+          return { kind: 'wildcard', prefix: wildcard[1], optional: wildcard[2] === '?' }
+        }
+        return { kind: 'static', value: segment }
+      })
+    }
+    return this._routeTokens
+  }
+
+  private get routePatternCandidates(): string[] {
+    if (this._routePatternCandidates === undefined) {
+      const values = (token: RouteToken): string[] => {
+        if (token.kind === 'static') return [token.value]
+        if (token.kind === 'param') return token.optional ? ['', 'x', 'y'] : ['x', 'y']
+        if (token.prefix.length > 0)
+          return [token.prefix, `${token.prefix}-x`, `${token.prefix}/x`, `${token.prefix}/y/z`]
+        return ['', 'x', 'y', 'x/y']
+      }
+      let acc: string[] = ['']
+      for (const token of this.routeTokens) {
+        const next: string[] = []
+        for (const base of acc) {
+          for (const value of values(token)) {
+            if (value === '') {
+              next.push(base)
+            } else if (value.startsWith('/')) {
+              next.push(`${base}${value}`)
+            } else {
+              next.push(`${base}/${value}`)
+            }
+          }
+        }
+        // Keep candidate space bounded for large route definitions.
+        acc = next.length > 512 ? next.slice(0, 512) : next
+      }
+      this._routePatternCandidates =
+        acc.length === 0 ? ['/'] : Array.from(new Set(acc.map((x) => (x === '' ? '/' : x.replace(/\/{2,}/g, '/')))))
+    }
+    return this._routePatternCandidates
+  }
+
+  private get pathParamsDefinition(): Record<string, boolean> {
+    if (this._pathParamsDefinition === undefined) {
+      const entries = this.routeTokens
+        .filter((t) => t.kind !== 'static')
+        .map((t): [string, boolean] => (t.kind === 'param' ? [t.name, !t.optional] : ['*', !t.optional]))
+      this._pathParamsDefinition = Object.fromEntries(entries)
+    }
+    return this._pathParamsDefinition
+  }
+
+  private get definitionWithoutTrailingWildcard(): string {
+    if (this._definitionWithoutTrailingWildcard === undefined) {
+      this._definitionWithoutTrailingWildcard = this.definition.replace(/\*\??$/, '')
+    }
+    return this._definitionWithoutTrailingWildcard
+  }
+
+  private get routeRegexBaseStringRaw(): string {
+    if (this._routeRegexBaseStringRaw === undefined) {
+      if (this.routeTokens.length === 0) {
+        this._routeRegexBaseStringRaw = ''
+      } else {
+        let pattern = ''
+        for (const token of this.routeTokens) {
+          if (token.kind === 'static') {
+            pattern += `/${escapeRegex(token.value)}`
+            continue
+          }
+          if (token.kind === 'param') {
+            pattern += token.optional ? '(?:/([^/]+))?' : '/([^/]+)'
+            continue
+          }
+          if (token.prefix.length > 0) {
+            pattern += `/${escapeRegex(token.prefix)}(.*)`
+          } else {
+            // Wouter-compatible splat: /orders/* matches /orders and /orders/...
+            pattern += '(?:/(.*))?'
+          }
+        }
+        this._routeRegexBaseStringRaw = pattern
+      }
+    }
+    return this._routeRegexBaseStringRaw
   }
 
   private get normalizedDefinition(): string {
@@ -458,12 +488,12 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
 
   /** Fast pathname exact match check without building a full location object. */
   isExactPathnameMatch(pathname: string): boolean {
-    return this.regex.test(normalizePathname(pathname))
+    return this.regex.test(Route0._normalizePathname(pathname))
   }
 
   /** Fast pathname exact or ancestor match check without building a full location object. */
   isExactOrAncestorPathnameMatch(pathname: string): boolean {
-    const normalizedPathname = normalizePathname(pathname)
+    const normalizedPathname = Route0._normalizePathname(pathname)
     return this.regex.test(normalizedPathname) || this.regexAncestor.test(normalizedPathname)
   }
 
@@ -535,15 +565,12 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     // Parse search query to object form
     const search = parseSearchQuery(url.search)
 
-    // Normalize pathname (remove trailing slash except for root)
-    const pathname = normalizePathname(url.pathname)
-
     // Common derived values
-    const hrefRel = pathname + url.search + url.hash
+    const hrefRel = url.pathname + url.search + url.hash
 
     // Build the location object consistent with _GeneralLocation
     const location: UnknownLocation = {
-      pathname,
+      pathname: url.pathname,
       search,
       searchString: url.search,
       hash: url.hash,
@@ -597,11 +624,9 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     location.params = {}
 
     // Normalize pathname (no trailing slash except root)
-    const pathname = normalizePathname(location.pathname)
+    const pathname = Route0._normalizePathname(location.pathname)
 
     const paramNames = this.captureKeys
-    const defParts = this.definitionParts
-
     const exactRe = this.regex
     const ancestorRe = this.regexAncestor // route matches the beginning of the URL (may have more)
     const exactMatch = pathname.match(exactRe)
@@ -624,51 +649,26 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
       location.params = {}
     }
 
-    // "descendant": the URL is a prefix of the route definition (params match any single segment)
-    const pathParts = pathname === '/' ? ['/'] : pathname.split('/').filter(Boolean)
-
-    let isPrefix = true
-    if (pathParts.length > defParts.length) {
-      isPrefix = false
-    } else {
-      for (let i = 0; i < pathParts.length; i++) {
-        const defPart = defParts[i]
-        const pathPart = pathParts[i]
-        if (!defPart) {
-          isPrefix = false
-          break
-        }
-        if (defPart.startsWith(':')) continue
-        if (defPart.includes('*')) {
-          const prefix = defPart.replace(/\*\??$/, '')
-          if (pathPart.startsWith(prefix)) continue
-          isPrefix = false
-          break
-        }
-        if (defPart !== pathPart) {
-          isPrefix = false
-          break
-        }
+    let descendant = false
+    let descendantMatch: RegExpMatchArray | null = null
+    let descendantCaptureKeys: string[] = []
+    if (!exact && !ancestor) {
+      for (const matcher of this.regexDescendantMatchers) {
+        const match = pathname.match(matcher.regex)
+        if (!match) continue
+        descendant = true
+        descendantMatch = match
+        descendantCaptureKeys = matcher.captureKeys
+        break
       }
     }
-    const descendant = !exact && isPrefix
     const unmatched = !exact && !ancestor && !descendant
 
-    // For descendant matches, include only params that are already determined
-    // by the current (shorter) pathname prefix.
-    if (descendant) {
-      const descendantParams: Record<string, string> = {}
-      for (let i = 0; i < pathParts.length; i++) {
-        const defPart = defParts[i]
-        const pathPart = pathParts[i]
-        if (!defPart || !pathPart) continue
-        if (defPart.startsWith(':')) {
-          descendantParams[defPart.replace(/^:/, '').replace(/\?$/, '')] = decodeURIComponent(pathPart)
-        } else if (defPart.includes('*')) {
-          descendantParams['*'] = decodeURIComponent(pathPart)
-        }
-      }
-      location.params = descendantParams
+    if (descendant && descendantMatch) {
+      const values = descendantMatch.slice(1, 1 + descendantCaptureKeys.length)
+      location.params = Object.fromEntries(
+        descendantCaptureKeys.map((key, index) => [key, decodeURIComponent(values[index] as string)]),
+      )
     }
 
     return {
@@ -777,22 +777,22 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
 
   /** True when path structure is equal (param names are ignored). */
   isSame(other: AnyRoute): boolean {
-    return (
-      getRouteTokens(this.definition)
-        .map((t) => {
-          if (t.kind === 'static') return `s:${t.value}`
-          if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
-          return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
-        })
-        .join('/') ===
-      getRouteTokens(other.definition)
-        .map((t) => {
-          if (t.kind === 'static') return `s:${t.value}`
-          if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
-          return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
-        })
-        .join('/')
-    )
+    const thisShape = this.routeTokens
+      .map((t) => {
+        if (t.kind === 'static') return `s:${t.value}`
+        if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
+        return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
+      })
+      .join('/')
+    const otherRoute = Route0.from(other) as Route0<string, UnknownSearchInput>
+    const otherShape = otherRoute.routeTokens
+      .map((t) => {
+        if (t.kind === 'static') return `s:${t.value}`
+        if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
+        return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
+      })
+      .join('/')
+    return thisShape === otherShape
   }
   /** Static convenience wrapper for `isSame`. */
   static isSame(a: AnyRoute | string | undefined, b: AnyRoute | string | undefined): boolean {
@@ -887,11 +887,11 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   /** True when two route patterns can match the same concrete URL. */
   isOverlap(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
-    other = Route0.create(other)
+    const otherRoute = Route0.from(other) as Route0<string, UnknownSearchInput>
     const thisRegex = this.regex
-    const otherRegex = other.regex
-    const thisCandidates = getRoutePatternCandidates(this.definition)
-    const otherCandidates = getRoutePatternCandidates(other.definition)
+    const otherRegex = otherRoute.regex
+    const thisCandidates = this.routePatternCandidates
+    const otherCandidates = otherRoute.routePatternCandidates
     if (thisCandidates.some((path) => otherRegex.test(path))) return true
     if (otherCandidates.some((path) => thisRegex.test(path))) return true
     return false
@@ -905,12 +905,12 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
    */
   isConflict(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
-    other = Route0.create(other)
-    if (!this.isOverlap(other)) return false
+    const otherRoute = Route0.from(other) as Route0<string, UnknownSearchInput>
+    if (!this.isOverlap(otherRoute)) return false
     const thisRegex = this.regex
-    const otherRegex = other.regex
-    const thisCandidates = getRoutePatternCandidates(this.definition)
-    const otherCandidates = getRoutePatternCandidates(other.definition)
+    const otherRegex = otherRoute.regex
+    const thisCandidates = this.routePatternCandidates
+    const otherCandidates = otherRoute.routePatternCandidates
     const thisExclusive = thisCandidates.some((path) => thisRegex.test(path) && !otherRegex.test(path))
     const otherExclusive = otherCandidates.some((path) => otherRegex.test(path) && !thisRegex.test(path))
     // Exactly one side has exclusive matches => strict subset => resolvable by ordering.
@@ -953,6 +953,30 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
  */
 
 export class Routes<const T extends RoutesRecord = any> {
+  private static _getNormalizedPathnameFromInput(hrefOrHrefRelOrLocation: string | AnyLocation | URL): string {
+    const normalize = (pathname: string): string => {
+      const value = pathname.replace(/\/{2,}/g, '/')
+      if (value === '' || value === '/') return '/'
+      const withLeadingSlash = value.startsWith('/') ? value : `/${value}`
+      return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
+        ? withLeadingSlash.slice(0, -1)
+        : withLeadingSlash
+    }
+    if (hrefOrHrefRelOrLocation instanceof URL) {
+      return normalize(hrefOrHrefRelOrLocation.pathname)
+    }
+    if (typeof hrefOrHrefRelOrLocation !== 'string') {
+      if (typeof hrefOrHrefRelOrLocation.pathname === 'string') {
+        return normalize(hrefOrHrefRelOrLocation.pathname)
+      }
+      hrefOrHrefRelOrLocation = hrefOrHrefRelOrLocation.href || hrefOrHrefRelOrLocation.hrefRel
+    }
+    const abs = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(hrefOrHrefRelOrLocation)
+    const base = abs ? undefined : 'http://example.com'
+    const url = new URL(hrefOrHrefRelOrLocation, base)
+    return normalize(url.pathname)
+  }
+
   _routes: RoutesRecordHydrated<T>
   _pathsOrdering: string[]
   _keysOrdering: string[]
@@ -1049,7 +1073,7 @@ export class Routes<const T extends RoutesRecord = any> {
   _getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation
   _getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation {
     const input = hrefOrHrefRelOrLocation
-    const pathname = getNormalizedPathnameFromInput(input)
+    const pathname = Routes._getNormalizedPathnameFromInput(input)
     // Find exact match using a fast pathname pre-check first.
     for (const route of this._ordered) {
       if (!route.isExactPathnameMatch(pathname)) {
