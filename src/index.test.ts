@@ -1702,25 +1702,42 @@ describe('specificity', () => {
     expect(routeB.isConflict(routeE)).toBe(false)
   })
 
-  it('isConflict: non-overlapping static routes', () => {
-    const route1 = Route0.create('/users')
-    const route2 = Route0.create('/posts')
-
-    // Same depth but different static segments
-    expect(route1.isConflict(route2)).toBe(false)
+  it('isConflict: identical routes conflict', () => {
+    const route = Route0.create('/users/:id')
+    expect(route.isConflict('/users/:id')).toBe(true)
   })
 
-  it('isMayBeSame: optional params can overlap static', () => {
+  it('isConflict: optional params overlap omitted and provided cases', () => {
     const optional = Route0.create('/users/:id?')
-    const staticUsers = Route0.create('/users')
-    expect(optional.isSame(staticUsers)).toBe(false)
-    expect(optional.isMayBeSame(staticUsers)).toBe(true)
+    expect(optional.isConflict('/users')).toBe(true)
+    expect(optional.isConflict('/users/:name')).toBe(true)
   })
 
-  it('isConflict: wildcard overlaps deeper static routes', () => {
+  it('isConflict: optional params may not overlap deeper routes', () => {
+    const optional = Route0.create('/users/:id?')
+    expect(optional.isConflict('/users/:id/posts')).toBe(false)
+  })
+
+  it('isConflict: wildcard overlaps static, prefixed, and nested routes', () => {
     const wildcard = Route0.create('/app*')
-    const staticRoute = Route0.create('/app/home')
-    expect(wildcard.isConflict(staticRoute)).toBe(true)
+    expect(wildcard.isConflict('/app')).toBe(true)
+    expect(wildcard.isConflict('/app/home')).toBe(true)
+    expect(wildcard.isConflict('/app-home')).toBe(true)
+  })
+
+  it('isConflict: optional segment wildcard overlaps base and nested routes', () => {
+    const wildcard = Route0.create('/orders/*?')
+    expect(wildcard.isConflict('/orders')).toBe(true)
+    expect(wildcard.isConflict('/orders/history/2024')).toBe(true)
+  })
+
+  it('isConflict: non-overlapping static and wildcard prefixes return false', () => {
+    expect(Route0.create('/users').isConflict('/posts')).toBe(false)
+    expect(Route0.create('/api*').isConflict('/app/:id')).toBe(false)
+  })
+
+  it('isConflict: undefined returns false', () => {
+    expect(Route0.create('/users').isConflict(undefined)).toBe(false)
   })
 })
 
@@ -2249,6 +2266,16 @@ describe('relations: isSame, isAncestor, isDescendant', () => {
     expect(r1.isSame(r4)).toBe(false)
   })
 
+  it('isSame: supports optional params and wildcard structure checks', () => {
+    expect(Route0.create('/users/:id?').isSame(Route0.create('/users/:userId?'))).toBe(true)
+    expect(Route0.create('/users/:id?').isSame(Route0.create('/users/:id'))).toBe(false)
+    expect(Route0.create('/app*').isSame(Route0.create('/app*'))).toBe(true)
+    expect(Route0.create('/app*').isSame(Route0.create('/app*?'))).toBe(false)
+    expect(Route0.create('/orders/*?').isSame(Route0.create('/orders/*?'))).toBe(true)
+    expect(Route0.create('/orders/*').isSame(Route0.create('/orders/*?'))).toBe(false)
+    expect(Route0.create('/path/x*').isSame(Route0.create('/path/x/*'))).toBe(false)
+  })
+
   it('isAncestor: true when left is ancestor of right', () => {
     expect(Route0.create('/').isAncestor(Route0.create('/path/child'))).toBe(true)
     expect(Route0.create('/path').isAncestor(Route0.create('/path/child'))).toBe(true)
@@ -2257,10 +2284,24 @@ describe('relations: isSame, isAncestor, isDescendant', () => {
     expect(Route0.create('/').isAncestor(Route0.create('/users/:id'))).toBe(true)
   })
 
+  it('isAncestor: supports wildcard and optional param ancestry', () => {
+    expect(Route0.create('/app*').isAncestor('/app/home')).toBe(true)
+    expect(Route0.create('/orders/*?').isAncestor('/orders/history/2024')).toBe(true)
+    expect(Route0.create('/users/:id?').isAncestor('/users/:id/details')).toBe(true)
+    expect(Route0.create('/files/*').isAncestor('/files/a/b/c')).toBe(true)
+  })
+
   it('isAncestor: false for reverse, equal, or unrelated', () => {
     expect(Route0.create('/path/child').isAncestor(Route0.create('/path'))).toBe(false)
     expect(Route0.create('/path').isAncestor(Route0.create('/path'))).toBe(false)
     expect(Route0.create('/a').isAncestor(Route0.create('/b'))).toBe(false)
+  })
+
+  it('isAncestor: false for wildcard prefix mismatch or non-shallower routes', () => {
+    expect(Route0.create('/app*').isAncestor('/api/home')).toBe(false)
+    expect(Route0.create('/users/:id?').isAncestor('/users')).toBe(false)
+    expect(Route0.create('/users/:id?').isAncestor('/users/:name?')).toBe(false)
+    expect(Route0.create('/path/x*').isAncestor('/path/y/1')).toBe(false)
   })
 
   it('isDescendant: true when left is descendant of right', () => {
@@ -2269,10 +2310,24 @@ describe('relations: isSame, isAncestor, isDescendant', () => {
     expect(Route0.create('/users/:id/posts').isDescendant(Route0.create('/'))).toBe(true)
   })
 
+  it('isDescendant: supports wildcard and optional param ancestors', () => {
+    expect(Route0.create('/app/home').isDescendant('/app*')).toBe(true)
+    expect(Route0.create('/orders/history/2024').isDescendant('/orders/*?')).toBe(true)
+    expect(Route0.create('/users/:id/details').isDescendant('/users/:id?')).toBe(true)
+    expect(Route0.create('/files/a/b').isDescendant('/files/*')).toBe(true)
+  })
+
   it('isDescendant: false for reverse, equal, or unrelated', () => {
     expect(Route0.create('/path').isDescendant(Route0.create('/path/child'))).toBe(false)
     expect(Route0.create('/path').isDescendant(Route0.create('/path'))).toBe(false)
     expect(Route0.create('/a').isDescendant(Route0.create('/b'))).toBe(false)
+  })
+
+  it('isDescendant: false for wildcard prefix mismatch or non-deeper routes', () => {
+    expect(Route0.create('/app').isDescendant('/app*')).toBe(false)
+    expect(Route0.create('/users').isDescendant('/users/:id?')).toBe(false)
+    expect(Route0.create('/path/y/1').isDescendant('/path/x*')).toBe(false)
+    expect(Route0.create('/a').isDescendant(undefined)).toBe(false)
   })
 
   it('static isSame: works with strings and undefined', () => {
@@ -2282,6 +2337,8 @@ describe('relations: isSame, isAncestor, isDescendant', () => {
     expect(Route0.isSame(undefined, undefined)).toBe(true)
     expect(Route0.isSame(undefined, '/a')).toBe(false)
     expect(Route0.isSame('/a', undefined)).toBe(false)
+    expect(Route0.isSame('/orders/*?', '/orders/*?')).toBe(true)
+    expect(Route0.isSame('/orders/*?', '/orders/*')).toBe(false)
   })
 })
 

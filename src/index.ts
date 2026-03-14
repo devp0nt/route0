@@ -795,11 +795,22 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     // A descendant must be deeper
     if (thisParts.length <= otherParts.length) return false
 
+    const matchesPatternPart = (patternPart: string, valuePart: string): { match: boolean; wildcard: boolean } => {
+      if (patternPart.startsWith(':')) return { match: true, wildcard: false }
+      const wildcardIndex = patternPart.indexOf('*')
+      if (wildcardIndex >= 0) {
+        const prefix = patternPart.slice(0, wildcardIndex)
+        return { match: prefix.length === 0 || valuePart.startsWith(prefix), wildcard: true }
+      }
+      return { match: patternPart === valuePart, wildcard: false }
+    }
+
     for (let i = 0; i < otherParts.length; i++) {
       const otherPart = otherParts[i]
       const thisPart = thisParts[i]
-      if (otherPart.startsWith(':')) continue
-      if (otherPart !== thisPart) return false
+      const result = matchesPatternPart(otherPart, thisPart)
+      if (!result.match) return false
+      if (result.wildcard) return true
     }
     // Not equal (depth already ensures not equal)
     return true
@@ -823,11 +834,22 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     // An ancestor must be shallower
     if (thisParts.length >= otherParts.length) return false
 
+    const matchesPatternPart = (patternPart: string, valuePart: string): { match: boolean; wildcard: boolean } => {
+      if (patternPart.startsWith(':')) return { match: true, wildcard: false }
+      const wildcardIndex = patternPart.indexOf('*')
+      if (wildcardIndex >= 0) {
+        const prefix = patternPart.slice(0, wildcardIndex)
+        return { match: prefix.length === 0 || valuePart.startsWith(prefix), wildcard: true }
+      }
+      return { match: patternPart === valuePart, wildcard: false }
+    }
+
     for (let i = 0; i < thisParts.length; i++) {
       const thisPart = thisParts[i]
       const otherPart = otherParts[i]
-      if (thisPart.startsWith(':')) continue
-      if (thisPart !== otherPart) return false
+      const result = matchesPatternPart(thisPart, otherPart)
+      if (!result.match) return false
+      if (result.wildcard) return true
     }
     // Not equal (depth already ensures not equal)
     return true
@@ -871,13 +893,6 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     if (thisCandidates.some((path) => otherRegex.test(path))) return true
     if (otherCandidates.some((path) => thisRegex.test(path))) return true
     return false
-  }
-
-  /** True when paths are same or can overlap when optional parts are omitted. */
-  isMayBeSame(other: AnyRoute | string | undefined): boolean {
-    if (!other) return false
-    other = Route0.create(other)
-    return this.isSame(other) || this.isConflict(other)
   }
 
   /** Specificity comparator used for deterministic route ordering. */
@@ -1043,7 +1058,7 @@ export class Routes<const T extends RoutesRecord = any> {
       const partsB = getParts(routeB.definition)
 
       // 1. Overlapping routes: more specific first
-      if (routeA.isMayBeSame(routeB)) {
+      if (routeA.isConflict(routeB)) {
         if (routeA.isMoreSpecificThan(routeB)) return -1
         if (routeB.isMoreSpecificThan(routeA)) return 1
       }
