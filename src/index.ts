@@ -8,6 +8,17 @@ export type RouteToken =
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+const collapseDuplicateSlashes = (value: string): string => value.replace(/\/{2,}/g, '/')
+
+const normalizeSlashPath = (value: string): string => {
+  const collapsed = collapseDuplicateSlashes(value)
+  if (collapsed === '' || collapsed === '/') return '/'
+  const withLeadingSlash = collapsed.startsWith('/') ? collapsed : `/${collapsed}`
+  return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
+    ? withLeadingSlash.slice(0, -1)
+    : withLeadingSlash
+}
+
 /**
  * Strongly typed route descriptor and URL builder.
  *
@@ -45,12 +56,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   }
 
   private static _normalizeRouteDefinition(definition: string): string {
-    const value = definition.replace(/\/{2,}/g, '/')
-    if (value === '' || value === '/') return '/'
-    const withLeadingSlash = value.startsWith('/') ? value : `/${value}`
-    return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
-      ? withLeadingSlash.slice(0, -1)
-      : withLeadingSlash
+    return normalizeSlashPath(definition)
   }
 
   private static _normalizePathname(pathname: string): string {
@@ -276,7 +282,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     const searchString = stringifySearchQuery(searchInput)
     url = [url, searchString].filter(Boolean).join('?')
     // dedupe slashes
-    url = url.replace(/\/{2,}/g, '/')
+    url = collapseDuplicateSlashes(url)
     // absolute
     url = absInput ? Route0._getAbsPath(absOriginInput || this.origin, url) : url
     // hash
@@ -420,7 +426,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
         acc = next.length > 512 ? next.slice(0, 512) : next
       }
       this._routePatternCandidates =
-        acc.length === 0 ? ['/'] : Array.from(new Set(acc.map((x) => (x === '' ? '/' : x.replace(/\/{2,}/g, '/')))))
+        acc.length === 0 ? ['/'] : Array.from(new Set(acc.map((x) => (x === '' ? '/' : collapseDuplicateSlashes(x)))))
     }
     return this._routePatternCandidates
   }
@@ -954,27 +960,19 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
 
 export class Routes<const T extends RoutesRecord = any> {
   private static _getNormalizedPathnameFromInput(hrefOrHrefRelOrLocation: string | AnyLocation | URL): string {
-    const normalize = (pathname: string): string => {
-      const value = pathname.replace(/\/{2,}/g, '/')
-      if (value === '' || value === '/') return '/'
-      const withLeadingSlash = value.startsWith('/') ? value : `/${value}`
-      return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
-        ? withLeadingSlash.slice(0, -1)
-        : withLeadingSlash
-    }
     if (hrefOrHrefRelOrLocation instanceof URL) {
-      return normalize(hrefOrHrefRelOrLocation.pathname)
+      return normalizeSlashPath(hrefOrHrefRelOrLocation.pathname)
     }
     if (typeof hrefOrHrefRelOrLocation !== 'string') {
       if (typeof hrefOrHrefRelOrLocation.pathname === 'string') {
-        return normalize(hrefOrHrefRelOrLocation.pathname)
+        return normalizeSlashPath(hrefOrHrefRelOrLocation.pathname)
       }
       hrefOrHrefRelOrLocation = hrefOrHrefRelOrLocation.href || hrefOrHrefRelOrLocation.hrefRel
     }
     const abs = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(hrefOrHrefRelOrLocation)
     const base = abs ? undefined : 'http://example.com'
     const url = new URL(hrefOrHrefRelOrLocation, base)
-    return normalize(url.pathname)
+    return normalizeSlashPath(url.pathname)
   }
 
   _routes: RoutesRecordHydrated<T>
