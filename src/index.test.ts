@@ -289,7 +289,7 @@ describe('Route0', () => {
     const route0 = Route0.create('/')
     expect(route0.get()).toBe('/')
     const route1 = route0.extend('/suffix1/')
-    expect(route1.get()).toBe('/suffix1/')
+    expect(route1.get()).toBe('/suffix1')
     const route2 = route1.extend('/suffix2')
     const path = route2.get()
     const pathHash = route2.get({ '#': 'zxc' })
@@ -315,8 +315,8 @@ describe('Route0', () => {
     expect(route0.get()).toBe('/')
 
     const route1 = Route0.create('')
-    expectTypeOf<(typeof route1)['definition']>().toEqualTypeOf<''>()
-    expect(route1.get()).toBe('')
+    expectTypeOf<(typeof route1)['definition']>().toEqualTypeOf<'/'>()
+    expect(route1.get()).toBe('/')
 
     const route2 = route0.extend('/')
     expectTypeOf<(typeof route2)['definition']>().toEqualTypeOf<'/'>()
@@ -327,16 +327,39 @@ describe('Route0', () => {
     expect(route3.get()).toBe('/')
 
     const route4 = route0.extend('path/')
-    expectTypeOf<(typeof route4)['definition']>().toEqualTypeOf<'/path/'>()
-    expect(route4.get()).toBe('/path/')
+    expectTypeOf<(typeof route4)['definition']>().toEqualTypeOf<'/path'>()
+    expect(route4.get()).toBe('/path')
 
     const route5 = route1.extend('/path/')
-    expectTypeOf<(typeof route5)['definition']>().toEqualTypeOf<'/path/'>()
-    expect(route5.get()).toBe('/path/')
+    expectTypeOf<(typeof route5)['definition']>().toEqualTypeOf<'/path'>()
+    expect(route5.get()).toBe('/path')
 
     const route6 = route1.extend('path')
     expectTypeOf<(typeof route6)['definition']>().toEqualTypeOf<'/path'>()
     expect(route6.get()).toBe('/path')
+  })
+
+  it('normalizes routes to single-leading-slash canonical form', () => {
+    const routeNoSlash = Route0.create('without-slash')
+    expectTypeOf<(typeof routeNoSlash)['definition']>().toEqualTypeOf<'/without-slash'>()
+    expect(routeNoSlash.get()).toBe('/without-slash')
+
+    const routeMessy = Route0.create('///a////b///')
+    expectTypeOf<(typeof routeMessy)['definition']>().toEqualTypeOf<'/a/b'>()
+    expect(routeMessy.get()).toBe('/a/b')
+  })
+
+  it('extend with empty/root suffix keeps canonical parent route', () => {
+    const base = Route0.create('/prefix/path/')
+    expect(base.get()).toBe('/prefix/path')
+
+    const extendedEmpty = base.extend('')
+    expectTypeOf<(typeof extendedEmpty)['definition']>().toEqualTypeOf<'/prefix/path'>()
+    expect(extendedEmpty.get()).toBe('/prefix/path')
+
+    const extendedRoot = base.extend('/')
+    expectTypeOf<(typeof extendedRoot)['definition']>().toEqualTypeOf<'/prefix/path'>()
+    expect(extendedRoot.get()).toBe('/prefix/path')
   })
 
   it('extend with params', () => {

@@ -89,11 +89,17 @@ const validateRouteDefinition = (definition: string): void => {
 
 const stripTrailingWildcard = (definition: string): string => definition.replace(/\*\??$/, '')
 
+const normalizeRouteDefinition = (definition: string): string => {
+  const value = definition.replace(/\/{2,}/g, '/')
+  if (value === '' || value === '/') return '/'
+  const withLeadingSlash = value.startsWith('/') ? value : `/${value}`
+  return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
+    ? withLeadingSlash.slice(0, -1)
+    : withLeadingSlash
+}
+
 const normalizePathname = (pathname: string): string => {
-  if (pathname.length > 1 && pathname.endsWith('/')) {
-    return pathname.slice(0, -1)
-  }
-  return pathname
+  return normalizeRouteDefinition(pathname)
 }
 
 const getNormalizedPathnameFromInput = (hrefOrHrefRelOrLocation: string | AnyLocation | URL): string => {
@@ -163,9 +169,10 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   }
 
   private constructor(definition: TDefinition, config: RouteConfigInput = {}) {
-    validateRouteDefinition(definition)
-    this.definition = definition
-    this.params = Route0._getParamsDefinitionByDefinition(definition)
+    const normalizedDefinition = normalizeRouteDefinition(definition) as TDefinition
+    validateRouteDefinition(normalizedDefinition)
+    this.definition = normalizedDefinition
+    this.params = Route0._getParamsDefinitionByDefinition(normalizedDefinition)
 
     const { origin } = config
     if (origin && typeof origin === 'string' && origin.length) {
@@ -194,12 +201,15 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   static create<TDefinition extends string>(
     definition: TDefinition | AnyRoute<TDefinition> | CallableRoute<TDefinition>,
     config?: RouteConfigInput,
-  ): CallableRoute<TDefinition> {
+  ): CallableRoute<NormalizeRouteDefinition<TDefinition>> {
     if (typeof definition === 'function' || typeof definition === 'object') {
-      return definition.clone(config) as CallableRoute<TDefinition>
+      return definition.clone(config) as CallableRoute<NormalizeRouteDefinition<TDefinition>>
     }
-    const original = new Route0<TDefinition>(definition, config)
-    return original._callable
+    const original = new Route0<NormalizeRouteDefinition<TDefinition>>(
+      normalizeRouteDefinition(definition) as NormalizeRouteDefinition<TDefinition>,
+      config,
+    )
+    return original._callable as CallableRoute<NormalizeRouteDefinition<TDefinition>>
   }
 
   /**
@@ -209,12 +219,17 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
    */
   static from<TDefinition extends string, TSearchInput extends UnknownSearchInput>(
     definition: TDefinition | AnyRoute<TDefinition, TSearchInput> | CallableRoute<TDefinition, TSearchInput>,
-  ): CallableRoute<TDefinition, TSearchInput> {
+  ): CallableRoute<NormalizeRouteDefinition<TDefinition>, TSearchInput> {
     if (typeof definition === 'function') {
-      return definition
+      return definition as CallableRoute<NormalizeRouteDefinition<TDefinition>, TSearchInput>
     }
-    const original = typeof definition === 'object' ? definition : new Route0<TDefinition>(definition)
-    return original._callable as CallableRoute<TDefinition, TSearchInput>
+    const original =
+      typeof definition === 'object'
+        ? definition
+        : new Route0<NormalizeRouteDefinition<TDefinition>>(
+            normalizeRouteDefinition(definition) as NormalizeRouteDefinition<TDefinition>,
+          )
+    return original._callable as CallableRoute<NormalizeRouteDefinition<TDefinition>, TSearchInput>
   }
 
   private static _getAbsPath(origin: string, url: string) {
@@ -236,11 +251,13 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     suffixDefinition: TSuffixDefinition,
   ): CallableRoute<PathExtended<TDefinition, TSuffixDefinition>, TSearchInput> {
     const sourceDefinitionWithoutWildcard = stripTrailingWildcard(this.definition)
-    const definition = `${sourceDefinitionWithoutWildcard}/${suffixDefinition}`.replace(/\/{2,}/g, '/')
+    const definition = normalizeRouteDefinition(`${sourceDefinitionWithoutWildcard}/${suffixDefinition}`)
     return Route0.create<PathExtended<TDefinition, TSuffixDefinition>>(
       definition as PathExtended<TDefinition, TSuffixDefinition>,
-      { origin: this._origin },
-    )
+      {
+        origin: this._origin,
+      },
+    ) as CallableRoute<PathExtended<TDefinition, TSuffixDefinition>, TSearchInput>
   }
 
   get(...args: IsParamsOptional<TDefinition> extends true ? [abs: boolean | string | undefined] : never): string
@@ -359,7 +376,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
 
   /** Clones route with optional config override. */
   clone(config?: RouteConfigInput): CallableRoute<TDefinition> {
-    return Route0.create(this.definition, config)
+    return Route0.create(this.definition, config) as CallableRoute<TDefinition>
   }
 
   get regexBaseStrictString(): string {
@@ -1468,26 +1485,39 @@ export type ReplacePathParams<S extends string> = S extends `${infer Head}:${inf
     : `${Head}${string}`
   : S
 export type DedupeSlashes<S extends string> = S extends `${infer A}//${infer B}` ? DedupeSlashes<`${A}/${B}`> : S
+export type EnsureLeadingSlash<S extends string> = S extends '' ? '/' : S extends `/${string}` ? S : `/${S}`
+export type TrimTrailingSlash<S extends string> = S extends '/'
+  ? '/'
+  : S extends `${infer V}/`
+    ? TrimTrailingSlash<V>
+    : S
+export type NormalizeRouteDefinition<S extends string> = TrimTrailingSlash<EnsureLeadingSlash<DedupeSlashes<S>>>
 export type EmptyRecord = Record<never, never>
-export type JoinPath<Parent extends string, Suffix extends string> = DedupeSlashes<
+export type JoinPath<Parent extends string, Suffix extends string> = NormalizeRouteDefinition<
   Definition<Parent> extends infer A extends string
     ? Definition<Suffix> extends infer B extends string
-      ? A extends ''
-        ? B extends ''
-          ? ''
-          : B extends `/${string}`
-            ? B
-            : `/${B}`
-        : B extends ''
-          ? A
-          : A extends `${string}/`
-            ? `${A}${B}`
-            : B extends `/${string}`
-              ? `${A}${B}`
-              : `${A}/${B}`
+      ? NormalizeRouteDefinition<A> extends infer ANormalized extends string
+        ? NormalizeRouteDefinition<B> extends infer BNormalized extends string
+          ? BNormalized extends '/'
+            ? ANormalized
+            : ANormalized extends '/'
+              ? BNormalized
+              : `${ANormalized}/${BNormalized}`
+          : never
+        : never
       : never
     : never
 >
+export type PathExtended<
+  TSourceDefinitionDefinition extends string,
+  TSuffixDefinitionDefinition extends string,
+> = `${NormalizeRouteDefinition<JoinPath<StripTrailingWildcard<TSourceDefinitionDefinition>, TSuffixDefinitionDefinition>>}`
+
+export type StripTrailingWildcard<TDefinition extends string> = TDefinition extends `${infer TPath}*?`
+  ? NormalizeRouteDefinition<TPath>
+  : TDefinition extends `${infer TPath}*`
+    ? NormalizeRouteDefinition<TPath>
+    : NormalizeRouteDefinition<TDefinition>
 
 export type OnlyIfNoParams<TRoute extends AnyRoute | string, Yes, No = never> =
   HasParams<TRoute> extends false ? Yes : No
@@ -1507,17 +1537,6 @@ export type GetPathInputByRoute<TRoute extends AnyRoute | CallableRoute | string
     : TRoute extends string
       ? GetPathInput<TRoute, UnknownSearchInput>
       : never
-
-export type PathExtended<
-  TSourceDefinitionDefinition extends string,
-  TSuffixDefinitionDefinition extends string,
-> = `${JoinPath<StripTrailingWildcard<TSourceDefinitionDefinition>, TSuffixDefinitionDefinition>}`
-
-export type StripTrailingWildcard<TDefinition extends string> = TDefinition extends `${infer TPath}*?`
-  ? TPath
-  : TDefinition extends `${infer TPath}*`
-    ? TPath
-    : TDefinition
 
 export type IsAny<T> = 0 extends 1 & T ? true : false
 
