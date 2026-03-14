@@ -50,7 +50,7 @@ describe('Route0', () => {
     expect(pathHash).toBe('/#zxc')
   })
 
-  it('cerate no slash', () => {
+  it('create no slash', () => {
     const route0 = Route0.create('home')
     const path = route0()
     const pathHash = route0({ '#': 'zxc' })
@@ -257,6 +257,41 @@ describe('Route0', () => {
         orgId: 'acme',
         userId: '42',
         tab: 'settings',
+      })
+    }
+  })
+
+  it('consecutive optional named params are resolved deterministically', () => {
+    const route = Route0.create('/users/:first?/:second?')
+
+    expect(route.get()).toBe('/users')
+    expect(route.get({ first: 'a' })).toBe('/users/a')
+    expect(route.get({ first: 'a', second: 'b' })).toBe('/users/a/b')
+
+    const locBase = route.getLocation('/users')
+    expect(locBase.exact).toBe(true)
+    if (locBase.exact) {
+      expect(locBase.params).toMatchObject({
+        first: undefined,
+        second: undefined,
+      })
+    }
+
+    const locSingle = route.getLocation('/users/a')
+    expect(locSingle.exact).toBe(true)
+    if (locSingle.exact) {
+      expect(locSingle.params).toMatchObject({
+        first: 'a',
+        second: undefined,
+      })
+    }
+
+    const locBoth = route.getLocation('/users/a/b')
+    expect(locBoth.exact).toBe(true)
+    if (locBoth.exact) {
+      expect(locBoth.params).toMatchObject({
+        first: 'a',
+        second: 'b',
       })
     }
   })
@@ -2220,6 +2255,7 @@ describe('ordering', () => {
       userPosts: api.extend('/users/:id/posts'),
       adminUser: '/api/v1/admin/:id',
       catchAll: '/:slug',
+      catchAllWildcard: '/*',
     }
 
     const { pathsOrdering: ordering } = Routes._.makeOrdering(routes)
@@ -2240,6 +2276,7 @@ describe('ordering', () => {
       '/api/v1/users/all',
       '/api/v1/users/:id',
       '/api/v1/users/:id/posts',
+      '/*',
     ])
   })
 
