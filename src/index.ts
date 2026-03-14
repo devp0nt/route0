@@ -31,7 +31,7 @@ const getRouteTokens = (definition: string): RouteToken[] => {
   })
 }
 
-const getRouteRegexBaseStrictString = (definition: string): string => {
+const getRouteRegexBaseString = (definition: string): string => {
   const tokens = getRouteTokens(definition)
   if (tokens.length === 0) return ''
   let pattern = ''
@@ -134,11 +134,8 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   readonly params: _ParamsDefinition<TDefinition>
   private _origin: string | undefined
   private _callable: CallableRoute<TDefinition, TSearchInput>
-  private _regexBaseStrictString?: string
   private _regexBaseString?: string
-  private _regexStrictString?: string
   private _regexString?: string
-  private _regexStrict?: RegExp
   private _regex?: RegExp
   private _regexAncestor?: RegExp
   private _captureKeys?: string[]
@@ -379,25 +376,11 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     return Route0.create(this.definition, config) as CallableRoute<TDefinition>
   }
 
-  get regexBaseStrictString(): string {
-    if (this._regexBaseStrictString === undefined) {
-      this._regexBaseStrictString = getRouteRegexBaseStrictString(this.definition)
-    }
-    return this._regexBaseStrictString
-  }
-
   get regexBaseString(): string {
     if (this._regexBaseString === undefined) {
-      this._regexBaseString = this.regexBaseStrictString.replace(/\/+$/, '') + '/?' // remove trailing slashes and add optional slash
+      this._regexBaseString = getRouteRegexBaseString(this.definition).replace(/\/+$/, '') + '/?' // remove trailing slashes and add optional slash
     }
     return this._regexBaseString
-  }
-
-  get regexStrictString(): string {
-    if (this._regexStrictString === undefined) {
-      this._regexStrictString = `^${this.regexBaseStrictString}$`
-    }
-    return this._regexStrictString
   }
 
   get regexString(): string {
@@ -405,13 +388,6 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
       this._regexString = `^${this.regexBaseString}$`
     }
     return this._regexString
-  }
-
-  get regexStrict(): RegExp {
-    if (this._regexStrict === undefined) {
-      this._regexStrict = new RegExp(this.regexStrictString)
-    }
-    return this._regexStrict
   }
 
   get regex(): RegExp {
@@ -460,18 +436,6 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   isExactOrAncestorPathnameMatch(pathname: string): boolean {
     const normalizedPathname = normalizePathname(pathname)
     return this.regex.test(normalizedPathname) || this.regexAncestor.test(normalizedPathname)
-  }
-
-  /** Creates a grouped strict regex pattern string from many routes. */
-  static getRegexStrictStringGroup(routes: AnyRoute[]): string {
-    const patterns = routes.map((route) => route.regexStrictString).join('|')
-    return `(${patterns})`
-  }
-
-  /** Creates a strict grouped regex from many routes. */
-  static getRegexStrictGroup(routes: AnyRoute[]): RegExp {
-    const patterns = Route0.getRegexStrictStringGroup(routes)
-    return new RegExp(`^(${patterns})$`)
   }
 
   /** Creates a grouped regex pattern string from many routes. */

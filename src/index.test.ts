@@ -339,6 +339,30 @@ describe('Route0', () => {
     expect(route6.get()).toBe('/path')
   })
 
+  it('extend wildcard after slash', () => {
+    const route0 = Route0.create('/prefix/*')
+    const route1 = route0.extend('/suffix')
+    const path = route1.get()
+    const pathHash = route1.get({ '#': 'zxc' })
+    // expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/suffix`>()
+    expect(path).toBe('/prefix/suffix')
+    expect(pathHash).toBe('/prefix/suffix#zxc')
+    expect(route1()).toBe(path)
+    expect(route1({ '#': 'zxc' })).toBe(pathHash)
+  })
+
+  it('extend wildcard without slash', () => {
+    const route0 = Route0.create('/prefix*')
+    const route1 = route0.extend('/suffix')
+    const path = route1.get()
+    const pathHash = route1.get({ '#': 'zxc' })
+    // expectTypeOf<typeof path>().toEqualTypeOf<`/prefix/suffix`>()
+    expect(path).toBe('/prefix/suffix')
+    expect(pathHash).toBe('/prefix/suffix#zxc')
+    expect(route1()).toBe(path)
+    expect(route1({ '#': 'zxc' })).toBe(pathHash)
+  })
+
   it('normalizes routes to single-leading-slash canonical form', () => {
     const routeNoSlash = Route0.create('without-slash')
     expectTypeOf<(typeof routeNoSlash)['definition']>().toEqualTypeOf<'/without-slash'>()
@@ -1340,7 +1364,6 @@ describe('getLocation', () => {
     const route = Route0.create('/users/:id')
 
     expect(route.regex).toBe(route.regex)
-    expect(route.regexStrict).toBe(route.regexStrict)
     expect(route.regexString).toBe(route.regexString)
     expect(route.regexBaseString).toBe(route.regexBaseString)
     expect(route.isExactPathnameMatch('/users/123')).toBe(true)
