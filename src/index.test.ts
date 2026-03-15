@@ -1,11 +1,11 @@
-import { describe, expect, expectTypeOf, it } from 'bun:test'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
+import { describe, expect, expectTypeOf, it } from 'bun:test'
+import { Route0, Routes } from './index.js'
 import type {
   AnyLocation,
   AnyRoute,
   AnyRouteOrDefinition,
   CallableRoute,
-  IsParamsOptional,
   ExactLocation,
   Extended,
   ExtractRoute,
@@ -16,19 +16,19 @@ import type {
   HasWildcard,
   IsAncestor,
   IsDescendant,
+  IsParamsOptional,
   IsSame,
   IsSameParams,
-  KnownLocation,
   ParamsInput,
   ParamsInputStringOnly,
   ParamsOutput,
   RoutesPretty,
   UnknownLocation,
+  UnknownSearchInput,
   WeakAncestorLocation,
   WeakDescendantLocation,
-  UnknownSearchInput,
+  KnownLocation,
 } from './index.js'
-import { Route0, Routes } from './index.js'
 
 describe('Route0', () => {
   it('simple', () => {
@@ -2255,6 +2255,7 @@ describe('ordering', () => {
       userPosts: api.extend('/users/:id/posts'),
       adminUser: '/api/v1/admin/:id',
       catchAll: '/:slug',
+      special: '/special',
       catchAllWildcard: '/*',
     }
 
@@ -2269,6 +2270,7 @@ describe('ordering', () => {
 
     expect(ordering).toEqual([
       '/',
+      '/special',
       '/:slug',
       '/api/v1',
       '/api/v1/users',

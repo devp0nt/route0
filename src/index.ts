@@ -612,20 +612,26 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
    * - `descendant`
    * - `unmatched`
    */
-  getLocation(href: `${string}://${string}`): KnownLocation<TDefinition>
-  getLocation(hrefRel: `/${string}`): KnownLocation<TDefinition>
-  getLocation(hrefOrHrefRel: string): KnownLocation<TDefinition>
-  getLocation(location: AnyLocation): KnownLocation<TDefinition>
-  getLocation(url: AnyLocation): KnownLocation<TDefinition>
-  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): KnownLocation<TDefinition>
-  getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): KnownLocation<TDefinition> {
+  getLocation(href: `${string}://${string}`): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
+  getLocation(hrefRel: `/${string}`): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
+  getLocation(hrefOrHrefRel: string): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
+  getLocation(location: AnyLocation): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
+  getLocation(url: AnyLocation): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
+  getLocation(
+    hrefOrHrefRelOrLocation: string | AnyLocation | URL,
+  ): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
+  getLocation(
+    hrefOrHrefRelOrLocation: string | AnyLocation | URL,
+  ): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition> {
     if (hrefOrHrefRelOrLocation instanceof URL) {
       return this.getLocation(hrefOrHrefRelOrLocation.href)
     }
     if (typeof hrefOrHrefRelOrLocation !== 'string') {
       hrefOrHrefRelOrLocation = hrefOrHrefRelOrLocation.href || hrefOrHrefRelOrLocation.hrefRel
     }
-    const location = Route0.getLocation(hrefOrHrefRelOrLocation) as never as KnownLocation<TDefinition>
+    const location = Route0.getLocation(hrefOrHrefRelOrLocation) as never as
+      | ExactLocation<TDefinition>
+      | UnmatchedLocation<TDefinition>
     location.route = this.definition as Definition<TDefinition>
     location.params = {}
 
@@ -684,7 +690,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
       ancestor,
       descendant,
       unmatched,
-    } as KnownLocation<TDefinition>
+    } as ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
   }
 
   private _validateParamsInput(input: unknown): StandardSchemaV1.Result<ParamsOutput<TDefinition>> {
@@ -1291,14 +1297,14 @@ export type _GeneralLocation = {
    * - href: `https://example.com/users/42`
    * - origin: `https://example.com`
    */
-  origin?: string
+  origin: string | undefined
   /**
    * Full absolute href for absolute inputs.
    *
    * Example:
    * - `https://example.com/users/42?tab=posts#section`
    */
-  href?: string
+  href: string | undefined
   /**
    * Relative href (`pathname + search + hash`).
    *
@@ -1317,9 +1323,9 @@ export type _GeneralLocation = {
    * - `/users/42` -> `false`
    */
   abs: boolean
-  port?: string
-  host?: string
-  hostname?: string
+  port: string | undefined
+  host: string | undefined
+  hostname: string | undefined
 }
 /** Location state before matching against a concrete route. */
 export type UnknownLocationState = {
@@ -1362,8 +1368,8 @@ export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> 
 /** Input URL is a descendant of route definition (route is ancestor). */
 export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
-  route: Definition<TRoute>
-  params: ParamsOutput<TRoute>
+  route: string
+  params: IsAny<TRoute> extends true ? any : ParamsOutput<TRoute> & { [key: string]: string | undefined }
   exact: false
   ancestor: true
   descendant: false
@@ -1375,8 +1381,8 @@ export type AncestorLocation<TRoute extends AnyRoute | string = AnyRoute | strin
 /** It is when route not match at all, but params match. */
 export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
   known: true
-  route: Definition<TRoute>
-  params: ParamsOutput<TRoute>
+  route: string
+  params: IsAny<TRoute> extends true ? any : ParamsOutput<TRoute> & { [key: string]: string | undefined }
   exact: false
   ancestor: true
   descendant: false
