@@ -10,15 +10,6 @@ const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]
 
 const collapseDuplicateSlashes = (value: string): string => value.replace(/\/{2,}/g, '/')
 
-const normalizeSlashPath = (value: string): string => {
-  const collapsed = collapseDuplicateSlashes(value)
-  if (collapsed === '' || collapsed === '/') return '/'
-  const withLeadingSlash = collapsed.startsWith('/') ? collapsed : `/${collapsed}`
-  return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
-    ? withLeadingSlash.slice(0, -1)
-    : withLeadingSlash
-}
-
 /**
  * Strongly typed route descriptor and URL builder.
  *
@@ -50,17 +41,18 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   private _normalizedDefinition?: string
   private _definitionParts?: string[]
 
+  static normalizeSlash = (value: string): string => {
+    const collapsed = collapseDuplicateSlashes(value)
+    if (collapsed === '' || collapsed === '/') return '/'
+    const withLeadingSlash = collapsed.startsWith('/') ? collapsed : `/${collapsed}`
+    return withLeadingSlash.length > 1 && withLeadingSlash.endsWith('/')
+      ? withLeadingSlash.slice(0, -1)
+      : withLeadingSlash
+  }
+
   private static _getRouteSegments(definition: string): string[] {
     if (definition === '' || definition === '/') return []
     return definition.split('/').filter(Boolean)
-  }
-
-  private static _normalizeRouteDefinition(definition: string): string {
-    return normalizeSlashPath(definition)
-  }
-
-  private static _normalizePathname(pathname: string): string {
-    return Route0._normalizeRouteDefinition(pathname)
   }
 
   private static _validateRouteDefinition(definition: string): void {
@@ -104,7 +96,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   }
 
   private constructor(definition: TDefinition, config: RouteConfigInput = {}) {
-    const normalizedDefinition = Route0._normalizeRouteDefinition(definition) as TDefinition
+    const normalizedDefinition = Route0.normalizeSlash(definition) as TDefinition
     Route0._validateRouteDefinition(normalizedDefinition)
     this.definition = normalizedDefinition
     this.params = this.pathParamsDefinition as _ParamsDefinition<TDefinition>
@@ -141,7 +133,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
       return definition.clone(config) as CallableRoute<NormalizeRouteDefinition<TDefinition>>
     }
     const original = new Route0<NormalizeRouteDefinition<TDefinition>>(
-      Route0._normalizeRouteDefinition(definition) as NormalizeRouteDefinition<TDefinition>,
+      Route0.normalizeSlash(definition) as NormalizeRouteDefinition<TDefinition>,
       config,
     )
     return original._callable as CallableRoute<NormalizeRouteDefinition<TDefinition>>
@@ -162,7 +154,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
       typeof definition === 'object'
         ? definition
         : new Route0<NormalizeRouteDefinition<TDefinition>>(
-            Route0._normalizeRouteDefinition(definition) as NormalizeRouteDefinition<TDefinition>,
+            Route0.normalizeSlash(definition) as NormalizeRouteDefinition<TDefinition>,
           )
     return original._callable as CallableRoute<NormalizeRouteDefinition<TDefinition>, TSearchInput>
   }
@@ -179,7 +171,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   extend<TSuffixDefinition extends string>(
     suffixDefinition: TSuffixDefinition,
   ): CallableRoute<PathExtended<TDefinition, TSuffixDefinition>, TSearchInput> {
-    const definition = Route0._normalizeRouteDefinition(`${this.definitionWithoutTrailingWildcard}/${suffixDefinition}`)
+    const definition = Route0.normalizeSlash(`${this.definitionWithoutTrailingWildcard}/${suffixDefinition}`)
     return Route0.create<PathExtended<TDefinition, TSuffixDefinition>>(
       definition as PathExtended<TDefinition, TSuffixDefinition>,
       {
@@ -279,7 +271,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     // required wildcard inline (e.g. /app*)
     url = url.replace(/\*/g, () => String(paramsInput['*'] ?? ''))
     // search params
-    const searchString = stringifySearchQuery(searchInput)
+    const searchString = stringifySearchQuery(searchInput, { arrayIndexes: false })
     url = [url, searchString].filter(Boolean).join('?')
     // dedupe slashes
     url = collapseDuplicateSlashes(url)
@@ -492,15 +484,36 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     return this._definitionParts
   }
 
-  /** Fast pathname exact match check without building a full location object. */
-  isExactPathnameMatch(pathname: string): boolean {
-    return this.regex.test(Route0._normalizePathname(pathname))
+  /** Fast pathname exact match check without building a full relation object. */
+  isExact(pathname: string, normalize = true): boolean {
+    const normalizedPathname = normalize ? Route0.normalizeSlash(pathname) : pathname
+    return this.regex.test(normalizedPathname)
   }
 
-  /** Fast pathname exact or ancestor match check without building a full location object. */
-  isExactOrAncestorPathnameMatch(pathname: string): boolean {
-    const normalizedPathname = Route0._normalizePathname(pathname)
+  /** Fast pathname exact or ancestor match check without building a full relation object. */
+  isExactOrAncestor(pathname: string, normalize = true): boolean {
+    const normalizedPathname = normalize ? Route0.normalizeSlash(pathname) : pathname
     return this.regex.test(normalizedPathname) || this.regexAncestor.test(normalizedPathname)
+  }
+
+  /** True when route is ancestor of pathname (pathname is deeper). */
+  isAncestor(pathname: string, normalize = true): boolean {
+    const normalizedPathname = normalize ? Route0.normalizeSlash(pathname) : pathname
+    return !this.regex.test(normalizedPathname) && this.regexAncestor.test(normalizedPathname)
+  }
+
+  /** True when route is descendant of pathname (pathname is shallower). */
+  isDescendant(pathname: string, normalize = true): boolean {
+    const normalizedPathname = normalize ? Route0.normalizeSlash(pathname) : pathname
+    if (this.regex.test(normalizedPathname) || this.regexAncestor.test(normalizedPathname)) {
+      return false
+    }
+    for (const matcher of this.regexDescendantMatchers) {
+      if (normalizedPathname.match(matcher.regex)) {
+        return true
+      }
+    }
+    return false
   }
 
   /** Creates a grouped regex pattern string from many routes. */
@@ -568,16 +581,19 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     const base = abs ? undefined : 'http://example.com'
     const url = new URL(hrefOrHrefRelOrLocation, base)
 
-    // Parse search query to object form
-    const search = parseSearchQuery(url.search)
-
     // Common derived values
     const hrefRel = url.pathname + url.search + url.hash
 
     // Build the location object consistent with _GeneralLocation
+    let _search: UnknownSearchParsed | undefined
     const location: UnknownLocation = {
       pathname: url.pathname,
-      search,
+      get search() {
+        if (_search === undefined) {
+          _search = parseSearchQuery(url.search)
+        }
+        return _search
+      },
       searchString: url.search,
       hash: url.hash,
       origin: abs ? url.origin : undefined,
@@ -593,104 +609,131 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
       // specific to UnknownLocation
       params: undefined,
       route: undefined,
-      known: false,
-      exact: false,
-      ancestor: false,
-      descendant: false,
-      unmatched: false,
     }
 
     return location
   }
 
+  // /**
+  //  * Parses input and returns location only for exact route matches.
+  //  */
+  // getLocation(href: `${string}://${string}`): ExactLocation<TDefinition> | UnknownLocation
+  // getLocation(hrefRel: `/${string}`): ExactLocation<TDefinition> | UnknownLocation
+  // getLocation(hrefOrHrefRel: string): ExactLocation<TDefinition> | UnknownLocation
+  // getLocation(location: AnyLocation): ExactLocation<TDefinition> | UnknownLocation
+  // getLocation(url: AnyLocation): ExactLocation<TDefinition> | UnknownLocation
+  // getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): ExactLocation<TDefinition> | UnknownLocation
+  // getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): ExactLocation<TDefinition> | UnknownLocation {
+  //   const relation = this.getRelation(hrefOrHrefRelOrLocation)
+  //   if (!relation.exact) {
+  //     return Route0.getLocation(hrefOrHrefRelOrLocation)
+  //   }
+  //   const location = Route0.getLocation(hrefOrHrefRelOrLocation)
+  //   return {
+  //     ...location,
+  //     route: this.definition as Definition<TDefinition>,
+  //     params: relation.params as ParamsOutput<TDefinition>,
+  //   }
+  // }
+
   /**
-   * Parses input and matches it against this route definition.
-   *
-   * Result includes relation flags:
-   * - `exact`
-   * - `ancestor`
-   * - `descendant`
-   * - `unmatched`
+   * Parses input and evaluates pathname relation to this route.
    */
-  getLocation(href: `${string}://${string}`): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
-  getLocation(hrefRel: `/${string}`): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
-  getLocation(hrefOrHrefRel: string): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
-  getLocation(location: AnyLocation): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
-  getLocation(url: AnyLocation): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
-  getLocation(
-    hrefOrHrefRelOrLocation: string | AnyLocation | URL,
-  ): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
-  getLocation(
-    hrefOrHrefRelOrLocation: string | AnyLocation | URL,
-  ): ExactLocation<TDefinition> | UnmatchedLocation<TDefinition> {
+  getRelation(href: `${string}://${string}`): RouteRelation<TDefinition>
+  getRelation(hrefRel: `/${string}`): RouteRelation<TDefinition>
+  getRelation(hrefOrHrefRel: string): RouteRelation<TDefinition>
+  getRelation(location: AnyLocation): RouteRelation<TDefinition>
+  getRelation(url: URL): RouteRelation<TDefinition>
+  getRelation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): RouteRelation<TDefinition>
+  getRelation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): RouteRelation<TDefinition> {
     if (hrefOrHrefRelOrLocation instanceof URL) {
-      return this.getLocation(hrefOrHrefRelOrLocation.href)
+      return this.getRelation(hrefOrHrefRelOrLocation.href)
     }
     if (typeof hrefOrHrefRelOrLocation !== 'string') {
       hrefOrHrefRelOrLocation = hrefOrHrefRelOrLocation.href || hrefOrHrefRelOrLocation.hrefRel
     }
-    const location = Route0.getLocation(hrefOrHrefRelOrLocation) as never as
-      | ExactLocation<TDefinition>
-      | UnmatchedLocation<TDefinition>
-    location.route = this.definition as Definition<TDefinition>
-    location.params = {}
-
     // Normalize pathname (no trailing slash except root)
-    const pathname = Route0._normalizePathname(location.pathname)
+    const pathname = Route0.normalizeSlash(new URL(hrefOrHrefRelOrLocation, 'http://example.com').pathname)
 
     const paramNames = this.captureKeys
     const exactRe = this.regex
-    const ancestorRe = this.regexAncestor // route matches the beginning of the URL (may have more)
     const exactMatch = pathname.match(exactRe)
-    const ancestorMatch = pathname.match(ancestorRe)
-    const exact = !!exactMatch
-    const ancestor = !exact && !!ancestorMatch
 
-    // Parse params for exact and ancestor matches.
-    const paramsMatch = exactMatch || (ancestor ? ancestorMatch : null)
-    if (paramsMatch) {
-      const values = paramsMatch.slice(1, 1 + paramNames.length)
+    if (exactMatch) {
+      const values = exactMatch.slice(1, 1 + paramNames.length)
       const params = Object.fromEntries(
         paramNames.map((n, i) => {
           const value = values[i] as string | undefined
           return [n, value === undefined ? undefined : decodeURIComponent(value)]
         }),
       )
-      location.params = params
-    } else {
-      location.params = {}
-    }
-
-    let descendant = false
-    let descendantMatch: RegExpMatchArray | null = null
-    let descendantCaptureKeys: string[] = []
-    if (!exact && !ancestor) {
-      for (const matcher of this.regexDescendantMatchers) {
-        const match = pathname.match(matcher.regex)
-        if (!match) continue
-        descendant = true
-        descendantMatch = match
-        descendantCaptureKeys = matcher.captureKeys
-        break
+      return {
+        type: 'exact',
+        route: this.definition as Definition<TDefinition>,
+        params: params as ParamsOutput<TDefinition>,
+        exact: true,
+        ascendant: false,
+        descendant: false,
+        unmatched: false,
       }
     }
-    const unmatched = !exact && !ancestor && !descendant
 
-    if (descendant && descendantMatch) {
+    const ancestorRe = this.regexAncestor
+    const ancestorMatch = pathname.match(ancestorRe)
+    if (ancestorMatch) {
+      const values = ancestorMatch.slice(1, 1 + paramNames.length)
+      const params = Object.fromEntries(
+        paramNames.map((n, i) => {
+          const value = values[i] as string | undefined
+          return [n, value === undefined ? undefined : decodeURIComponent(value)]
+        }),
+      )
+      return {
+        type: 'ascendant',
+        route: this.definition as Definition<TDefinition>,
+        params: params as ParamsOutput<TDefinition> & { [key: string]: string | undefined },
+        exact: false,
+        ascendant: true,
+        descendant: false,
+        unmatched: false,
+      }
+    }
+
+    let descendantMatch: RegExpMatchArray | null = null
+    let descendantCaptureKeys: string[] = []
+    for (const matcher of this.regexDescendantMatchers) {
+      const match = pathname.match(matcher.regex)
+      if (!match) continue
+      descendantMatch = match
+      descendantCaptureKeys = matcher.captureKeys
+      break
+    }
+
+    if (descendantMatch) {
       const values = descendantMatch.slice(1, 1 + descendantCaptureKeys.length)
-      location.params = Object.fromEntries(
+      const params = Object.fromEntries(
         descendantCaptureKeys.map((key, index) => [key, decodeURIComponent(values[index] as string)]),
       )
+      return {
+        type: 'descendant',
+        route: this.definition as Definition<TDefinition>,
+        params: params as Partial<ParamsOutput<TDefinition>>,
+        exact: false,
+        ascendant: false,
+        descendant: true,
+        unmatched: false,
+      }
     }
 
     return {
-      ...location,
-      known: true,
-      exact,
-      ancestor,
-      descendant,
-      unmatched,
-    } as ExactLocation<TDefinition> | UnmatchedLocation<TDefinition>
+      type: 'unmatched',
+      route: this.definition as Definition<TDefinition>,
+      params: {},
+      exact: false,
+      ascendant: false,
+      descendant: false,
+      unmatched: true,
+    }
   }
 
   private _validateParamsInput(input: unknown): StandardSchemaV1.Result<ParamsOutput<TDefinition>> {
@@ -787,114 +830,114 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     safeParse: (value) => this._safeParseSchemaResult(this._validateParamsInput(value)),
   }
 
-  /** True when path structure is equal (param names are ignored). */
-  isSame(other: AnyRoute): boolean {
-    const thisShape = this.routeTokens
-      .map((t) => {
-        if (t.kind === 'static') return `s:${t.value}`
-        if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
-        return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
-      })
-      .join('/')
-    const otherRoute = Route0.from(other) as Route0<string, UnknownSearchInput>
-    const otherShape = otherRoute.routeTokens
-      .map((t) => {
-        if (t.kind === 'static') return `s:${t.value}`
-        if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
-        return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
-      })
-      .join('/')
-    return thisShape === otherShape
-  }
-  /** Static convenience wrapper for `isSame`. */
-  static isSame(a: AnyRoute | string | undefined, b: AnyRoute | string | undefined): boolean {
-    if (!a) {
-      if (!b) return true
-      return false
-    }
-    if (!b) {
-      return false
-    }
-    return Route0.create(a).isSame(Route0.create(b))
-  }
+  // /** True when path structure is equal (param names are ignored). */
+  // isSame(other: AnyRoute): boolean {
+  //   const thisShape = this.routeTokens
+  //     .map((t) => {
+  //       if (t.kind === 'static') return `s:${t.value}`
+  //       if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
+  //       return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
+  //     })
+  //     .join('/')
+  //   const otherRoute = Route0.from(other) as Route0<string, UnknownSearchInput>
+  //   const otherShape = otherRoute.routeTokens
+  //     .map((t) => {
+  //       if (t.kind === 'static') return `s:${t.value}`
+  //       if (t.kind === 'param') return `p:${t.optional ? 'o' : 'r'}`
+  //       return `w:${t.prefix}:${t.optional ? 'o' : 'r'}`
+  //     })
+  //     .join('/')
+  //   return thisShape === otherShape
+  // }
+  // /** Static convenience wrapper for `isSame`. */
+  // static isSame(a: AnyRoute | string | undefined, b: AnyRoute | string | undefined): boolean {
+  //   if (!a) {
+  //     if (!b) return true
+  //     return false
+  //   }
+  //   if (!b) {
+  //     return false
+  //   }
+  //   return Route0.create(a).isSame(Route0.create(b))
+  // }
 
-  /** True when current route is more specific/deeper than `other`. */
-  isDescendant(other: AnyRoute | string | undefined): boolean {
-    if (!other) return false
-    other = Route0.create(other)
-    // this is a descendant of other if:
-    // - paths are not exactly the same
-    // - other's path is a prefix of this path, matching params as wildcards
-    const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
-    // Root is ancestor of any non-root; thus any non-root is a descendant of root
-    if (other.definition === '/' && this.definition !== '/') {
-      return true
-    }
-    const thisParts = getParts(this.definition)
-    const otherParts = getParts(other.definition)
+  // /** True when current route is more specific/deeper than `other`. */
+  // isDescendant(other: AnyRoute | string | undefined): boolean {
+  //   if (!other) return false
+  //   other = Route0.create(other)
+  //   // this is a descendant of other if:
+  //   // - paths are not exactly the same
+  //   // - other's path is a prefix of this path, matching params as wildcards
+  //   const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
+  //   // Root is ancestor of any non-root; thus any non-root is a descendant of root
+  //   if (other.definition === '/' && this.definition !== '/') {
+  //     return true
+  //   }
+  //   const thisParts = getParts(this.definition)
+  //   const otherParts = getParts(other.definition)
 
-    // A descendant must be deeper
-    if (thisParts.length <= otherParts.length) return false
+  //   // A descendant must be deeper
+  //   if (thisParts.length <= otherParts.length) return false
 
-    const matchesPatternPart = (patternPart: string, valuePart: string): { match: boolean; wildcard: boolean } => {
-      if (patternPart.startsWith(':')) return { match: true, wildcard: false }
-      const wildcardIndex = patternPart.indexOf('*')
-      if (wildcardIndex >= 0) {
-        const prefix = patternPart.slice(0, wildcardIndex)
-        return { match: prefix.length === 0 || valuePart.startsWith(prefix), wildcard: true }
-      }
-      return { match: patternPart === valuePart, wildcard: false }
-    }
+  //   const matchesPatternPart = (patternPart: string, valuePart: string): { match: boolean; wildcard: boolean } => {
+  //     if (patternPart.startsWith(':')) return { match: true, wildcard: false }
+  //     const wildcardIndex = patternPart.indexOf('*')
+  //     if (wildcardIndex >= 0) {
+  //       const prefix = patternPart.slice(0, wildcardIndex)
+  //       return { match: prefix.length === 0 || valuePart.startsWith(prefix), wildcard: true }
+  //     }
+  //     return { match: patternPart === valuePart, wildcard: false }
+  //   }
 
-    for (let i = 0; i < otherParts.length; i++) {
-      const otherPart = otherParts[i]
-      const thisPart = thisParts[i]
-      const result = matchesPatternPart(otherPart, thisPart)
-      if (!result.match) return false
-      if (result.wildcard) return true
-    }
-    // Not equal (depth already ensures not equal)
-    return true
-  }
+  //   for (let i = 0; i < otherParts.length; i++) {
+  //     const otherPart = otherParts[i]
+  //     const thisPart = thisParts[i]
+  //     const result = matchesPatternPart(otherPart, thisPart)
+  //     if (!result.match) return false
+  //     if (result.wildcard) return true
+  //   }
+  //   // Not equal (depth already ensures not equal)
+  //   return true
+  // }
 
-  /** True when current route is broader/shallower than `other`. */
-  isAncestor(other: AnyRoute | string | undefined): boolean {
-    if (!other) return false
-    other = Route0.create(other)
-    // this is an ancestor of other if:
-    // - paths are not exactly the same
-    // - this path is a prefix of other path, matching params as wildcards
-    const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
-    // Root is ancestor of any non-root path
-    if (this.definition === '/' && other.definition !== '/') {
-      return true
-    }
-    const thisParts = getParts(this.definition)
-    const otherParts = getParts(other.definition)
+  // /** True when current route is broader/shallower than `other`. */
+  // isAncestor(other: AnyRoute | string | undefined): boolean {
+  //   if (!other) return false
+  //   other = Route0.create(other)
+  //   // this is an ancestor of other if:
+  //   // - paths are not exactly the same
+  //   // - this path is a prefix of other path, matching params as wildcards
+  //   const getParts = (path: string) => (path === '/' ? ['/'] : path.split('/').filter(Boolean))
+  //   // Root is ancestor of any non-root path
+  //   if (this.definition === '/' && other.definition !== '/') {
+  //     return true
+  //   }
+  //   const thisParts = getParts(this.definition)
+  //   const otherParts = getParts(other.definition)
 
-    // An ancestor must be shallower
-    if (thisParts.length >= otherParts.length) return false
+  //   // An ancestor must be shallower
+  //   if (thisParts.length >= otherParts.length) return false
 
-    const matchesPatternPart = (patternPart: string, valuePart: string): { match: boolean; wildcard: boolean } => {
-      if (patternPart.startsWith(':')) return { match: true, wildcard: false }
-      const wildcardIndex = patternPart.indexOf('*')
-      if (wildcardIndex >= 0) {
-        const prefix = patternPart.slice(0, wildcardIndex)
-        return { match: prefix.length === 0 || valuePart.startsWith(prefix), wildcard: true }
-      }
-      return { match: patternPart === valuePart, wildcard: false }
-    }
+  //   const matchesPatternPart = (patternPart: string, valuePart: string): { match: boolean; wildcard: boolean } => {
+  //     if (patternPart.startsWith(':')) return { match: true, wildcard: false }
+  //     const wildcardIndex = patternPart.indexOf('*')
+  //     if (wildcardIndex >= 0) {
+  //       const prefix = patternPart.slice(0, wildcardIndex)
+  //       return { match: prefix.length === 0 || valuePart.startsWith(prefix), wildcard: true }
+  //     }
+  //     return { match: patternPart === valuePart, wildcard: false }
+  //   }
 
-    for (let i = 0; i < thisParts.length; i++) {
-      const thisPart = thisParts[i]
-      const otherPart = otherParts[i]
-      const result = matchesPatternPart(thisPart, otherPart)
-      if (!result.match) return false
-      if (result.wildcard) return true
-    }
-    // Not equal (depth already ensures not equal)
-    return true
-  }
+  //   for (let i = 0; i < thisParts.length; i++) {
+  //     const thisPart = thisParts[i]
+  //     const otherPart = otherParts[i]
+  //     const result = matchesPatternPart(thisPart, otherPart)
+  //     if (!result.match) return false
+  //     if (result.wildcard) return true
+  //   }
+  //   // Not equal (depth already ensures not equal)
+  //   return true
+  // }
 
   /** True when two route patterns can match the same concrete URL. */
   isOverlap(other: AnyRoute | string | undefined): boolean {
@@ -965,22 +1008,6 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
  */
 
 export class Routes<const T extends RoutesRecord = any> {
-  private static _getNormalizedPathnameFromInput(hrefOrHrefRelOrLocation: string | AnyLocation | URL): string {
-    if (hrefOrHrefRelOrLocation instanceof URL) {
-      return normalizeSlashPath(hrefOrHrefRelOrLocation.pathname)
-    }
-    if (typeof hrefOrHrefRelOrLocation !== 'string') {
-      if (typeof hrefOrHrefRelOrLocation.pathname === 'string') {
-        return normalizeSlashPath(hrefOrHrefRelOrLocation.pathname)
-      }
-      hrefOrHrefRelOrLocation = hrefOrHrefRelOrLocation.href || hrefOrHrefRelOrLocation.hrefRel
-    }
-    const abs = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(hrefOrHrefRelOrLocation)
-    const base = abs ? undefined : 'http://example.com'
-    const url = new URL(hrefOrHrefRelOrLocation, base)
-    return normalizeSlashPath(url.pathname)
-  }
-
   _routes: RoutesRecordHydrated<T>
   _pathsOrdering: string[]
   _keysOrdering: string[]
@@ -1077,19 +1104,17 @@ export class Routes<const T extends RoutesRecord = any> {
   _getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation
   _getLocation(hrefOrHrefRelOrLocation: string | AnyLocation | URL): UnknownLocation | ExactLocation {
     const input = hrefOrHrefRelOrLocation
-    const pathname = Routes._getNormalizedPathnameFromInput(input)
-    // Find exact match using a fast pathname pre-check first.
+    const location = Route0.getLocation(input)
     for (const route of this._ordered) {
-      if (!route.isExactPathnameMatch(pathname)) {
-        continue
-      }
-      const loc = route.getLocation(input)
-      if (loc.exact) {
-        return loc
+      if (route.isExact(location.pathname, false)) {
+        const relation = route.getRelation(input)
+        return Object.assign(location, {
+          route: route.definition,
+          params: relation.params,
+        }) as ExactLocation
       }
     }
-    // No exact match found, return UnknownLocation
-    return typeof input === 'string' ? Route0.getLocation(input) : Route0.getLocation(input)
+    return location as UnknownLocation
   }
 
   private static makeOrdering(routes: RoutesRecord): {
@@ -1218,18 +1243,18 @@ export type Extended<
       ? Route0<TSuffixDefinition, TSearchInput>
       : never
 
-export type IsAncestor<T extends AnyRoute | string, TAncestor extends AnyRoute | string> = _IsAncestor<
-  Definition<T>,
-  Definition<TAncestor>
->
-export type IsDescendant<T extends AnyRoute | string, TDescendant extends AnyRoute | string> = _IsDescendant<
-  Definition<T>,
-  Definition<TDescendant>
->
-export type IsSame<T extends AnyRoute | string, TExact extends AnyRoute | string> = _IsSame<
-  Definition<T>,
-  Definition<TExact>
->
+// export type IsAncestor<T extends AnyRoute | string, TAncestor extends AnyRoute | string> = _IsAncestor<
+//   Definition<T>,
+//   Definition<TAncestor>
+// >
+// export type IsDescendant<T extends AnyRoute | string, TDescendant extends AnyRoute | string> = _IsDescendant<
+//   Definition<T>,
+//   Definition<TDescendant>
+// >
+// export type IsSame<T extends AnyRoute | string, TExact extends AnyRoute | string> = _IsSame<
+//   Definition<T>,
+//   Definition<TExact>
+// >
 export type IsSameParams<T1 extends AnyRoute | string, T2 extends AnyRoute | string> = _IsSameParams<
   ParamsDefinition<T1>,
   ParamsDefinition<T2>
@@ -1277,14 +1302,14 @@ export type _GeneralLocation = {
    */
   search: UnknownSearchParsed
   /**
-   * Raw query string with leading `?`, if present.
+   * Raw query string with leading `?`, if present, else empty string.
    *
    * Example:
    * - `?tab=posts&sort=desc`
    */
   searchString: string
   /**
-   * Raw hash with leading `#`, if present.
+   * Raw hash with leading `#`, if present, else empty string.
    *
    * Example:
    * - `#section`
@@ -1329,80 +1354,60 @@ export type _GeneralLocation = {
 }
 /** Location state before matching against a concrete route. */
 export type UnknownLocationState = {
-  known: false
   route: undefined
   params: undefined
-  exact: false
-  ancestor: false
-  descendant: false
-  unmatched: false
 }
 export type UnknownLocation = _GeneralLocation & UnknownLocationState
 
-/** Known route context, but no exact/ancestor/descendant relation matched. */
-export type UnmatchedLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
-  known: true
-  route: Definition<TRoute>
-  params: Record<never, never>
-  exact: false
-  ancestor: false
-  descendant: false
-  unmatched: true
-}
-export type UnmatchedLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
-  UnmatchedLocationState<TRoute>
-
 /** Exact match state for a known route. */
 export type ExactLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
-  known: true
   route: Definition<TRoute>
   params: ParamsOutput<TRoute>
-  exact: true
-  ancestor: false
-  descendant: false
-  unmatched: false
 }
 export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
   ExactLocationState<TRoute>
 
-/** Input URL is a descendant of route definition (route is ancestor). */
-export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
-  known: true
-  route: string
-  params: IsAny<TRoute> extends true ? any : ParamsOutput<TRoute> & { [key: string]: string | undefined }
-  exact: false
-  ancestor: true
+export type ExactRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  type: 'exact'
+  route: Definition<TRoute>
+  params: ParamsOutput<TRoute>
+  exact: true
+  ascendant: false
   descendant: false
   unmatched: false
 }
-export type AncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
-  AncestorLocationState<TRoute>
-
-/** It is when route not match at all, but params match. */
-export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
-  known: true
-  route: string
-  params: IsAny<TRoute> extends true ? any : ParamsOutput<TRoute> & { [key: string]: string | undefined }
+export type AscendantRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  type: 'ascendant'
+  route: Definition<TRoute>
+  params: ParamsOutput<TRoute> & { [key: string]: string | undefined }
   exact: false
-  ancestor: true
+  ascendant: true
   descendant: false
   unmatched: false
 }
-export type WeakAncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
-  WeakAncestorLocationState<TRoute>
-
-/** Input URL is an ancestor prefix of route definition (route is descendant). */
-export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
-  known: true
+export type DescendantRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  type: 'descendant'
   route: Definition<TRoute>
   params: Partial<ParamsOutput<TRoute>>
   exact: false
-  ancestor: false
+  ascendant: false
   descendant: true
   unmatched: false
 }
-export type DescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
-  DescendantLocationState<TRoute>
+export type UnmatchedRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  type: 'unmatched'
+  route: Definition<TRoute>
+  params: Record<never, never>
+  exact: false
+  ascendant: false
+  descendant: false
+  unmatched: true
+}
+export type RouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  | ExactRouteRelation<TRoute>
+  | AscendantRouteRelation<TRoute>
+  | DescendantRouteRelation<TRoute>
+  | UnmatchedRouteRelation<TRoute>
 
 export type UnknownSearchParsedValue = string | UnknownSearchParsed | Array<UnknownSearchParsedValue>
 export interface UnknownSearchParsed {
@@ -1411,20 +1416,38 @@ export interface UnknownSearchParsed {
 
 export type UnknownSearchInput = Record<string, unknown>
 
+/** Input URL is a descendant of route definition (route is ancestor). */
+export type AncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  route: string
+  params: IsAny<TRoute> extends true ? any : ParamsOutput<TRoute> & { [key: string]: string | undefined }
+}
+export type AncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
+  AncestorLocationState<TRoute>
+
+/** It is when route not match at all, but params match. */
+export type WeakAncestorLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  route: string
+  params: IsAny<TRoute> extends true ? any : ParamsOutput<TRoute> & { [key: string]: string | undefined }
+}
+export type WeakAncestorLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
+  WeakAncestorLocationState<TRoute>
+
+/** Input URL is an ancestor prefix of route definition (route is descendant). */
+export type DescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  route: string
+  params: Partial<ParamsOutput<TRoute>>
+}
+export type DescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
+  DescendantLocationState<TRoute>
+
 /** It is when route not match at all, but params partially match. */
 export type WeakDescendantLocationState<TRoute extends AnyRoute | string = AnyRoute | string> = {
-  known: true
-  route: Definition<TRoute>
+  route: string
   params: Partial<ParamsOutput<TRoute>>
-  exact: false
-  ancestor: false
-  descendant: true
-  unmatched: false
 }
 export type WeakDescendantLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
   WeakDescendantLocationState<TRoute>
 export type KnownLocation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  | UnmatchedLocation<TRoute>
   | ExactLocation<TRoute>
   | AncestorLocation<TRoute>
   | WeakAncestorLocation<TRoute>
@@ -1583,21 +1606,21 @@ export type _IsSameParams<T1 extends object | undefined, T2 extends object | und
         : false
       : false
 
-export type _IsAncestor<T extends string, TAncestor extends string> = T extends TAncestor
-  ? false
-  : T extends `${TAncestor}${string}`
-    ? true
-    : false
-export type _IsDescendant<T extends string, TDescendant extends string> = TDescendant extends T
-  ? false
-  : TDescendant extends `${T}${string}`
-    ? true
-    : false
-export type _IsSame<T extends string, TExact extends string> = T extends TExact
-  ? TExact extends T
-    ? true
-    : false
-  : false
+// export type _IsAncestor<T extends string, TAncestor extends string> = T extends TAncestor
+//   ? false
+//   : T extends `${TAncestor}${string}`
+//     ? true
+//     : false
+// export type _IsDescendant<T extends string, TDescendant extends string> = TDescendant extends T
+//   ? false
+//   : TDescendant extends `${T}${string}`
+//     ? true
+//     : false
+// export type _IsSame<T extends string, TExact extends string> = T extends TExact
+//   ? TExact extends T
+//     ? true
+//     : false
+//   : false
 
 export type _SafeParseInputResult<TInputParsed extends Record<string, unknown>> =
   | {
