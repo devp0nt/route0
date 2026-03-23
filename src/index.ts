@@ -691,7 +691,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
       return {
         type: 'ancestor',
         route: this.definition as Definition<TDefinition>,
-        params: params as ParamsOutput<TDefinition> & { [key: string]: string | undefined },
+        params: params as ParamsOutput<TDefinition>,
         exact: false,
         ancestor: true,
         descendant: false,
@@ -1286,7 +1286,7 @@ export type ExactRouteRelation<TRoute extends AnyRoute | string = AnyRoute | str
 export type AncestorRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
   type: 'ancestor'
   route: Definition<TRoute>
-  params: ParamsOutput<TRoute> & { [key: string]: string | undefined }
+  params: ParamsOutput<TRoute>
   exact: false
   ancestor: true
   descendant: false
