@@ -336,25 +336,25 @@ describe('Route0', () => {
 
     it('ancestor match', () => {
       expect(Route0.create('/prefix/xxx/some').getRelation('/prefix/xxx/some/extra/path')).toMatchObject({
-        type: 'ascendant',
+        type: 'ancestor',
         exact: false,
         unmatched: false,
-        ascendant: true,
+        ancestor: true,
         descendant: false,
       })
       expect(Route0.create('/prefix/:x/some').getRelation('/prefix/xxx/some/extra/path')).toMatchObject({
-        type: 'ascendant',
+        type: 'ancestor',
         exact: false,
         unmatched: false,
-        ascendant: true,
+        ancestor: true,
         descendant: false,
         params: { x: 'xxx' },
       })
       expect(Route0.create('/:y/:x/some').getRelation('/prefix/xxx/some/extra/path')).toMatchObject({
-        type: 'ascendant',
+        type: 'ancestor',
         exact: false,
         unmatched: false,
-        ascendant: true,
+        ancestor: true,
         descendant: false,
         params: { y: 'prefix', x: 'xxx' },
       })
@@ -365,7 +365,7 @@ describe('Route0', () => {
         type: 'descendant',
         exact: false,
         unmatched: false,
-        ascendant: false,
+        ancestor: false,
         descendant: true,
         params: {},
       })
@@ -373,7 +373,7 @@ describe('Route0', () => {
         type: 'descendant',
         exact: false,
         unmatched: false,
-        ascendant: false,
+        ancestor: false,
         descendant: true,
         params: {},
       })
@@ -381,7 +381,7 @@ describe('Route0', () => {
         type: 'descendant',
         exact: false,
         unmatched: false,
-        ascendant: false,
+        ancestor: false,
         descendant: true,
         params: { prefix: 'prefix' },
       })
@@ -392,7 +392,7 @@ describe('Route0', () => {
         type: 'unmatched',
         exact: false,
         unmatched: true,
-        ascendant: false,
+        ancestor: false,
         descendant: false,
         params: {},
       })
@@ -400,7 +400,7 @@ describe('Route0', () => {
         type: 'unmatched',
         exact: false,
         unmatched: true,
-        ascendant: false,
+        ancestor: false,
         descendant: false,
         params: {},
       })

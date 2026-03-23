@@ -672,7 +672,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
         route: this.definition as Definition<TDefinition>,
         params: params as ParamsOutput<TDefinition>,
         exact: true,
-        ascendant: false,
+        ancestor: false,
         descendant: false,
         unmatched: false,
       }
@@ -689,11 +689,11 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
         }),
       )
       return {
-        type: 'ascendant',
+        type: 'ancestor',
         route: this.definition as Definition<TDefinition>,
         params: params as ParamsOutput<TDefinition> & { [key: string]: string | undefined },
         exact: false,
-        ascendant: true,
+        ancestor: true,
         descendant: false,
         unmatched: false,
       }
@@ -719,7 +719,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
         route: this.definition as Definition<TDefinition>,
         params: params as Partial<ParamsOutput<TDefinition>>,
         exact: false,
-        ascendant: false,
+        ancestor: false,
         descendant: true,
         unmatched: false,
       }
@@ -730,7 +730,7 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
       route: this.definition as Definition<TDefinition>,
       params: {},
       exact: false,
-      ascendant: false,
+      ancestor: false,
       descendant: false,
       unmatched: true,
     }
@@ -1272,6 +1272,50 @@ export type ParamsInput<T extends AnyRoute | string = string> = _ParamsInput<Def
 export type IsParamsOptional<T extends AnyRoute | string> = HasRequiredParams<Definition<T>> extends true ? false : true
 export type ParamsInputStringOnly<T extends AnyRoute | string = string> = _ParamsInputStringOnly<Definition<T>>
 
+// relation
+
+export type ExactRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  type: 'exact'
+  route: Definition<TRoute>
+  params: ParamsOutput<TRoute>
+  exact: true
+  ancestor: false
+  descendant: false
+  unmatched: false
+}
+export type AncestorRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  type: 'ancestor'
+  route: Definition<TRoute>
+  params: ParamsOutput<TRoute> & { [key: string]: string | undefined }
+  exact: false
+  ancestor: true
+  descendant: false
+  unmatched: false
+}
+export type DescendantRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  type: 'descendant'
+  route: Definition<TRoute>
+  params: Partial<ParamsOutput<TRoute>>
+  exact: false
+  ancestor: false
+  descendant: true
+  unmatched: false
+}
+export type UnmatchedRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
+  type: 'unmatched'
+  route: Definition<TRoute>
+  params: Record<never, never>
+  exact: false
+  ancestor: false
+  descendant: false
+  unmatched: true
+}
+export type RouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> =
+  | ExactRouteRelation<TRoute>
+  | AncestorRouteRelation<TRoute>
+  | DescendantRouteRelation<TRoute>
+  | UnmatchedRouteRelation<TRoute>
+
 // location
 
 export type LocationParams<TDefinition extends string> = {
@@ -1366,48 +1410,6 @@ export type ExactLocationState<TRoute extends AnyRoute | string = AnyRoute | str
 }
 export type ExactLocation<TRoute extends AnyRoute | string = AnyRoute | string> = _GeneralLocation &
   ExactLocationState<TRoute>
-
-export type ExactRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
-  type: 'exact'
-  route: Definition<TRoute>
-  params: ParamsOutput<TRoute>
-  exact: true
-  ascendant: false
-  descendant: false
-  unmatched: false
-}
-export type AscendantRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
-  type: 'ascendant'
-  route: Definition<TRoute>
-  params: ParamsOutput<TRoute> & { [key: string]: string | undefined }
-  exact: false
-  ascendant: true
-  descendant: false
-  unmatched: false
-}
-export type DescendantRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
-  type: 'descendant'
-  route: Definition<TRoute>
-  params: Partial<ParamsOutput<TRoute>>
-  exact: false
-  ascendant: false
-  descendant: true
-  unmatched: false
-}
-export type UnmatchedRouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> = {
-  type: 'unmatched'
-  route: Definition<TRoute>
-  params: Record<never, never>
-  exact: false
-  ascendant: false
-  descendant: false
-  unmatched: true
-}
-export type RouteRelation<TRoute extends AnyRoute | string = AnyRoute | string> =
-  | ExactRouteRelation<TRoute>
-  | AscendantRouteRelation<TRoute>
-  | DescendantRouteRelation<TRoute>
-  | UnmatchedRouteRelation<TRoute>
 
 export type UnknownSearchParsedValue = string | UnknownSearchParsed | Array<UnknownSearchParsedValue>
 export interface UnknownSearchParsed {
