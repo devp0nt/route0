@@ -2045,7 +2045,7 @@ describe('regex', () => {
   it('regexString: simple route', () => {
     const route = Route0.create('/')
     const regex = route.regexString
-    expect(regex).toBe('^/?$')
+    expect(regex).toBe('^/$')
     expect(new RegExp(regex).test('/')).toBe(true)
     expect(new RegExp(regex).test('/other')).toBe(false)
   })
@@ -2095,8 +2095,8 @@ describe('regex', () => {
   it('regexString: root with trailing slash', () => {
     const route = Route0.create('/')
     const regex = route.regexString
-    // Root returns pattern for empty string with optional slash
-    expect(regex).toBe('^/?$')
+    // Root is strict and matches only "/"
+    expect(regex).toBe('^/$')
   })
 
   it('regex: simple route', () => {
@@ -2118,7 +2118,7 @@ describe('regex', () => {
   it('static getRegexString: multiple routes', () => {
     const routes = [Route0.create('/users'), Route0.create('/posts/:id'), Route0.create('/')]
     const regex = Route0.getRegexStringGroup(routes)
-    expect(regex).toBe('(^/users/?$|^/posts/([^/]+)/?$|^/?$)')
+    expect(regex).toBe('^(?:(?:/users/?)|(?:/posts/([^/]+)/?)|(?:/))$')
   })
 
   it('static getRegexGroup: multiple routes', () => {
@@ -2203,7 +2203,7 @@ describe('regex', () => {
     const route = Route0.create('/')
     const regex = route.regex
     expect(regex.test('/')).toBe(true)
-    expect(regex.test('')).toBe(true) // empty string should match root
+    expect(regex.test('')).toBe(false) // empty string is not a valid pathname
     expect(regex.test('//')).toBe(false) // double slash should not match
     expect(regex.test('/users')).toBe(false) // non-root should not match
   })
@@ -2278,7 +2278,7 @@ describe('regex', () => {
     const regex = Route0.getRegexGroup(routes)
 
     expect(regex.test('/')).toBe(true)
-    expect(regex.test('')).toBe(true)
+    expect(regex.test('')).toBe(false)
     expect(regex.test('/home')).toBe(true)
     expect(regex.test('/about')).toBe(true)
     expect(regex.test('/other')).toBe(false)
@@ -2401,7 +2401,7 @@ describe('regex', () => {
     const regex = Route0.getRegexGroup(routes)
 
     expect(regex.test('/')).toBe(true)
-    expect(regex.test('')).toBe(true)
+    expect(regex.test('')).toBe(false)
     expect(regex.test('/root')).toBe(true)
     expect(regex.test('/root/')).toBe(true)
     expect(regex.test('/rootx')).toBe(false)

@@ -301,7 +301,11 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
 
   get regexBaseString(): string {
     if (this._regexBaseString === undefined) {
-      this._regexBaseString = this.routeRegexBaseStringRaw.replace(/\/+$/, '') + '/?' // remove trailing slashes and add optional slash
+      if (this.definition === '/') {
+        this._regexBaseString = '/'
+      } else {
+        this._regexBaseString = this.routeRegexBaseStringRaw.replace(/\/+$/, '') + '/?' // remove trailing slashes and add optional slash
+      }
     }
     return this._regexBaseString
   }
@@ -322,7 +326,11 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
 
   get regexAncestor(): RegExp {
     if (this._regexAncestor === undefined) {
-      this._regexAncestor = new RegExp(`^${this.regexBaseString}(?:/.*)?$`)
+      if (this.definition === '/') {
+        this._regexAncestor = /^\/.+$/
+      } else {
+        this._regexAncestor = new RegExp(`^${this.regexBaseString}(?:/.*)?$`)
+      }
     }
     return this._regexAncestor
   }
@@ -518,14 +526,13 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
 
   /** Creates a grouped regex pattern string from many routes. */
   static getRegexStringGroup(routes: AnyRoute[]): string {
-    const patterns = routes.map((route) => route.regexString).join('|')
-    return `(${patterns})`
+    const patterns = routes.map((route) => `(?:${route.regexBaseString})`).join('|')
+    return `^(?:${patterns})$`
   }
 
   /** Creates a grouped regex from many routes. */
   static getRegexGroup(routes: AnyRoute[]): RegExp {
-    const patterns = Route0.getRegexStringGroup(routes)
-    return new RegExp(`^(${patterns})$`)
+    return new RegExp(Route0.getRegexStringGroup(routes))
   }
 
   /** Converts any location shape to relative form (removes host/origin fields). */
