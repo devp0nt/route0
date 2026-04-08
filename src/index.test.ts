@@ -1202,6 +1202,26 @@ describe('getLocation', () => {
         searchString: '?x=1&z=2',
       })
     })
+
+    it('.getLocation from empty string has / pathname', () => {
+      const loc = Route0.getLocation('')
+      console.log(loc)
+      expect(loc).toMatchObject({
+        pathname: '/',
+        search: {},
+        searchString: '',
+        hash: '',
+        origin: undefined,
+        href: undefined,
+        hrefRel: '/',
+        abs: false,
+        host: undefined,
+        hostname: undefined,
+        port: undefined,
+        params: undefined,
+        route: undefined,
+      })
+    })
   })
 
   describe('Routes', () => {
