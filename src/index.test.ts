@@ -1,4 +1,4 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec'
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import { describe, expect, expectTypeOf, it } from 'bun:test'
 import { Route0, Routes } from './index.js'
 import type {
@@ -1697,6 +1697,36 @@ describe('params schema', () => {
     const route = Route0.create('/:id')
     expectTypeOf(route.schema).toExtend<StandardSchemaV1>()
     expectTypeOf(route.schema).toExtend<StandardSchemaV1<ParamsInput<'/:id'>, ParamsOutput<'/:id'>>>()
+    expectTypeOf(route.schema).toExtend<StandardJSONSchemaV1>()
+    expectTypeOf(route.schema).toExtend<StandardJSONSchemaV1<ParamsInput<'/:id'>, ParamsOutput<'/:id'>>>()
+  })
+
+  it('exposes jsonSchema input/output converters', () => {
+    const route = Route0.create('/:id/:slug?')
+    const inputSchema = route.schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' })
+    const outputSchema = route.schema['~standard'].jsonSchema.output({ target: 'draft-07' })
+
+    expect(inputSchema).toMatchObject({
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      type: 'object',
+      required: ['id'],
+      additionalProperties: false,
+      properties: {
+        id: { anyOf: [{ type: 'string' }, { type: 'number' }] },
+        slug: { anyOf: [{ type: 'string' }, { type: 'number' }] },
+      },
+    })
+
+    expect(outputSchema).toMatchObject({
+      $schema: 'http://json-schema.org/draft-07/schema#',
+      type: 'object',
+      required: ['id'],
+      additionalProperties: false,
+      properties: {
+        id: { type: 'string' },
+        slug: { type: 'string' },
+      },
+    })
   })
 })
 

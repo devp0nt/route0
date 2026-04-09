@@ -1,4 +1,4 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec'
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
 import { parse as parseSearchQuery, stringify as stringifySearchQuery } from '@devp0nt/flat0'
 
 export type RouteToken =
@@ -825,12 +825,72 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     return safeResult.data
   }
 
+  private _getParamsInputJSONSchema(options: StandardJSONSchemaV1.Options): Record<string, unknown> {
+    const { target } = options
+    const properties = Object.fromEntries(
+      Object.keys(this.params).map((key): [string, Record<string, unknown>] => [
+        key,
+        {
+          anyOf: [{ type: 'string' }, { type: 'number' }],
+        },
+      ]),
+    )
+    const required = Object.entries(this.params)
+      .filter(([, isRequired]) => isRequired)
+      .map(([key]) => key)
+    const targetMeta =
+      target === 'draft-2020-12'
+        ? { $schema: 'https://json-schema.org/draft/2020-12/schema' }
+        : target === 'draft-07'
+          ? { $schema: 'http://json-schema.org/draft-07/schema#' }
+          : {}
+    return {
+      ...targetMeta,
+      type: 'object',
+      properties,
+      required,
+      additionalProperties: false,
+    }
+  }
+
+  private _getParamsOutputJSONSchema(options: StandardJSONSchemaV1.Options): Record<string, unknown> {
+    const { target } = options
+    const properties = Object.fromEntries(
+      Object.keys(this.params).map((key): [string, Record<string, unknown>] => [
+        key,
+        {
+          type: 'string',
+        },
+      ]),
+    )
+    const required = Object.entries(this.params)
+      .filter(([, isRequired]) => isRequired)
+      .map(([key]) => key)
+    const targetMeta =
+      target === 'draft-2020-12'
+        ? { $schema: 'https://json-schema.org/draft/2020-12/schema' }
+        : target === 'draft-07'
+          ? { $schema: 'http://json-schema.org/draft-07/schema#' }
+          : {}
+    return {
+      ...targetMeta,
+      type: 'object',
+      properties,
+      required,
+      additionalProperties: false,
+    }
+  }
+
   /** Standard Schema for route params input. */
   readonly schema: SchemaRoute0<ParamsInput<TDefinition>, ParamsOutput<TDefinition>> = {
     '~standard': {
       version: 1,
       vendor: 'route0',
       validate: (value) => this._validateParamsInput(value),
+      jsonSchema: {
+        input: (options) => this._getParamsInputJSONSchema(options),
+        output: (options) => this._getParamsOutputJSONSchema(options),
+      },
       types: undefined as unknown as StandardSchemaV1.Types<ParamsInput<TDefinition>, ParamsOutput<TDefinition>>,
     },
     parse: (value) => this._parseSchemaResult(this._validateParamsInput(value)),
@@ -1646,7 +1706,8 @@ export type _SafeParseInputResult<TInputParsed extends Record<string, unknown>> 
 export type SchemaRoute0<
   TInput extends Record<string, unknown>,
   TOutput extends Record<string, unknown>,
-> = StandardSchemaV1<TInput, TOutput> & {
-  parse: (input: unknown) => TOutput
-  safeParse: (input: unknown) => _SafeParseInputResult<TOutput>
-}
+> = StandardSchemaV1<TInput, TOutput> &
+  StandardJSONSchemaV1<TInput, TOutput> & {
+    parse: (input: unknown) => TOutput
+    safeParse: (input: unknown) => _SafeParseInputResult<TOutput>
+  }
