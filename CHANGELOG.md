@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/devp0nt/route0/compare/v1.0.0...v1.0.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* add json schema ([bf95fd0](https://github.com/devp0nt/route0/commit/bf95fd0b810dcbf657ee761fb3456a2f52e6e292))
+
 # 1.0.0 (2026-04-08)
 
 
