@@ -1,3 +1,11 @@
+## [1.0.2](https://github.com/devp0nt/route0/compare/v1.0.1...v1.0.2) (2026-05-29)
+
+
+### Bug Fixes
+
+* esm-only tsdown build with bundled jsdoc ([976bb30](https://github.com/devp0nt/route0/commit/976bb308b98491a2ff97a6ea33af43d1197c88a5))
+* install flat0 peer dep in smoke job and bump flat0 to ^1.1.6 ([73c5b6f](https://github.com/devp0nt/route0/commit/73c5b6f7c253362884f7961731527cdba6a8844a))
+
 ## [1.0.1](https://github.com/devp0nt/route0/compare/v1.0.0...v1.0.1) (2026-04-09)
 
 
