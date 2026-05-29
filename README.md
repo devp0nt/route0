@@ -7,6 +7,8 @@
 [![npm](https://img.shields.io/npm/v/@devp0nt/route0.svg)](https://www.npmjs.com/package/@devp0nt/route0)
 [![license](https://img.shields.io/npm/l/@devp0nt/route0.svg)](./LICENSE)
 
+<!-- docs:start -->
+
 You write a URL pattern like `/users/:id` once. `route0` gives you both
 directions from it: build a path from typed params, and parse a real URL back
 into typed params. Params are inferred from the pattern string — no manual
@@ -234,6 +236,8 @@ path and search string).
 - **Bun 1+** or **Node.js 20+** (ESM only)
 - **TypeScript 5+** (optional — works in plain JS too)
 - Peer: `@devp0nt/flat0`; optional peer: `@standard-schema/spec`
+
+<!-- docs:end -->
 
 ## Community
 
