@@ -319,6 +319,21 @@ describe('Route0', () => {
     })
   })
 
+  it('all-optional route with nothing supplied collapses to "/"', () => {
+    const route = Route0.create('/:x?/:y?')
+    expect(route.get()).toBe('/')
+    expect(route.get({ x: 'a' })).toBe('/a')
+    expect(route.get({ x: 'a', y: 'b' })).toBe('/a/b')
+
+    const prefixed = Route0.create('/a/:x?/:y?')
+    expect(prefixed.get()).toBe('/a')
+    expect(prefixed.get({ x: 'x' })).toBe('/a/x')
+
+    const absolute = Route0.create('/:x?/:y?', { origin: 'https://example.com' })
+    expect(absolute.abs()).toBe('https://example.com')
+    expect(absolute.get(undefined, { origin: true })).toBe('https://example.com')
+  })
+
   describe('getRelation', () => {
     it('exact match', () => {
       const route0 = Route0.create('/prefix/:x/some/:y/:z/suffix')
@@ -671,72 +686,86 @@ describe('Route0', () => {
 
   it('abs default throw if no window.location.origin', () => {
     const route0 = Route0.create('/path')
-    expect(() => route0.get(undefined, true)).toThrow()
-    // const route0 = Route0.create('/path')
-    // const path = route0.get({ abs: true })
-    // const pathHash = route0.get({ abs: true, '#': 'zxc' })
-    // // expectTypeOf<typeof path>().toEqualTypeOf<`${string}/path`>()
-    // expect(path).toBe('https://example.com/path')
-    // expect(path).toBe(route0.flat({}, true))
-    // expect(pathHash).toBe('https://example.com/path#zxc')
-    // expect(pathHash).toBe(route0.flat({ '#': 'zxc' }, true))
+    expect(() => route0.get(undefined, { origin: true })).toThrow()
+    expect(() => route0.abs()).toThrow()
   })
 
-  it('abs as string not throw if no window.location.origin', () => {
+  it('origin as string not throw if no window.location.origin', () => {
     const route0 = Route0.create('/path')
-    const path = route0.get('https://example.com')
+    const path = route0.get(undefined, { origin: 'https://example.com' })
     expect(path).toBe('https://example.com/path')
+    expect(route0.abs(undefined, { origin: 'https://example.com' })).toBe('https://example.com/path')
   })
 
-  it('abs as string not throw if no window.location.origin and not used additional path', () => {
+  it('origin as string not throw if no window.location.origin and not used additional path', () => {
     const route0 = Route0.create('/path')
-    const path = route0.get('https://example.com/x')
+    const path = route0.get(undefined, { origin: 'https://example.com/x' })
     expect(path).toBe('https://example.com/path')
   })
 
   it('abs default set window.location.origin', () => {
     ;(globalThis as unknown as { location?: { origin?: string } }).location = { origin: 'https://example.com' }
     const route0 = Route0.create('/path')
-    const path = route0.get(true)
-    const pathHash = route0.get({ '#': 'zxc' }, true)
+    const path = route0.abs()
+    const pathHash = route0.get({ '#': 'zxc' }, { origin: true })
     expect(path).toBe('https://example.com/path')
-    expect(path).toBe(route0.get({}, true))
+    expect(path).toBe(route0.get({}, { origin: true }))
     expect(pathHash).toBe('https://example.com/path#zxc')
-    expect(pathHash).toBe(route0.get({ '#': 'zxc' }, true))
+    expect(pathHash).toBe(route0.abs({ '#': 'zxc' }))
     delete (globalThis as unknown as { location?: unknown }).location
   })
 
   it('abs set', () => {
     const route0 = Route0.create('/path', { origin: 'https://x.com' })
-    const path = route0.get(true)
-    const pathHash = route0.get({ '#': 'zxc' }, true)
+    const path = route0.abs()
+    const pathHash = route0.get({ '#': 'zxc' }, { origin: true })
     expect(path).toBe('https://x.com/path')
-    expect(path).toBe(route0.get({}, true))
+    expect(path).toBe(route0.get({}, { origin: true }))
     expect(pathHash).toBe('https://x.com/path#zxc')
-    expect(pathHash).toBe(route0.get({ '#': 'zxc' }, true))
+    expect(pathHash).toBe(route0.abs({ '#': 'zxc' }))
   })
 
   it('abs override', () => {
     const route0 = Route0.create('/path', { origin: 'https://x.com' })
     route0.origin = 'https://y.com'
-    const path = route0.get(true)
-    const pasthHash = route0.get({ '#': 'zxc' }, true)
+    const path = route0.abs()
+    const pasthHash = route0.get({ '#': 'zxc' }, { origin: true })
     expect(path).toBe('https://y.com/path')
-    expect(path).toBe(route0.get({}, true))
+    expect(path).toBe(route0.get({}, { origin: true }))
     expect(pasthHash).toBe('https://y.com/path#zxc')
-    expect(pasthHash).toBe(route0.get({ '#': 'zxc' }, true))
+    expect(pasthHash).toBe(route0.abs({ '#': 'zxc' }))
   })
 
   it('abs override extend', () => {
     const route0 = Route0.create('/path', { origin: 'https://x.com' })
     route0.origin = 'https://y.com'
     const route1 = route0.extend('/suffix')
-    const path = route1.get(true)
-    const pathHash = route1.get({ '#': 'zxc' }, true)
+    const path = route1.abs()
+    const pathHash = route1.get({ '#': 'zxc' }, { origin: true })
     expect(path).toBe('https://y.com/path/suffix')
-    expect(path).toBe(route1.get({}, true))
+    expect(path).toBe(route1.get({}, { origin: true }))
     expect(pathHash).toBe('https://y.com/path/suffix#zxc')
-    expect(pathHash).toBe(route1.get({ '#': 'zxc' }, true))
+    expect(pathHash).toBe(route1.abs({ '#': 'zxc' }))
+  })
+
+  it('abs with explicit origin override option', () => {
+    const route0 = Route0.create('/path', { origin: 'https://x.com' })
+    expect(route0.abs(undefined, { origin: 'https://z.com' })).toBe('https://z.com/path')
+    // abs can be forced back to relative
+    expect(route0.abs(undefined, { origin: false })).toBe('/path')
+  })
+
+  it('encode: false emits a human-readable path and search', () => {
+    const route0 = Route0.create('/files/:name')
+    // default encodes path params and search values
+    expect(route0.get({ name: 'a b/c' })).toBe('/files/a%20b%2Fc')
+    expect(route0.get({ name: 'x', '?': { q: 'a b' } })).toBe('/files/x?q=a%20b')
+    // encode: false leaves both raw
+    expect(route0.get({ name: 'a b/c' }, { encode: false })).toBe('/files/a b/c')
+    expect(route0.get({ name: 'x', '?': { q: 'a b' } }, { encode: false })).toBe('/files/x?q=a b')
+    // encode applies to abs() too
+    const abs = Route0.create('/files/:name', { origin: 'https://x.com' })
+    expect(abs.abs({ name: 'a b' }, { encode: false })).toBe('https://x.com/files/a b')
   })
 
   // it('abs override many', () => {
@@ -760,7 +789,7 @@ describe('Route0', () => {
     // @ts-expect-error missing required path params
     expect(rWith.get({})).toBe('/a/undefined')
     // @ts-expect-error missing required path params (object form abs)
-    expect(rWith.get(true)).toBe('https://example.com/a/undefined')
+    expect(rWith.get(undefined, { origin: true })).toBe('https://example.com/a/undefined')
     // @ts-expect-error missing required path params (object form search)
     expect(rWith.get({ '?': { q: '1' } })).toBe('/a/undefined?q=1')
 
@@ -1823,8 +1852,10 @@ describe('Routes', () => {
     const home = overridden.home
     const about = overridden.about
 
-    expect(home.get(true)).toBe('https://example.com')
-    expect(about.get(true)).toBe('https://example.com/about')
+    expect(home.get(undefined, { origin: true })).toBe('https://example.com')
+    expect(about.get(undefined, { origin: true })).toBe('https://example.com/about')
+    expect(home.abs()).toBe('https://example.com')
+    expect(about.abs()).toBe('https://example.com/about')
   })
 
   it('clone does not mutate original', () => {
@@ -1836,13 +1867,16 @@ describe('Routes', () => {
     )
 
     const original = collection.home
-    expect(original.get(true)).toBe('https://example.com')
+    expect(original.get(undefined, { origin: true })).toBe('https://example.com')
+    expect(original.abs()).toBe('https://example.com')
 
     const overridden = collection._.clone({ origin: 'https://newdomain.com' })
     const newRoute = overridden.home
 
-    expect(original.get(true)).toBe('https://example.com')
-    expect(newRoute.get(true)).toBe('https://newdomain.com')
+    expect(original.get(undefined, { origin: true })).toBe('https://example.com')
+    expect(newRoute.get(undefined, { origin: true })).toBe('https://newdomain.com')
+    expect(newRoute.abs()).toBe('https://newdomain.com')
+    expect(original.abs()).toBe('https://example.com')
   })
 
   it('clone with extended routes', () => {
@@ -1854,14 +1888,14 @@ describe('Routes', () => {
       users: usersRoute,
     })
 
-    expect(collection.api.get(true)).toBe('https://api.example.com/api')
-    expect(collection.api(true)).toBe('https://api.example.com/api')
-    expect(collection.users.get(true)).toBe('https://api.example.com/api/users')
+    expect(collection.api.get(undefined, { origin: true })).toBe('https://api.example.com/api')
+    expect(collection.api(undefined, { origin: true })).toBe('https://api.example.com/api')
+    expect(collection.users.get(undefined, { origin: true })).toBe('https://api.example.com/api/users')
 
     const overridden = collection._.clone({ origin: 'https://new-api.example.com' })
 
-    expect(overridden.api.get(true)).toBe('https://new-api.example.com/api')
-    expect(overridden.users.get(true)).toBe('https://new-api.example.com/api/users')
+    expect(overridden.api.get(undefined, { origin: true })).toBe('https://new-api.example.com/api')
+    expect(overridden.users.get(undefined, { origin: true })).toBe('https://new-api.example.com/api/users')
   })
 
   it('hydrate static method', () => {
@@ -1908,10 +1942,10 @@ describe('Routes', () => {
     })
 
     expect(collection.root.get()).toBe('/')
-    expect(collection.api(true)).toBe('https://api.example.com/api/v1')
-    expect(collection.users.get(true)).toBe('https://api.example.com/api/v1/users')
+    expect(collection.api(undefined, { origin: true })).toBe('https://api.example.com/api/v1')
+    expect(collection.users.get(undefined, { origin: true })).toBe('https://api.example.com/api/v1/users')
 
-    const userDetailPath = collection.userDetail.get({ id: '42' }, true)
+    const userDetailPath = collection.userDetail.get({ id: '42' }, { origin: true })
     expect(userDetailPath).toBe('https://api.example.com/api/v1/users/42')
 
     const userPostsPath = collection.userPosts.get(
@@ -1919,7 +1953,7 @@ describe('Routes', () => {
         id: '42',
         '?': { sort: 'date', filter: 'published' },
       },
-      true,
+      { origin: true },
     )
     expect(userPostsPath).toBe('https://api.example.com/api/v1/users/42/posts?sort=date&filter=published')
   })
@@ -2080,6 +2114,18 @@ describe('specificity', () => {
 
   it('isConflict: partial overlap is unresolvable conflict', () => {
     expect(Route0.create('/:x/:id').isConflict('/x/:sn?')).toBe(true)
+  })
+
+  it('isConflict: deeper static-prefixed route does not conflict with shallow param', () => {
+    // overlap only at /users/impersonate, where the static "impersonate" is
+    // uniformly more specific than ":sn", so ordering resolves it.
+    expect(Route0.create('/users/impersonate/:id?').isConflict('/users/:sn')).toBe(false)
+    expect(Route0.create('/users/:sn').isConflict('/users/impersonate/:id?')).toBe(false)
+    const routes = Routes.create({
+      impersonate: '/users/impersonate/:id?',
+      detail: '/users/:sn',
+    })
+    expect(routes._.pathsOrdering).toEqual(['/users/impersonate/:id?', '/users/:sn'])
   })
 
   it('isConflict: non-overlapping routes are not conflict', () => {
@@ -2506,12 +2552,10 @@ describe('ordering', () => {
 
     const { pathsOrdering: ordering } = Routes._.makeOrdering(routes)
 
-    // Expected order:
-    // Depth 1: / then /users (static) then /:slug (param)
-    // Depth 2: /users/:id
-    // Depth 3: /users/:id/posts
+    // Pure specificity order (more specific first), so the param catch-all `/:slug` sinks below every static-prefixed
+    // route it competes with. `/:slug` only overlaps the depth-1 routes (`/`, `/users`) and must lose to both.
 
-    expect(ordering).toEqual(['/', '/users', '/:slug', '/users/:id', '/users/:id/posts'])
+    expect(ordering).toEqual(['/', '/users', '/users/:id', '/users/:id/posts', '/:slug'])
   })
 
   it('_makeOrdering: handles routes with same specificity', () => {
@@ -2568,23 +2612,20 @@ describe('ordering', () => {
 
     const { pathsOrdering: ordering } = Routes._.makeOrdering(routes)
 
-    // Expected order:
-    // Depth 1: / (static), /:slug (param)
-    // Depth 2: /api/v1
-    // Depth 3: /api/v1/users (all static)
-    // Depth 4: /api/v1/admin/:id (has param), /api/v1/users/all (all static), /api/v1/users/:id (has param)
-    // Depth 5: /api/v1/users/:id/posts
+    // Pure specificity order (more specific first). Static-prefixed routes come before param/wildcard ones segment by
+    // segment; the bare param catch-all `/:slug` and the bare wildcard `/*` sink to the end (in that order, since a
+    // required param outranks a wildcard).
 
     expect(ordering).toEqual([
       '/',
       '/special',
-      '/:slug',
       '/api/v1',
       '/api/v1/users',
-      '/api/v1/admin/:id',
       '/api/v1/users/all',
+      '/api/v1/admin/:id',
       '/api/v1/users/:id',
       '/api/v1/users/:id/posts',
+      '/:slug',
       '/*',
     ])
   })
@@ -2632,6 +2673,184 @@ describe('ordering', () => {
 
     const { pathsOrdering: ordering } = Routes._.makeOrdering(routes)
     expect(ordering).toEqual([])
+  })
+})
+
+describe('ordering: matching is correct and insertion-order independent', () => {
+  // Point0 resolves which page to render by taking the first route (in specificity order) that matches the URL. If that
+  // order depended on how routes happen to be declared, the same URL could resolve to a different page in different
+  // files — the user might see the wrong page, or none at all. So every scenario is checked under many declaration
+  // orders: the ordering must be identical, and each URL must resolve to the single most-specific matching route.
+
+  const permute = <T>(arr: readonly T[]): T[][] => {
+    if (arr.length <= 1) return [[...arr]]
+    const out: T[][] = []
+    arr.forEach((value, index) => {
+      const rest = [...arr.slice(0, index), ...arr.slice(index + 1)]
+      for (const tail of permute(rest)) out.push([value, ...tail])
+    })
+    return out
+  }
+
+  const insertionOrders = (defs: Record<string, string>): Array<Record<string, string>> => {
+    const keys = Object.keys(defs)
+    // exhaustive for small sets; a deterministic sample (forward, reverse, shuffles) for larger ones
+    let keyOrders: string[][]
+    if (keys.length <= 6) {
+      keyOrders = permute(keys)
+    } else {
+      keyOrders = [keys, [...keys].reverse()]
+      for (const seed of [1, 2, 3, 4, 5]) {
+        const shuffled = [...keys]
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = (i * 7 + seed * 13) % (i + 1)
+          ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+        }
+        keyOrders.push(shuffled)
+      }
+    }
+    return keyOrders.map((order) => {
+      const obj: Record<string, string> = {}
+      for (const key of order) obj[key] = defs[key]
+      return obj
+    })
+  }
+
+  const expectStableMatching = (defs: Record<string, string>, cases: Array<[url: string, expected: string]>): void => {
+    const orderings = new Set<string>()
+    for (const variant of insertionOrders(defs)) {
+      const routes = Routes.create(variant)
+      orderings.add(JSON.stringify(routes._.pathsOrdering))
+      for (const [url, expected] of cases) {
+        expect(routes._.getLocation(url).route ?? '<none>').toBe(expected)
+      }
+    }
+    // the resolved ordering must not depend on insertion order
+    expect(orderings.size).toBe(1)
+  }
+
+  it('static vs required param vs wildcard at one depth', () => {
+    expectStableMatching({ detail: '/users/:id', create: '/users/new', list: '/users', any: '/users/*' }, [
+      ['/users', '/users'],
+      ['/users/new', '/users/new'],
+      ['/users/42', '/users/:id'],
+      ['/users/a/b', '/users/*'],
+    ])
+  })
+
+  it('deep static-prefixed route wins over a shallow param (the impersonate case)', () => {
+    expectStableMatching({ impersonate: '/users/impersonate/:id?', detail: '/users/:sn' }, [
+      ['/users/impersonate', '/users/impersonate/:id?'],
+      ['/users/impersonate/5', '/users/impersonate/:id?'],
+      ['/users/bob', '/users/:sn'],
+    ])
+  })
+
+  it('static segment beats a param at the same slot, anywhere in the path', () => {
+    expectStableMatching({ tab: '/org/:orgId/:tab', settings: '/org/:orgId/settings', fixed: '/org/acme/settings' }, [
+      ['/org/acme/settings', '/org/acme/settings'],
+      ['/org/other/settings', '/org/:orgId/settings'],
+      ['/org/other/general', '/org/:orgId/:tab'],
+      ['/team/other/general', '<none>'],
+    ])
+  })
+
+  it('optional param coexists with a static sibling', () => {
+    expectStableMatching({ opt: '/posts/:id?', create: '/posts/new' }, [
+      ['/posts', '/posts/:id?'],
+      ['/posts/new', '/posts/new'],
+      ['/posts/5', '/posts/:id?'],
+    ])
+  })
+
+  it('root, static and a catch-all param at depth one', () => {
+    expectStableMatching({ slug: '/:slug', root: '/', about: '/about' }, [
+      ['/', '/'],
+      ['/about', '/about'],
+      ['/anything', '/:slug'],
+    ])
+  })
+
+  it('wildcard yields to every concrete route it overlaps', () => {
+    expectStableMatching({ home: '/app/home', id: '/app/:id', base: '/app', star: '/app*', opt: '/app/*?' }, [
+      ['/app', '/app'],
+      ['/app/home', '/app/home'],
+      ['/app/settings', '/app/:id'],
+      ['/app/a/b', '/app/*?'],
+      ['/appstore', '/app*'],
+    ])
+  })
+
+  it('deep static beats param at every position, with conflicting prefixes', () => {
+    expectStableMatching(
+      {
+        all: '/api/v1/users/all',
+        byId: '/api/v1/users/:id',
+        byRes: '/api/v1/:res/:id',
+        byVer: '/api/:v/users/all',
+        posts: '/api/v1/users/:id/posts',
+      },
+      [
+        ['/api/v1/users/all', '/api/v1/users/all'],
+        ['/api/v1/users/42', '/api/v1/users/:id'],
+        ['/api/v1/posts/9', '/api/v1/:res/:id'],
+        ['/api/v2/users/all', '/api/:v/users/all'],
+        ['/api/v1/users/42/posts', '/api/v1/users/:id/posts'],
+      ],
+    )
+  })
+
+  it('every static/param combination at depth three resolves to the most specific match', () => {
+    expectStableMatching(
+      {
+        sss: '/a/b/c',
+        ssp: '/a/b/:c',
+        sps: '/a/:b/c',
+        spp: '/a/:b/:c',
+        pss: '/:a/b/c',
+        psp: '/:a/b/:c',
+        pps: '/:a/:b/c',
+        ppp: '/:a/:b/:c',
+      },
+      [
+        ['/a/b/c', '/a/b/c'],
+        ['/x/b/c', '/:a/b/c'],
+        ['/a/y/c', '/a/:b/c'],
+        ['/a/b/z', '/a/b/:c'],
+        ['/x/y/c', '/:a/:b/c'],
+        ['/x/b/z', '/:a/b/:c'],
+        ['/a/y/z', '/a/:b/:c'],
+        ['/x/y/z', '/:a/:b/:c'],
+      ],
+    )
+  })
+
+  it('mixed depths, wildcards and optionals all resolve deterministically', () => {
+    expectStableMatching(
+      {
+        root: '/',
+        about: '/about',
+        slug: '/:slug',
+        catchAll: '/*',
+        user: '/users/:id',
+        userNew: '/users/new',
+        users: '/users',
+        userPosts: '/users/:id/posts',
+        files: '/files/*?',
+      },
+      [
+        ['/', '/'],
+        ['/about', '/about'],
+        ['/contact', '/:slug'],
+        ['/users', '/users'],
+        ['/users/new', '/users/new'],
+        ['/users/7', '/users/:id'],
+        ['/users/7/posts', '/users/:id/posts'],
+        ['/files', '/files/*?'],
+        ['/files/a/b/c', '/files/*?'],
+        ['/deep/nested/unknown', '/*'],
+      ],
+    )
   })
 })
 

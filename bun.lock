@@ -7,7 +7,7 @@
       "devDependencies": {
         "@commitlint/cli": "^19.8.1",
         "@commitlint/config-conventional": "^19.8.1",
-        "@devp0nt/flat0": "^1.1.6",
+        "@devp0nt/flat0": "^1.2.0",
         "@semantic-release/changelog": "^6.0.3",
         "@semantic-release/git": "^10.0.1",
         "@semantic-release/github": "^12.0.2",
@@ -32,7 +32,7 @@
         "typescript-eslint": "^8.56.0",
       },
       "peerDependencies": {
-        "@devp0nt/flat0": "^1.1.6",
+        "@devp0nt/flat0": "^1.2.0",
         "@standard-schema/spec": "^1.0.0",
       },
       "optionalPeers": [
@@ -97,7 +97,7 @@
 
     "@commitlint/types": ["@commitlint/types@19.8.1", "", { "dependencies": { "@types/conventional-commits-parser": "^5.0.0", "chalk": "^5.3.0" } }, "sha512-/yCrWGCoA1SVKOks25EGadP9Pnj0oAIHGpl2wH2M2Y46dPM2ueb8wyCVOD7O3WCTkaJ0IkKvzhl1JY7+uCT2Dw=="],
 
-    "@devp0nt/flat0": ["@devp0nt/flat0@1.1.6", "", {}, "sha512-J8THTJTcFzlaDQATZ7Ka0MJAKRyukHocHeHO8gnBaIGcequA+4lykNGQCSoVYCi5IZ+4/rx8+7VAuCF338421A=="],
+    "@devp0nt/flat0": ["@devp0nt/flat0@1.2.0", "", {}, "sha512-uZtYPTnMEtFicmXL2FFtgJLrt0Lee33zBwo8HGi0GlR9O4UkrJ86VGHttJVrAO505JEt4lmHPFjYB4s8yEnuDQ=="],
 
     "@emnapi/core": ["@emnapi/core@1.10.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.1", "tslib": "^2.4.0" } }, "sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw=="],
 

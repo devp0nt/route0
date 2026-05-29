@@ -102,11 +102,32 @@ userRoute.get({ id: 9, '#': 'reviews' }) // '/users/9#reviews'
 
 ## Absolute URLs
 
-Pass an origin (or `true` to use `window.location.origin`) as the second
-argument:
+Pass an `origin` in the options object — `true` uses `window.location.origin`
+(or the route's configured origin), or hand it an explicit string:
 
 ```ts
-userRoute.get({ id: '1' }, 'https://example.com') // 'https://example.com/users/1'
+userRoute.get({ id: '1' }, { origin: true }) // 'https://example.com/users/1'
+userRoute.get({ id: '1' }, { origin: 'https://cdn.example.com' }) // 'https://cdn.example.com/users/1'
+```
+
+`route.abs()` is the same as `get()` but defaults `origin` to `true`, so it's
+the shorthand when you always want an absolute URL:
+
+```ts
+userRoute.abs({ id: '1' }) // 'https://example.com/users/1'
+userRoute.abs({ id: '1' }, { origin: false }) // '/users/1'  — opt back out
+```
+
+## Pretty, unencoded paths
+
+By default path params and the search string are percent-encoded. Pass
+`encode: false` for a human-readable URL — handy for display:
+
+```ts
+const file = Route0.create('/files/:name')
+file.get({ name: 'a b' }) // '/files/a%20b'
+file.get({ name: 'a b', '?': { q: 'x y' } }) // '/files/a%20b?q=x%20y'
+file.get({ name: 'a b', '?': { q: 'x y' } }, { encode: false }) // '/files/a b?q=x y'
 ```
 
 ## Parse a URL
@@ -184,16 +205,22 @@ adminUser.get({ id: '5' }) // '/admin/users/5'
 
 ### Route instance
 
-| Call                      | Result                                                    |
-| ------------------------- | --------------------------------------------------------- |
-| `route(input?, abs?)`     | Build a path (callable form).                             |
-| `route.get(input?, abs?)` | Build a path (same as calling it).                        |
-| `route.getRelation(url)`  | Match a URL → `{ type, params, ... }`.                    |
-| `route.getParamsKeys()`   | The param names in the pattern.                           |
-| `route.getTokens()`       | The parsed pattern structure.                             |
-| `route.extend(suffix)`    | A new route with the suffix appended.                     |
-| `route.schema`            | A Standard Schema for the params (`parse` / `safeParse`). |
-| `route.definition`        | The pattern string.                                       |
+| Call                          | Result                                                    |
+| ----------------------------- | --------------------------------------------------------- |
+| `route(input?, options?)`     | Build a path (callable form).                             |
+| `route.get(input?, options?)` | Build a path (same as calling it).                        |
+| `route.abs(input?, options?)` | Build a path, `origin` defaulting to `true`.              |
+| `route.getRelation(url)`      | Match a URL → `{ type, params, ... }`.                    |
+| `route.getParamsKeys()`       | The param names in the pattern.                           |
+| `route.getTokens()`           | The parsed pattern structure.                             |
+| `route.extend(suffix)`        | A new route with the suffix appended.                     |
+| `route.schema`                | A Standard Schema for the params (`parse` / `safeParse`). |
+| `route.definition`            | The pattern string.                                       |
+
+**Options** (`get` / `abs` second argument): `origin` (`boolean | string` —
+`true` uses the configured origin, a string overrides it; defaults to `true` for
+`abs`) and `encode` (default `true`; `false` emits a human-readable, unencoded
+path and search string).
 
 ### `Routes`
 

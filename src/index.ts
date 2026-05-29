@@ -55,6 +55,42 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     return definition.split('/').filter(Boolean)
   }
 
+  /** Splits a definition into specificity-ranking parts (`/` stays a single part). */
+  private static _specificityParts(definition: string): string[] {
+    if (definition === '/') return ['/']
+    return definition.split('/').filter(Boolean)
+  }
+
+  /** Ranks a single path part by specificity: static > required param > optional param > wildcard. */
+  private static _partRank(part: string): number {
+    if (part.includes('*')) return -1
+    if (part.startsWith(':') && part.endsWith('?')) return 0
+    if (part.startsWith(':')) return 1
+    return 2
+  }
+
+  /**
+   * Total, transitive specificity order. Negative ⇒ `a` is more specific (sorts first).
+   *
+   * Compares segment ranks left-to-right (static > required param > optional param > wildcard). A shorter route that is
+   * a prefix of a longer one is treated as more specific (its missing segments rank above any real segment), so exact
+   * static routes win over deeper optional/param tails. Fully equal structures fall back to the definition string so
+   * the order is deterministic regardless of insertion order — critical because the matcher relies on it to pick the
+   * right page.
+   */
+  private static _compareSpecificity(aDefinition: string, bDefinition: string): number {
+    const aParts = Route0._specificityParts(aDefinition)
+    const bParts = Route0._specificityParts(bDefinition)
+    const length = Math.max(aParts.length, bParts.length)
+    for (let i = 0; i < length; i++) {
+      // a missing segment ranks above any real one => the shorter (more exact) route sorts first
+      const aRank = i < aParts.length ? Route0._partRank(aParts[i]) : Number.POSITIVE_INFINITY
+      const bRank = i < bParts.length ? Route0._partRank(bParts[i]) : Number.POSITIVE_INFINITY
+      if (aRank !== bRank) return bRank - aRank
+    }
+    return aDefinition < bDefinition ? -1 : aDefinition > bDefinition ? 1 : 0
+  }
+
   private static _validateRouteDefinition(definition: string): void {
     const segments = Route0._getRouteSegments(definition)
     const wildcardSegments = segments.filter((segment) => segment.includes('*'))
@@ -159,7 +195,9 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     return original._callable as CallableRoute<NormalizeRouteDefinition<TDefinition>, TSearchInput>
   }
 
-  private static _getAbsPath(origin: string, url: string) {
+  private static _getAbsPath(origin: string, url: string, encode = true) {
+    // unencoded: keep the path raw (URL's serializer would percent-encode it), just prefix the origin's scheme+host
+    if (!encode) return `${new URL(origin).origin}${url}`.replace(/\/$/, '')
     return new URL(url, origin).toString().replace(/\/$/, '')
   }
 
@@ -180,67 +218,53 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     ) as CallableRoute<PathExtended<TDefinition, TSuffixDefinition>, TSearchInput>
   }
 
-  get(...args: IsParamsOptional<TDefinition> extends true ? [abs: boolean | string | undefined] : never): string
   get(
     ...args: IsParamsOptional<TDefinition> extends true
-      ? [input?: GetPathInput<TDefinition, TSearchInput> | undefined, abs?: boolean | string | undefined]
-      : [input: GetPathInput<TDefinition, TSearchInput>, abs?: boolean | string | undefined]
+      ? [input?: GetPathInput<TDefinition, TSearchInput> | undefined, options?: RouteGetOptions]
+      : [input: GetPathInput<TDefinition, TSearchInput>, options?: RouteGetOptions]
   ): string
 
   // implementation
   get(...args: unknown[]): string {
-    const { searchInput, paramsInput, absInput, absOriginInput, hashInput } = ((): {
-      searchInput: Record<string, unknown>
-      paramsInput: Record<string, string | undefined>
-      absInput: boolean
-      absOriginInput: string | undefined
-      hashInput: string | undefined
-    } => {
-      if (args.length === 0) {
-        return {
-          searchInput: {},
-          paramsInput: {},
-          absInput: false,
-          absOriginInput: undefined,
-          hashInput: undefined,
-        }
+    return this._build(args, false)
+  }
+
+  /**
+   * Builds an absolute URL. Same as `get`, but `origin` defaults to `true` (use the route's configured origin).
+   *
+   * Override with `{ origin: 'https://other.com' }`, or force relative with `{ origin: false }`.
+   */
+  abs(
+    ...args: IsParamsOptional<TDefinition> extends true
+      ? [input?: GetPathInput<TDefinition, TSearchInput> | undefined, options?: RouteGetOptions]
+      : [input: GetPathInput<TDefinition, TSearchInput>, options?: RouteGetOptions]
+  ): string
+  abs(...args: unknown[]): string {
+    return this._build(args, true)
+  }
+
+  private _build(args: unknown[], originByDefault: boolean): string {
+    const input = typeof args[0] === 'object' && args[0] !== null ? (args[0] as Record<string, unknown>) : {}
+    const options = typeof args[1] === 'object' && args[1] !== null ? (args[1] as RouteGetOptions) : {}
+
+    const origin = options.origin ?? (originByDefault ? true : undefined)
+    const encode = options.encode !== false
+    const absOriginInput = typeof origin === 'string' && origin.length > 0 ? origin : undefined
+    const absInput = absOriginInput !== undefined || origin === true
+    const enc = encode ? encodeURIComponent : (value: string): string => value
+
+    let searchInput: Record<string, unknown> = {}
+    let hashInput: string | undefined = undefined
+    const paramsInput: Record<string, string | undefined> = {}
+    for (const [key, value] of Object.entries(input)) {
+      if (key === '?' && typeof value === 'object' && value !== null) {
+        searchInput = value as Record<string, unknown>
+      } else if (key === '#' && (typeof value === 'string' || typeof value === 'number')) {
+        hashInput = String(value)
+      } else if (key in this.params && (typeof value === 'string' || typeof value === 'number')) {
+        Object.assign(paramsInput, { [key]: String(value) })
       }
-      const [input, abs] = ((): [Record<string, unknown>, boolean | string | undefined] => {
-        if (typeof args[0] === 'object' && args[0] !== null) {
-          return [args[0], args[1]] as [Record<string, unknown>, boolean | string | undefined]
-        }
-        if (typeof args[1] === 'object' && args[1] !== null) {
-          return [args[1], args[0]] as [Record<string, unknown>, boolean | string | undefined]
-        }
-        if (typeof args[0] === 'boolean' || typeof args[0] === 'string') {
-          return [{}, args[0]]
-        }
-        if (typeof args[1] === 'boolean' || typeof args[1] === 'string') {
-          return [{}, args[1]]
-        }
-        return [{}, undefined]
-      })()
-      let searchInput: Record<string, unknown> = {}
-      let hashInput: string | undefined = undefined
-      const paramsInput: Record<string, string | undefined> = {}
-      for (const [key, value] of Object.entries(input)) {
-        if (key === '?' && typeof value === 'object' && value !== null) {
-          searchInput = value as Record<string, unknown>
-        } else if (key === '#' && (typeof value === 'string' || typeof value === 'number')) {
-          hashInput = String(value)
-        } else if (key in this.params && (typeof value === 'string' || typeof value === 'number')) {
-          Object.assign(paramsInput, { [key]: String(value) })
-        }
-      }
-      const absOriginInput = typeof abs === 'string' && abs.length > 0 ? abs : undefined
-      return {
-        searchInput,
-        paramsInput,
-        absInput: absOriginInput !== undefined || abs === true,
-        absOriginInput,
-        hashInput,
-      }
-    })()
+    }
 
     // create url
 
@@ -249,11 +273,11 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     url = url.replace(/\/:([A-Za-z0-9_]+)\?/g, (_m, k) => {
       const value = paramsInput[k]
       if (value === undefined) return ''
-      return `/${encodeURIComponent(String(value))}`
+      return `/${enc(String(value))}`
     })
     // required named params
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    url = url.replace(/:([A-Za-z0-9_]+)(?!\?)/g, (_m, k) => encodeURIComponent(String(paramsInput?.[k] ?? 'undefined')))
+    url = url.replace(/:([A-Za-z0-9_]+)(?!\?)/g, (_m, k) => enc(String(paramsInput?.[k] ?? 'undefined')))
     // optional wildcard segment (/*?)
     url = url.replace(/\/\*\?/g, () => {
       const value = paramsInput['*']
@@ -271,12 +295,14 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
     // required wildcard inline (e.g. /app*)
     url = url.replace(/\*/g, () => String(paramsInput['*'] ?? ''))
     // search params
-    const searchString = stringifySearchQuery(searchInput, { arrayIndexes: false })
+    const searchString = stringifySearchQuery(searchInput, { arrayIndexes: false, encode })
     url = [url, searchString].filter(Boolean).join('?')
     // dedupe slashes
     url = collapseDuplicateSlashes(url)
-    // absolute
-    url = absInput ? Route0._getAbsPath(absOriginInput || this.origin, url) : url
+    // relative root: an all-optional route with nothing supplied collapses to "/"
+    if (url === '') url = '/'
+    // absolute (origin already strips the trailing slash)
+    url = absInput ? Route0._getAbsPath(absOriginInput || this.origin, url, encode) : url
     // hash
     if (hashInput !== undefined) {
       url = `${url}#${hashInput}`
@@ -1022,48 +1048,39 @@ export class Route0<TDefinition extends string, TSearchInput extends UnknownSear
   /**
    * True when overlap is not resolvable by route ordering inside one route set.
    *
-   * Non-conflicting overlap means one route is a strict subset of another (e.g. `/x/y` is a strict subset of `/x/:id`)
-   * and can be safely ordered first.
+   * Overlapping routes are resolvable when one is uniformly more specific than the other across every shared segment
+   * (e.g. `/users/impersonate/:id?` dominates `/users/:sn`, so it can simply be ordered first). A real conflict only
+   * happens when specificity _crosses_ — each side wins some segment (e.g. `/:x/:id` vs `/x/:sn?`) — or when both
+   * routes have equal specificity at the same depth (e.g. `/x/:id` vs `/x/:sn`).
    */
   isConflict(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     const otherRoute = Route0.from(other) as Route0<string, UnknownSearchInput>
     if (!this.isOverlap(otherRoute)) return false
-    const thisRegex = this.regex
-    const otherRegex = otherRoute.regex
-    const thisCandidates = this.routePatternCandidates
-    const otherCandidates = otherRoute.routePatternCandidates
-    const thisExclusive = thisCandidates.some((path) => thisRegex.test(path) && !otherRegex.test(path))
-    const otherExclusive = otherCandidates.some((path) => otherRegex.test(path) && !thisRegex.test(path))
-    // Exactly one side has exclusive matches => strict subset => resolvable by ordering.
-    if (thisExclusive !== otherExclusive) return false
-    // Both exclusive (partial overlap) OR none exclusive (equal languages) => real conflict.
-    return true
+    const thisParts = Route0._specificityParts(this.definition)
+    const otherParts = Route0._specificityParts(otherRoute.definition)
+    let thisMoreSpecific = false
+    let otherMoreSpecific = false
+    for (let i = 0; i < Math.min(thisParts.length, otherParts.length); i++) {
+      const thisRank = Route0._partRank(thisParts[i])
+      const otherRank = Route0._partRank(otherParts[i])
+      if (thisRank > otherRank) thisMoreSpecific = true
+      else if (thisRank < otherRank) otherMoreSpecific = true
+    }
+    // Specificity crosses: each side wins some segment => unresolvable by ordering.
+    if (thisMoreSpecific && otherMoreSpecific) return true
+    // One side is uniformly more specific => strict subset => resolvable by ordering.
+    if (thisMoreSpecific || otherMoreSpecific) return false
+    // Equal specificity in the shared region: only same-depth routes are real conflicts
+    // (equal "languages"); different depth means a strict subset that ordering resolves.
+    return thisParts.length === otherParts.length
   }
 
   /** Specificity comparator used for deterministic route ordering. */
   isMoreSpecificThan(other: AnyRoute | string | undefined): boolean {
     if (!other) return false
     other = Route0.create(other)
-    const getParts = (path: string) => {
-      if (path === '/') return ['/']
-      return path.split('/').filter(Boolean)
-    }
-    const rank = (part: string): number => {
-      if (part.includes('*')) return -1
-      if (part.startsWith(':') && part.endsWith('?')) return 0
-      if (part.startsWith(':')) return 1
-      return 2
-    }
-    const thisParts = getParts(this.definition)
-    const otherParts = getParts(other.definition)
-    for (let i = 0; i < Math.min(thisParts.length, otherParts.length); i++) {
-      const thisRank = rank(thisParts[i])
-      const otherRank = rank(otherParts[i])
-      if (thisRank > otherRank) return true
-      if (thisRank < otherRank) return false
-    }
-    return this.definition < other.definition
+    return Route0._compareSpecificity(this.definition, other.definition) < 0
   }
 }
 
@@ -1190,29 +1207,14 @@ export class Routes<const T extends RoutesRecord = any> {
     const hydrated = Routes.hydrate(routes)
     const entries = Object.entries(hydrated)
 
-    const getParts = (path: string) => {
-      if (path === '/') return ['/']
-      return path.split('/').filter(Boolean)
-    }
-
-    // Sort: overlapping routes by specificity first, otherwise by path depth and alphabetically.
+    // Single transitive specificity order: more specific first, deterministic regardless of insertion order. A mixed
+    // comparator (specificity for overlaps, depth otherwise) is non-transitive and lets `Array.sort` mis-order
+    // overlapping routes, which would route a URL to the wrong page. `isMoreSpecificThan` is a total order, so deriving
+    // the comparator from it stays transitive.
     entries.sort(([_keyA, routeA], [_keyB, routeB]) => {
-      const partsA = getParts(routeA.definition)
-      const partsB = getParts(routeB.definition)
-
-      // 1. Overlapping routes: more specific first
-      if (routeA.isOverlap(routeB)) {
-        if (routeA.isMoreSpecificThan(routeB)) return -1
-        if (routeB.isMoreSpecificThan(routeA)) return 1
-      }
-
-      // 2. Different non-overlapping depth: shorter first
-      if (partsA.length !== partsB.length) {
-        return partsA.length - partsB.length
-      }
-
-      // 3. Fallback: alphabetically for deterministic ordering
-      return routeA.definition.localeCompare(routeB.definition)
+      if (routeA.isMoreSpecificThan(routeB)) return -1
+      if (routeB.isMoreSpecificThan(routeA)) return 1
+      return 0
     })
 
     const pathsOrdering = entries.map(([_key, route]) => route.definition)
@@ -1262,6 +1264,20 @@ export type AnyRouteOrDefinition<T extends string = string> = AnyRoute<T> | Call
 /** Route-level runtime configuration. */
 export type RouteConfigInput = {
   origin?: string
+}
+
+/** Per-call options for `route.get()` / `route.abs()`. */
+export type RouteGetOptions = {
+  /**
+   * Absolute URL origin. `true` uses the route's configured origin, a string overrides it, `false`/omitted keeps the
+   * path relative. (`route.abs()` defaults this to `true`.)
+   */
+  origin?: boolean | string
+  /**
+   * Percent-encodes path param values and the search string (`true`, default). Set to `false` for a prettier,
+   * human-readable URL — note that unencoded values may be ambiguous if they contain `/`, `&`, `=` or `?`.
+   */
+  encode?: boolean
 }
 
 // collection
