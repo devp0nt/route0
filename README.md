@@ -195,6 +195,35 @@ const adminUser = admin.extend('/users/:id')
 adminUser.get({ id: '5' }) // '/admin/users/5'
 ```
 
+## Infer types from a route
+
+Every route carries a type-only `Infer` field, so you can pull its types
+straight off the instance with `typeof` — no generics, no helper imports:
+
+```ts
+const route = Route0.create('/users/:id/:tab?').search<{ ref?: string }>()
+
+type ParamsInput = typeof route.Infer.ParamsInput
+// { id: string | number; tab?: string | number | undefined }
+
+type ParamsOutput = typeof route.Infer.ParamsOutput
+// { id: string; tab: string | undefined }
+
+type SearchInput = typeof route.Infer.SearchInput
+// { ref?: string }
+```
+
+`Infer` exists only at the type level (its runtime value is `null`), so always
+read it through `typeof`. The members:
+
+| Member                  | What it is                                                              |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `ParamsDefinition`      | Map of param name → `true` (required) / `false` (optional).             |
+| `ParamsInput`           | What `get()` accepts — required as `string \| number`, optional opt-in. |
+| `ParamsInputStringOnly` | Same as `ParamsInput`, but strings only (no `number`).                  |
+| `ParamsOutput`          | Parsed params — required `string`, optional `string \| undefined`.      |
+| `SearchInput`           | The route's typed search params (set via `.search<…>()`).               |
+
 ## API reference
 
 ### `Route0`
@@ -218,6 +247,7 @@ adminUser.get({ id: '5' }) // '/admin/users/5'
 | `route.extend(suffix)`        | A new route with the suffix appended.                     |
 | `route.schema`                | A Standard Schema for the params (`parse` / `safeParse`). |
 | `route.definition`            | The pattern string.                                       |
+| `typeof route.Infer.*`        | Type-only inference (`ParamsInput`, `ParamsOutput`, …).   |
 
 **Options** (`get` / `abs` second argument): `origin` (`boolean | string` —
 `true` uses the configured origin, a string overrides it; defaults to `true` for

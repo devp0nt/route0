@@ -2892,3 +2892,87 @@ describe('types widening', () => {
     expectTypeOf<AnyRoute<any>>().toExtend<AnyRoute<'/:id'>>()
   })
 })
+
+describe('Infer', () => {
+  it('exposes route types via the value-access form documented in the README', () => {
+    const route = Route0.create('/users/:id/:tab?').search<{ ref?: string }>()
+    expect(route.get({ id: 1, '?': { ref: 'x' } })).toBe('/users/1?ref=x')
+
+    expectTypeOf<typeof route.Infer.ParamsDefinition>().toEqualTypeOf<{ id: true; tab: false }>()
+    expectTypeOf<typeof route.Infer.ParamsInput>().toEqualTypeOf<{
+      id: string | number
+      tab?: string | number | undefined
+    }>()
+    expectTypeOf<typeof route.Infer.ParamsInputStringOnly>().toEqualTypeOf<{
+      id: string
+      tab?: string | undefined
+    }>()
+    expectTypeOf<typeof route.Infer.ParamsOutput>().toEqualTypeOf<{ id: string; tab: string | undefined }>()
+    expectTypeOf<typeof route.Infer.SearchInput>().toEqualTypeOf<{ ref?: string }>()
+  })
+
+  it('value-access form agrees with the indexed-access form', () => {
+    const route = Route0.create('/users/:id/:tab?').search<{ ref?: string }>()
+    expect(route.get({ id: 7, tab: 'posts' })).toBe('/users/7/posts')
+
+    expectTypeOf<typeof route.Infer.ParamsDefinition>().toEqualTypeOf<(typeof route)['Infer']['ParamsDefinition']>()
+    expectTypeOf<typeof route.Infer.ParamsInput>().toEqualTypeOf<(typeof route)['Infer']['ParamsInput']>()
+    expectTypeOf<typeof route.Infer.ParamsInputStringOnly>().toEqualTypeOf<
+      (typeof route)['Infer']['ParamsInputStringOnly']
+    >()
+    expectTypeOf<typeof route.Infer.ParamsOutput>().toEqualTypeOf<(typeof route)['Infer']['ParamsOutput']>()
+    expectTypeOf<typeof route.Infer.SearchInput>().toEqualTypeOf<(typeof route)['Infer']['SearchInput']>()
+  })
+
+  it('agrees with the standalone type helpers', () => {
+    const route = Route0.create('/users/:id/:tab?')
+    expect(route.get({ id: 2 })).toBe('/users/2')
+
+    expectTypeOf<typeof route.Infer.ParamsInput>().toEqualTypeOf<ParamsInput<typeof route>>()
+    expectTypeOf<typeof route.Infer.ParamsInputStringOnly>().toEqualTypeOf<ParamsInputStringOnly<typeof route>>()
+    expectTypeOf<typeof route.Infer.ParamsOutput>().toEqualTypeOf<ParamsOutput<typeof route>>()
+  })
+
+  it('infers empty params for a route with no params', () => {
+    const route = Route0.create('/about')
+    expect(route.get()).toBe('/about')
+
+    expectTypeOf<typeof route.Infer.ParamsDefinition>().toEqualTypeOf<Record<never, never>>()
+    expectTypeOf<typeof route.Infer.ParamsInput>().toEqualTypeOf<Record<never, never>>()
+    expectTypeOf<typeof route.Infer.ParamsOutput>().toEqualTypeOf<Record<never, never>>()
+  })
+
+  it('infers all-required params as required on input and output', () => {
+    const route = Route0.create('/org/:org/users/:id')
+    expect(route.get({ org: 'acme', id: '9' })).toBe('/org/acme/users/9')
+
+    expectTypeOf<typeof route.Infer.ParamsDefinition>().toEqualTypeOf<{ org: true; id: true }>()
+    expectTypeOf<typeof route.Infer.ParamsInput>().toEqualTypeOf<{
+      org: string | number
+      id: string | number
+    }>()
+    expectTypeOf<typeof route.Infer.ParamsOutput>().toEqualTypeOf<{ org: string; id: string }>()
+  })
+
+  it('infers wildcard and optional-wildcard params', () => {
+    const required = Route0.create('/files*')
+    const optional = Route0.create('/files/*?')
+    expect(required.get({ '*': '/a/b' })).toBe('/files/a/b')
+    expect(optional.get()).toBe('/files')
+
+    expectTypeOf<typeof required.Infer.ParamsDefinition>().toEqualTypeOf<{ '*': true }>()
+    expectTypeOf<typeof required.Infer.ParamsOutput>().toEqualTypeOf<{ '*': string }>()
+    expectTypeOf<typeof optional.Infer.ParamsDefinition>().toEqualTypeOf<{ '*': false }>()
+    expectTypeOf<typeof optional.Infer.ParamsOutput>().toEqualTypeOf<{ '*': string | undefined }>()
+  })
+
+  it('defaults SearchInput to UnknownSearchInput until narrowed with .search<…>()', () => {
+    const route = Route0.create('/search')
+    expect(route.get({ '?': { q: 'x' } })).toBe('/search?q=x')
+    expectTypeOf<typeof route.Infer.SearchInput>().toEqualTypeOf<UnknownSearchInput>()
+
+    const narrowed = route.search<{ q: string; page?: number }>()
+    expect(narrowed.get({ '?': { q: 'a', page: 2 } })).toBe('/search?q=a&page=2')
+    expectTypeOf<typeof narrowed.Infer.SearchInput>().toEqualTypeOf<{ q: string; page?: number }>()
+  })
+})
