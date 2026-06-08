@@ -1,13 +1,13 @@
-# @devp0nt/route0
+# @1gr14/route0
 
 > A strongly-typed URL router for TypeScript — define a route once, then build
 > paths and parse URLs with full type inference.
 
-[![CI](https://github.com/devp0nt/route0/actions/workflows/ci.yml/badge.svg)](https://github.com/devp0nt/route0/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@devp0nt/route0.svg)](https://www.npmjs.com/package/@devp0nt/route0)
-[![coverage](https://codecov.io/gh/devp0nt/route0/branch/main/graph/badge.svg)](https://codecov.io/gh/devp0nt/route0)
-[![gzip](https://deno.bundlejs.com/badge?q=@devp0nt/route0)](https://bundlejs.com/?q=@devp0nt/route0)
-[![license](https://img.shields.io/npm/l/@devp0nt/route0.svg)](./LICENSE)
+[![CI](https://github.com/1gr14/route0/actions/workflows/ci.yml/badge.svg)](https://github.com/1gr14/route0/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@1gr14/route0.svg)](https://www.npmjs.com/package/@1gr14/route0)
+[![coverage](https://codecov.io/gh/1gr14/route0/branch/main/graph/badge.svg)](https://codecov.io/gh/1gr14/route0)
+[![gzip](https://deno.bundlejs.com/badge?q=@1gr14/route0)](https://bundlejs.com/?q=@1gr14/route0)
+[![license](https://img.shields.io/npm/l/@1gr14/route0.svg)](./LICENSE)
 
 <!-- docs:start -->
 
@@ -19,7 +19,7 @@ segments, wildcards, route collections, and param validation via
 [Standard Schema](https://standardschema.dev).
 
 ```ts
-import { Route0, Routes } from '@devp0nt/route0'
+import { Route0, Routes } from '@1gr14/route0'
 
 const userRoute = Route0.create('/users/:id')
 
@@ -51,11 +51,11 @@ routes.user({ id: 42 }) // '/users/42'
 ## Install
 
 ```sh
-bun add @devp0nt/route0 @devp0nt/flat0
+bun add @1gr14/route0 @1gr14/flat
 # or: npm install / pnpm add / yarn add
 ```
 
-Bun 1+ or Node.js 20+. ESM only. `@devp0nt/flat0` is a required peer dependency
+Bun 1+ or Node.js 20+. ESM only. `@1gr14/flat` is a required peer dependency
 (used for search-string encoding) — install it alongside route0, since pnpm and
 yarn don't auto-install peers. `@standard-schema/spec` is an optional peer.
 
@@ -268,15 +268,16 @@ path and search string).
 
 - **Bun 1+** or **Node.js 20+** (ESM only)
 - **TypeScript 5+** (optional — works in plain JS too)
-- Peer: `@devp0nt/flat0`; optional peer: `@standard-schema/spec`
+- Peer: `@1gr14/flat`; optional peer: `@standard-schema/spec`
 
 <!-- docs:end -->
 
 ## Community
 
-Questions, bugs, or want to hang with other builders? Join the devp0nt community
-— one hub for all our open-source projects, this one included. Get help, share
-what you built, or just say hi: [p0nt.dev/community](https://p0nt.dev/community)
+Questions, bugs, or want to hang with other builders? Join the 1gr14 community —
+one hub for all our open-source projects, this one included. Get help, share
+what you built, or just say hi:
+[1gr14.dev/community](https://1gr14.dev/community)
 
 ## Contributing
 

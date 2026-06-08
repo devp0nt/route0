@@ -39,7 +39,7 @@ body:
   - type: input
     id: route0-version
     attributes:
-      label: '@devp0nt/route0 version'
+      label: '@1gr14/route0 version'
       placeholder: e.g. 0.1.0
     validations:
       required: true

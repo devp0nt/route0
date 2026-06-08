@@ -50,7 +50,7 @@ jobs:
         uses: codecov/codecov-action@v6
         with:
           files: ./coverage/lcov.info
-          slug: devp0nt/route0
+          slug: 1gr14/route0
           use_oidc: true # tokenless: GitHub OIDC + the Codecov GitHub App (no stored token)
           fail_ci_if_error: false # coverage is informational for now — never fail CI on it
 
@@ -93,7 +93,7 @@ jobs:
           path: .
 
       - name: Install runtime peer deps
-        run: npm install --no-save @devp0nt/flat0
+        run: npm install --no-save @1gr14/flat
 
       - name: Smoke test built package
         run: node scripts/smoke.mjs
@@ -115,7 +115,7 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-          scope: '@devp0nt'
+          scope: '@1gr14'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

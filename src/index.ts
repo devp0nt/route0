@@ -1,5 +1,5 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec'
-import { parse as parseSearchQuery, stringify as stringifySearchQuery } from '@devp0nt/flat0'
+import { parse as parseSearchQuery, stringify as stringifySearchQuery } from '@1gr14/flat'
 
 export type RouteToken =
   | { kind: 'static'; value: string }
